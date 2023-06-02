@@ -1,0 +1,8 @@
+name = "QUBOInstances"
+uuid = "c2d3eca2-2309-4628-88a9-9d4a554e7c47"
+authors = ["Pedro Maciel Xavier <pedromxavier@poli.ufrj.br>"]
+version = "0.1.0"
+
+[deps]
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
+QUBOTools = "60eb5b62-0a39-4ddc-84c5-97d2adff9319"

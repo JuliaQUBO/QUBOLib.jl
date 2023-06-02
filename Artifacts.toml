@@ -1,0 +1,7 @@
+[qubo_instances]
+git-tree-sha1 = ""
+lazy          = true
+
+    [[qubo_instances.download]]
+    url    = "https://github.com/pedromxavier/QUBOInstanceData/releases/download/v0.1.0/QUBOInstanceData.tar.gz"
+    sha256 = ""
