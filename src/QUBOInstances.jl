@@ -7,18 +7,10 @@ const collections = abspath(joinpath(@__DIR__, "..", "..", "QUBOInstancesData.jl
 # const collections = artifact"collections"
 
 export
-    find_instance,
     load_instance,
     list_collections,
     list_instances,
     select
-
-@doc raw"""
-    find_instance
-"""
-function find_instance end
-
-include("find.jl")
 
 @doc raw"""
     load_instance(path)
