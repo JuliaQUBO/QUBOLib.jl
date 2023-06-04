@@ -6,7 +6,12 @@ using QUBOTools
 const collections = abspath(joinpath(@__DIR__, "..", "..", "QUBOInstancesData.jl", "collections"))
 # const collections = artifact"collections"
 
-export find_instance, load_instance, select
+export
+    find_instance,
+    load_instance,
+    list_collections,
+    list_instances,
+    select
 
 @doc raw"""
     find_instance
@@ -28,5 +33,17 @@ include("load.jl")
 function select end
 
 include("select.jl")
+
+@doc raw"""
+    list_collections
+"""
+function list_collections end
+
+@doc raw"""
+    list_instances
+"""
+function list_instances end
+
+include("list.jl")
 
 end # module QUBOInstances
