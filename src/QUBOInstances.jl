@@ -1,10 +1,15 @@
 module QUBOInstances
 
 using LazyArtifacts
+using JSON
 using QUBOTools
 
 const collections = abspath(joinpath(@__DIR__, "..", "..", "QUBOInstancesData.jl", "collections"))
 # const collections = artifact"collections"
+
+function __init__()
+    # load index
+end
 
 export
     load_instance,

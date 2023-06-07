@@ -1,24 +1,21 @@
+const QUBO_FORMATS = Dict(
+    "qubist" => QUBOTools.Qubist()
+)
+
+
 function load_instance(
     collection::AbstractString,
-    instance::AbstractString;
-    format::Union{QUBOTools.AbstractFormat,Nothing} = nothing
+    instance::AbstractString
 )
-    return load_instance(collection, "data", instance; format)
-end
-
-function load_instance(
-    path::AbstractString...;
-    format::Union{QUBOTools.AbstractFormat,Nothing} = nothing
-)
-    filepath = joinpath(collections, path...)
-
+    filepath = joinpath(collections, collection, "data", instance)
+    
     if !isfile(filepath)
         error("Unknown instance '$path'")
     end
+    
+    metadata = JSON.parsefile(joinpath(collections, collection, "metadata.json"))
+    
+    format = QUBO_FORMATS[metadata["format"]]
 
-    if isnothing(format)
-        return QUBOTools.read_model(filepath, QUBOTools.infer_format(filepath))
-    else
-        return QUBOTools.read_model(filepath, format)
-    end
+    return return QUBOTools.read_model(filepath, format)
 end
