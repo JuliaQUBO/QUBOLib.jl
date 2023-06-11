@@ -1,0 +1,42 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "QUBO Instance Collection Metadata Schema",
+    "type": "object",
+    "properties": {
+        "problem": {
+            "type": "string",
+            "enum": [
+                "3R3X",
+                "5R5X",
+                "QUBO"
+            ]
+        },
+        "source": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "author": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "minLength": 1
+                    },
+                    "year": {
+                        "type": "integer"
+                    },
+                    "citekey": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                }
+            }
+        }
+    }
+}

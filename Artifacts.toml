@@ -1,7 +1,7 @@
 [collections]
-git-tree-sha1 = "2dac90d770d9fe37a22d11901af83814a1c21193"
+git-tree-sha1 = "23712d4ae269a0c62c949159bbcd7f075f83db9a"
 lazy          = true
 
     [[collections.download]]
-    url    = "https://github.com/pedromxavier/QUBOInstancesData.jl/releases/download/v0.0.5/collections.tar.gz"
-    sha256 = "5abebecb223b5b17639ee06acc27bb7daf339b3906c97c64c8c7ff63f70e2930"
+    url    = "https://github.com/pedromxavier/QUBOInstancesData.jl/releases/download/v0.0.6/collections.tar.gz"
+    sha256 = "df789b9d7f474cc213540861656fd4eb58ee8eceb2d327caa74611e74a1c7690"
