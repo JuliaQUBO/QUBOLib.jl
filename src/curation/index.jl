@@ -1,4 +1,6 @@
 function _setup_index!(path::AbstractString; verbose::Bool = false)
+    verbose && @info "Setting up Index Database"
+
     db_path = joinpath(path, "index.sqlite")
 
     db = SQLite.DB(db_path)
@@ -52,7 +54,9 @@ function _setup_index!(path::AbstractString; verbose::Bool = false)
     return nothing
 end
 
-function _build_index!(path::AbstractString)
+function _build_index!(path::AbstractString; verbose::Bool = false)
+    verbose && @info "Building Index Database"
+
     db_path = joinpath(path, "index.sqlite")
 
     db = SQLite.DB(db_path)
@@ -134,6 +138,8 @@ function _build_index!(path::AbstractString)
             [collection, collection]
         )
     end
+
+    return nothing
 end
 
 function _index!(path::AbstractString; verbose::Bool = false)
