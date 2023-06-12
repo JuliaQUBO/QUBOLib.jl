@@ -1,17 +1,24 @@
-function _build!(path::AbstractString, distpath::AbstractString; verbose::Bool=false)
+function _build!(path::AbstractString; verbose::Bool = false)
     # build tarball
-    temppath = abspath(Tar.create(path))
+    verbose && @info "Building Tarball"
+
+    temp_path = abspath(Tar.create(path))
+    dist_path = joinpath(path, "..", "dist")
 
     # compress tarball
-    run(`gzip -9 $temppath`)
+    verbose && @info "Compressing Tarball"
+
+    run(`gzip -9 $temp_path`)
     
     # copy from temporary file and delete it
-    filepath = mkpath(joinpath(distpath, "collections.tar.gz"))
+    file_path = mkpath(joinpath(dist_path, "collections.tar.gz"))
 
-    cp("$temppath.gz", filepath)
+    verbose && @info "Copying files"
 
-    rm(temppath; force = true)
-    rm("$temppath.gz"; force = true)
+    cp("$temp_path.gz", file_path)
+
+    rm(temp_path; force = true)
+    rm("$temp_path.gz"; force = true)
 
     return nothing
 end

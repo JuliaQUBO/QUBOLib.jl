@@ -1,3 +1,29 @@
+function _document!(path::AbstractString, collection::AbstractString; verbose::Bool = false)
+    verbose && @info "Writing docs: '$collection'"
+
+    return nothing
+end
+
+function _document!(path::AbstractString; verbose::Bool = false)
+    for collection in _list_collections(path)
+        _document!(path, collection; verbose)
+    end
+
+    verbose && @info "Writing docs: Table of Contents"
+
+    filepath = joinpath(path, "README.md")
+    
+    readme = """
+    # QUBO instance database
+    
+    $(_table_of_contents(path))
+    """
+
+    write(filepath, readme)
+
+    return nothing
+end
+
 function _table_of_contents(path::AbstractString)
     pathlist = listdirs(path)
     namelist = basename.(pathlist)
@@ -8,35 +34,10 @@ function _table_of_contents(path::AbstractString)
     )
     
     return """
-    ## Contents
+    ## Table of Contents
 
     $(itemlist)
     """
-end
-
-function _document!(path::AbstractString)
-    for collection in _list_collections(path)
-        _document!(path, collection)
-    end
-
-    filepath = joinpath(path, "README.md")
-    
-    toc = _table_of_contents(path)
-
-    readme = """
-    # QUBO instance database
-    
-    $(toc)
-    """
-
-    write(filepath, readme)
-
-    return nothing
-end
-
-function _document!(path::AbstractString, collection::AbstractString)
-
-    return nothing
 end
 
 # function instance_references(metadata)

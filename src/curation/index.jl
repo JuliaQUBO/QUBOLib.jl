@@ -1,4 +1,4 @@
-function _setup_index!(path::AbstractString)
+function _setup_index!(path::AbstractString; verbose::Bool = false)
     db_path = joinpath(path, "index.sqlite")
 
     db = SQLite.DB(db_path)
@@ -136,9 +136,9 @@ function _build_index!(path::AbstractString)
     end
 end
 
-function _index!(path::AbstractString)
-    _setup_index!(path)
-    _build_index!(path)
+function _index!(path::AbstractString; verbose::Bool = false)
+    _setup_index!(path; verbose)
+    _build_index!(path; verbose)
 
     return nothing
 end
