@@ -3,7 +3,7 @@ function _build!(path::AbstractString; verbose::Bool = false)
     verbose && @info "Building Tarball"
 
     temp_path = abspath(Tar.create(path))
-    dist_path = joinpath(path, "..", "dist")
+    dist_path = abspath(joinpath(path, "..", "dist"))
 
     # compress tarball
     verbose && @info "Compressing Tarball"
@@ -15,7 +15,7 @@ function _build!(path::AbstractString; verbose::Bool = false)
 
     verbose && @info "Copying files"
 
-    cp("$temp_path.gz", file_path)
+    cp("$temp_path.gz", file_path; force = true)
 
     rm(temp_path; force = true)
     rm("$temp_path.gz"; force = true)
