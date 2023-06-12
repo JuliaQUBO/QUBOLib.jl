@@ -4,7 +4,7 @@ QUBO Instances for benchmarking
 ## Introduction
 
 This package provides a wrapper around [QUBOInstancesData.jl](https://github.com/pedromxavier/QUBOInstancesData.jl)'s artifact to easily access QUBO / Ising instances.
-Instances are retrieved as models objects from [QUBOTools.jl](https://psrenergy/QUBOTools.jl).
+Instances are retrieved as model objects from [QUBOTools.jl](https://github.com/psrenergy/QUBOTools.jl).
 
 ## Getting Started
 
@@ -26,7 +26,7 @@ julia> inst = first(list_instances(coll)) # get code of the first instance from 
 julia> model = load_instance(coll, inst)  # retrieve QUBOTools model
 ```
 
-## Acessing the instance index database
+## Accessing the instance index database
 
 > **Warning**
 > This requires [SQLite.jl](https://github.com/JuliaDatabases/SQLite.jl) and [DataFrames.jl](https://github.com/JuliaData/DataFrames.jl) to be installed.
