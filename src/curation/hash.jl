@@ -1,4 +1,4 @@
-function _hash!(path::AbstractPath; verbose::Bool = false)
+function _hash!(path::AbstractString; verbose::Bool = false)
     verbose && @info "Computing Tree Hash"
     
     hash_path = abspath(joinpath(path, "..", "tree.hash"))
