@@ -1,4 +1,4 @@
-function _deploy(path::AbstractString; verbose::Bool = false)
+function _deploy!(path::AbstractString; verbose::Bool = false)
     coll_path = joinpath(path, "collections")
 
     _index!(coll_path; verbose)
