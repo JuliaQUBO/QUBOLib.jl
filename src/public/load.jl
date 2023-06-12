@@ -1,5 +1,5 @@
 function load_instance(collection::AbstractString, instance::AbstractString)
-    return load_instance(collections, collection, instance)
+    return load_instance(artifact"collections", collection, instance)
 end
 
 function load_instance(path::AbstractString, collection::AbstractString, instance::AbstractString)

@@ -11,8 +11,6 @@ using Tar
 using UUIDs
 using QUBOTools
 
-const collections = artifact"collections"
-
 export load_instance, list_collections, list_instances, select
 
 # Public API

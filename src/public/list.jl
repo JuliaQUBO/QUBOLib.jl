@@ -1,7 +1,5 @@
 function list_collections()
-    dbpath = joinpath(collections, "index.sqlite")
-
-    db = SQLite.DB(dbpath)
+    db = database()
     df = DBInterface.execute(db, "SELECT code FROM collections") |> DataFrame
 
     return collect(df[!, :name])
