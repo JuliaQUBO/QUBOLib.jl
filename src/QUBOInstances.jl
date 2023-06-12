@@ -20,6 +20,7 @@ include("public/interface.jl")
 include("public/library.jl")
 include("public/load.jl")
 include("public/list.jl")
+include("public/database.jl")
 
 # Data curation methods
 include("curation/interface.jl")
