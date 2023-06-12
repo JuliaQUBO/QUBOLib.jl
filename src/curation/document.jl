@@ -25,18 +25,14 @@ function _document!(path::AbstractString; verbose::Bool = false)
 end
 
 function _table_of_contents(path::AbstractString)
-    pathlist = listdirs(path)
-    namelist = basename.(pathlist)
-    hreflist = relpath.(pathlist, path)
-    itemlist = join(
-        ["- [$name]($href)" for (name, href) in zip(namelist, hreflist)],
-        "\n"
-    )
-    
+    coll_list = _list_collections(path)
+    href_list = relpath.(joinpath.(path, coll_list), path)
+    item_list = ["- [$coll]($href)" for (coll, href) in zip(coll_list, href_list)]
+
     return """
     ## Table of Contents
 
-    $(itemlist)
+    $(join(item_list, "\n"))
     """
 end
 
