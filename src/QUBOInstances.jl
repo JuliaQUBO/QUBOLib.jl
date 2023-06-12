@@ -8,6 +8,7 @@ using LaTeXStrings
 using SQLite
 using DataFrames
 using Tar
+using Pkg
 using UUIDs
 using QUBOTools
 
@@ -26,8 +27,10 @@ include("curation/library.jl")
 include("curation/list.jl")
 include("curation/metadata.jl")
 include("curation/index.jl")
+include("curation/hash.jl")
 include("curation/tag.jl")
 include("curation/document.jl")
 include("curation/build.jl")
+include("curation/deploy.jl")
 
 end # module QUBOInstances
