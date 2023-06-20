@@ -39,11 +39,11 @@ julia> db = QUBOInstances.database()
 
 julia> df = DBInterface.execute(
            db,
-           "SELECT collection, code FROM instances WHERE size BETWEEN 100 AND 200;"
+           "SELECT collection, instance FROM instances WHERE size BETWEEN 100 AND 200;"
        ) |> DataFrame
 
 julia> models = [
            load_instance(coll, inst)
-           for (coll, inst) in zip(df[!, :collection], df[!, :code])
+           for (coll, inst) in zip(df[!, :collection], df[!, :instance])
        ]
 ```

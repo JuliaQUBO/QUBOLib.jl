@@ -47,37 +47,50 @@ function _bibtex_entry(data::Dict{String,Any}; indent=2)
     """
 end
 
-function _problem_name(code::String)
-    db_path = joinpath(path, "index.sqlite")
+function _problem_name(problem::AbstractString)
+    return _problem_name(artifact"collections", problem)
+end
 
-    db = SQLite.DB(db_path)
+function _problem_name(path::AbstractString, problem::AbstractString)
+    db = database(path::AbstractString)
 
     df = DBInterface.execute(
         db,
-        "SELECT name FROM problems WHERE code = ?",
-        [code]
+        "SELECT name FROM problems WHERE problem = ?",
+        [problem]
     ) |> DataFrame
 
-    return only(df[!,:name])
+    try
+        return only(df[!,:name])
+    catch e
+        @show problem
+        @show df
+        rethrow(e)
+    end
 end
 
-function _size_range(path::AbstractString)
-    db_path = joinpath(path, "index.sqlite")
+function _collection_size(collection::AbstractString)
+    return _collection_size(artifact"collections", collection::AbstractString)
+end
 
-    db = SQLite.DB(db_path)
+function _collection_size(path::AbstractString, collection::AbstractString)
+    db = database(path)
 
     df = DBInterface.execute(
         db,
-        "SELECT MIN(size), MAX(size) FROM instances;",
+        "SELECT COUNT(*) FROM instances WHERE collection = ?;",
+        [collection]
     ) |> DataFrame
 
-    return (first(df[!,1]), last(df[!,1]))
+    return only(df[!,begin])
 end
 
-function _size_range(path::AbstractString, collection::AbstractString)
-    db_path = joinpath(path, "index.sqlite")
+function _collection_size_range(collection::AbstractString)
+    return _collection_size_range(artifact"collections", collection::AbstractString)
+end
 
-    db = SQLite.DB(db_path)
+function _collection_size_range(path::AbstractString, collection::AbstractString)
+    db = database(path)
 
     df = DBInterface.execute(
         db,
@@ -85,5 +98,5 @@ function _size_range(path::AbstractString, collection::AbstractString)
         [collection]
     ) |> DataFrame
 
-    return (first(df[!,1]), last(df[!,1]))
+    return (first(df[!,begin]), last(df[!,begin]))
 end
