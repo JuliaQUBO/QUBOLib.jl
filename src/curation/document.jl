@@ -74,7 +74,7 @@ function _references(path::AbstractString, collection::AbstractString)
         push!(items, item)
     end
 
-    references = join(items, "\n<br>\n")
+    references = join(items, "\n")
 
     return """
     ## References
@@ -84,12 +84,14 @@ function _references(path::AbstractString, collection::AbstractString)
 end
 
 function _summary_table(path::AbstractString, collection::AbstractString)
+    l, u = _collection_size_range(path::AbstractString, collection)
+
     return """
     ## Summary
 
     |  Problem    | $(_problem_name(path::AbstractString, collection))          |
     | :---------: | :---------------------------------------------------------: |
     | Instances   | $(_collection_size(path::AbstractString, collection))       |
-    | Size range  | $(_collection_size_range(path::AbstractString, collection)) |
+    | Size range  | $(l) - $(u)                                                 |
     """
 end

@@ -19,6 +19,25 @@ if !isdefined(LaTeXStrings, :latexescape)
     end
 end
 
+if !isdefined(LaTeXStrings, :bibtexescape)
+    const BIBTEX_ESCAPE_SUB_TABLE = Pair{String,String}[
+        raw"\\"=>raw"\textbackslash{}",
+        raw"&"=>raw"\&",
+        raw"%"=>raw"\%",
+        raw"$"=>raw"\$",
+        raw"#"=>raw"\#",
+        raw"_"=>raw"\_",
+        raw"~"=>raw"\textasciitilde{}",
+        raw"^"=>raw"\^{}",
+        raw"<"=>raw"\textless{}",
+        raw">"=>raw"\textgreater{}",
+    ]
+    
+    function bibtexescape(s::AbstractString)
+        return replace(s, BIBTEX_ESCAPE_SUB_TABLE...)
+    end
+end
+
 function _bibtex_entry(data::Dict{String,Any}; indent=2)
     # Replace list with author names by them joined together
     data["author"] = join(pop!(data, "author", []), " and ")
@@ -34,30 +53,32 @@ function _bibtex_entry(data::Dict{String,Any}; indent=2)
 
     entries = join(
         [
-            (" "^indent) * "$(rpad(k, keysize)) = {$(latexescape(string(v)))}"
+            (" "^indent) * "$(rpad(k, keysize)) = {$(bibtexescape(string(v)))}"
             for (k, v) in data
         ],
-        "\n"
+        "\n",
     )
 
     return """
     @$doctype{$citekey,
     $entries
-    }
-    """
+    }"""
 end
 
 function _problem_name(problem::AbstractString)
     return _problem_name(artifact"collections", problem)
 end
 
-function _problem_name(path::AbstractString, problem::AbstractString)
+function _problem_name(path::AbstractString, collection::AbstractString)
     db = database(path::AbstractString)
 
     df = DBInterface.execute(
         db,
-        "SELECT name FROM problems WHERE problem = ?",
-        [problem]
+        "SELECT problems.name
+        FROM problems
+        INNER JOIN collections ON problems.problem=collections.problem
+        WHERE collections.collection = ?",
+        [collection]
     ) |> DataFrame
 
     try
@@ -98,5 +119,5 @@ function _collection_size_range(path::AbstractString, collection::AbstractString
         [collection]
     ) |> DataFrame
 
-    return (first(df[!,begin]), last(df[!,begin]))
+    return (only(df[!,1]), only(df[!,2]))
 end
