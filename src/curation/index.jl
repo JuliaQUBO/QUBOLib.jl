@@ -3,6 +3,8 @@ function _setup_index!(path::AbstractString; verbose::Bool = false)
 
     db_path = joinpath(path, "index.sqlite")
 
+    rm(db_path; force = true)
+
     db = SQLite.DB(db_path)
 
     DBInterface.execute(db, "PRAGMA foreign_keys = ON;")
@@ -13,8 +15,8 @@ function _setup_index!(path::AbstractString; verbose::Bool = false)
         db,
         """
         CREATE TABLE problems (
-            code TEXT PRIMARY KEY, -- Problem identifier
-            name TEXT NOT NULL     -- Problem name
+            problem TEXT PRIMARY KEY, -- Problem identifier
+            name    TEXT NOT NULL     -- Problem name
         );
         """
     )
@@ -25,8 +27,10 @@ function _setup_index!(path::AbstractString; verbose::Bool = false)
         db,
         """
         CREATE TABLE collections (
-            code TEXT    PRIMARY KEY, -- Collection identifier
-            size INTEGER NOT NULL     -- Number of instances 
+            collection TEXT    PRIMARY KEY, -- Collection identifier
+            problem    TEXT    NOT NULL,    -- Problem type
+            size       INTEGER NOT NULL,    -- Number of instances 
+            FOREIGN KEY (problem) REFERENCES problems (problem)
         );
         """
     )
@@ -37,16 +41,14 @@ function _setup_index!(path::AbstractString; verbose::Bool = false)
         db,
         """
         CREATE TABLE instances (
-            code       TEXT    PRIMARY KEY, -- Instance identifier
+            instance   TEXT    PRIMARY KEY, -- Instance identifier
             size       INTEGER NOT NULL,    -- Number of variables
             format     TEXT    NOT NULL,    -- File format
-            problem    TEXT    NOT NULL,    -- Problem type
             collection TEXT    NOT NULL,    -- Collection identifier
             density            REAL,
             linear_density     REAL,
             quadratic_density  REAL,
-            FOREIGN KEY (problem)    REFERENCES problems (code),
-            FOREIGN KEY (collection) REFERENCES collections (code)
+            FOREIGN KEY (collection) REFERENCES collections (collection)
         );
         """
     )
@@ -64,7 +66,7 @@ function _build_index!(path::AbstractString; verbose::Bool = false)
     DBInterface.execute(
         db,
         """
-        INSERT INTO problems (code, name)
+        INSERT INTO problems (problem, name)
         VALUES
             ('3R3X', '3-Regular 3-XORSAT'),
             ('5R5X', '5-Regular 5-XORSAT'),
@@ -73,19 +75,19 @@ function _build_index!(path::AbstractString; verbose::Bool = false)
     )
 
     for collection in _list_collections(path)
-        DBInterface.execute(
-            db,
-            """
-            INSERT INTO collections (code, size)
-            VALUES
-                (?, 0);
-            """,
-            [collection]
-        )
-
         coll_data = _metadata(path, collection)
 
         problem = get(coll_data, "problem", "QUBO")
+
+        DBInterface.execute(
+            db,
+            """
+            INSERT INTO collections (collection, problem, size)
+            VALUES
+                (?, ?, 0);
+            """,
+            [collection, problem]
+        )
 
         for instance in _list_instances(path, collection)
             inst_path = joinpath(path, collection, "data", instance)
@@ -111,15 +113,14 @@ function _build_index!(path::AbstractString; verbose::Bool = false)
                 db,
                 """
                 INSERT INTO instances
-                    (code, size, format, problem, collection, density, linear_density, quadratic_density)
+                    (instance, size, format, collection, density, linear_density, quadratic_density)
                 VALUES
-                    (?, ?, ?, ?, ?, ?, ?, ?);
+                    (?, ?, ?, ?, ?, ?, ?);
                 """,
                 [
                     instance,
                     inst_size,
                     inst_format,
-                    problem,
                     collection,
                     inst_density,
                     inst_linear_density,
@@ -133,7 +134,7 @@ function _build_index!(path::AbstractString; verbose::Bool = false)
             """
             UPDATE collections
             SET size = (SELECT COUNT(*) FROM instances WHERE collection == ?)
-            WHERE code = ?;
+            WHERE collection = ?;
             """,
             [collection, collection]
         )

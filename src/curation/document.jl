@@ -1,6 +1,22 @@
 function _document!(path::AbstractString, collection::AbstractString; verbose::Bool = false)
     verbose && @info "Writing docs: '$collection'"
 
+    coll_path = joinpath(path, collection)
+    file_path = joinpath(coll_path, "README.md")
+
+    readme = """
+    # $(collection)
+
+    $(_summary_table(path, collection))
+
+    $(_references(path, collection))
+    """
+
+    write(file_path, readme)
+
+    while !JuliaFormatter.format_file(file_path; format_markdown=true)
+    end
+
     return nothing
 end
 
@@ -11,7 +27,7 @@ function _document!(path::AbstractString; verbose::Bool = false)
 
     verbose && @info "Writing docs: Table of Contents"
 
-    filepath = joinpath(path, "README.md")
+    file_path = joinpath(path, "README.md")
     
     readme = """
     # QUBO instance database
@@ -19,7 +35,10 @@ function _document!(path::AbstractString; verbose::Bool = false)
     $(_table_of_contents(path))
     """
 
-    write(filepath, readme)
+    write(file_path, readme)
+
+    while !JuliaFormatter.format_file(file_path; format_markdown=true)
+    end
 
     return nothing
 end
@@ -36,78 +55,43 @@ function _table_of_contents(path::AbstractString)
     """
 end
 
-# function instance_references(metadata)
-#     if !haskey(metadata, "source") || isempty(metadata["source"])
-#         return ""
-#     end
+function _references(path::AbstractString, collection::AbstractString)
+    metadata = _metadata(path, collection)
 
-#     items = []
+    if !haskey(metadata, "source") || isempty(metadata["source"])
+        return ""
+    end
 
-#     for data in copy.(metadata["source"])
-#         item = """
-#         ```tex
-#         $(bibtex_entry(data))
-#         ```
-#         """
+    items = []
 
-#         push!(items, item)
-#     end
+    for data in copy.(metadata["source"])
+        item = """
+        ```tex
+        $(_bibtex_entry(data))
+        ```
+        """
 
-#     references = join(items, "\n\n")
+        push!(items, item)
+    end
 
-#     return """
-#     ## References
+    references = join(items, "\n")
 
-#     $references
-#     """
-# end
+    return """
+    ## References
 
-# function summary_table(metadata::Dict{String,Any})
-#     col_size    = metadata["size"]
-#     type        = metadata["problem"]["type"]
-#     name        = PROBLEM_TYPES[type]
-#     file_format = metadata["format"]
+    $(references)
+    """
+end
 
-#     if isempty(sizes)
-#         size_range = "?"
-#     else
-#         a, b = extrema(sizes)
-#         size_range = "$a - $b"
-#     end
+function _summary_table(path::AbstractString, collection::AbstractString)
+    l, u = _collection_size_range(path::AbstractString, collection)
 
-#     return """
-#     ## Summary
+    return """
+    ## Summary
 
-#     |  Problem    | $(name)          |
-#     | :---------: | :--------------: |
-#     | Instances   |  $(col_size)     |
-#     | Size range  |  $(size_range)   |
-#     | File format | $(file_format)   |
-#     """
-# end
-
-# function generate_collection_readme(path)
-#     metadata = get_metadata(path)
-#     filepath = joinpath(path, "README.md")
-
-#     code = metadata["code"]
-#     summ = summary_table(metadata)
-#     refs = instance_references(metadata)
-
-#     readme = """
-#     # $code 
-
-#     $summ
-
-#     ---
-
-#     $refs
-#     """
-
-#     write(filepath, readme)
-
-#     while !JuliaFormatter.format_file(filepath; format_markdown=true)
-#     end
-
-#     return nothing
-# end
+    |  Problem    | $(_problem_name(path::AbstractString, collection))          |
+    | :---------: | :---------------------------------------------------------: |
+    | Instances   | $(_collection_size(path::AbstractString, collection))       |
+    | Size range  | $(l) - $(u)                                                 |
+    """
+end

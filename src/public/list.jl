@@ -1,6 +1,6 @@
 function list_collections()
     db = database()
-    df = DBInterface.execute(db, "SELECT code FROM collections") |> DataFrame
+    df = DBInterface.execute(db, "SELECT collection FROM collections") |> DataFrame
 
-    return collect(df[!, :name])
+    return collect(df[!, :collection])
 end

@@ -19,6 +19,25 @@ if !isdefined(LaTeXStrings, :latexescape)
     end
 end
 
+if !isdefined(LaTeXStrings, :bibtexescape)
+    const BIBTEX_ESCAPE_SUB_TABLE = Pair{String,String}[
+        raw"\\"=>raw"\textbackslash{}",
+        raw"&"=>raw"\&",
+        raw"%"=>raw"\%",
+        raw"$"=>raw"\$",
+        raw"#"=>raw"\#",
+        raw"_"=>raw"\_",
+        raw"~"=>raw"\textasciitilde{}",
+        raw"^"=>raw"\^{}",
+        raw"<"=>raw"\textless{}",
+        raw">"=>raw"\textgreater{}",
+    ]
+    
+    function bibtexescape(s::AbstractString)
+        return replace(s, BIBTEX_ESCAPE_SUB_TABLE...)
+    end
+end
+
 function _bibtex_entry(data::Dict{String,Any}; indent=2)
     # Replace list with author names by them joined together
     data["author"] = join(pop!(data, "author", []), " and ")
@@ -34,50 +53,65 @@ function _bibtex_entry(data::Dict{String,Any}; indent=2)
 
     entries = join(
         [
-            (" "^indent) * "$(rpad(k, keysize)) = {$(latexescape(string(v)))}"
+            (" "^indent) * "$(rpad(k, keysize)) = {$(bibtexescape(string(v)))}"
             for (k, v) in data
         ],
-        "\n"
+        "\n",
     )
 
     return """
     @$doctype{$citekey,
     $entries
-    }
-    """
+    }"""
 end
 
-function _problem_name(code::String)
-    db_path = joinpath(path, "index.sqlite")
+function _problem_name(problem::AbstractString)
+    return _problem_name(artifact"collections", problem)
+end
 
-    db = SQLite.DB(db_path)
+function _problem_name(path::AbstractString, collection::AbstractString)
+    db = database(path::AbstractString)
 
     df = DBInterface.execute(
         db,
-        "SELECT name FROM problems WHERE code = ?",
-        [code]
+        "SELECT problems.name
+        FROM problems
+        INNER JOIN collections ON problems.problem=collections.problem
+        WHERE collections.collection = ?",
+        [collection]
     ) |> DataFrame
 
-    return only(df[!,:name])
+    try
+        return only(df[!,:name])
+    catch e
+        @show problem
+        @show df
+        rethrow(e)
+    end
 end
 
-function _size_range(path::AbstractString)
-    db_path = joinpath(path, "index.sqlite")
+function _collection_size(collection::AbstractString)
+    return _collection_size(artifact"collections", collection::AbstractString)
+end
 
-    db = SQLite.DB(db_path)
+function _collection_size(path::AbstractString, collection::AbstractString)
+    db = database(path)
 
     df = DBInterface.execute(
         db,
-        "SELECT MIN(size), MAX(size) FROM instances;",
+        "SELECT COUNT(*) FROM instances WHERE collection = ?;",
+        [collection]
     ) |> DataFrame
 
-    return (first(df[!,1]), last(df[!,1]))
+    return only(df[!,begin])
 end
 
-function _size_range(path::AbstractString, collection::AbstractString)
-    db_path = joinpath(path, "index.sqlite")
+function _collection_size_range(collection::AbstractString)
+    return _collection_size_range(artifact"collections", collection::AbstractString)
+end
 
-    db = SQLite.DB(db_path)
+function _collection_size_range(path::AbstractString, collection::AbstractString)
+    db = database(path)
 
     df = DBInterface.execute(
         db,
@@ -85,5 +119,5 @@ function _size_range(path::AbstractString, collection::AbstractString)
         [collection]
     ) |> DataFrame
 
-    return (first(df[!,1]), last(df[!,1]))
+    return (only(df[!,1]), only(df[!,2]))
 end
