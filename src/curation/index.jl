@@ -1,11 +1,7 @@
-function _setup_index!(path::AbstractString; verbose::Bool = false)
-    verbose && @info "Setting up Index Database"
+function create_database(path::AbstractString)
+    rm(path; force=true) # remove file if it exists
 
-    db_path = joinpath(path, "index.sqlite")
-
-    rm(db_path; force = true)
-
-    db = SQLite.DB(db_path)
+    db = SQLite.DB(path)
 
     DBInterface.execute(db, "PRAGMA foreign_keys = ON;")
 
@@ -18,6 +14,17 @@ function _setup_index!(path::AbstractString; verbose::Bool = false)
             problem TEXT PRIMARY KEY, -- Problem identifier
             name    TEXT NOT NULL     -- Problem name
         );
+        """
+    )
+
+    DBInterface.execute(
+        db,
+        """
+        INSERT INTO problems (problem, name)
+        VALUES
+            ('3R3X', '3-Regular 3-XORSAT'),
+            ('5R5X', '5-Regular 5-XORSAT'),
+            ('QUBO', 'Quadratic Unconstrained Binary Optimization');
         """
     )
 
@@ -42,110 +49,117 @@ function _setup_index!(path::AbstractString; verbose::Bool = false)
         """
         CREATE TABLE instances (
             instance   TEXT    PRIMARY KEY, -- Instance identifier
-            size       INTEGER NOT NULL,    -- Number of variables
-            format     TEXT    NOT NULL,    -- File format
+            dimension  INTEGER NOT NULL,    -- Number of variables
             collection TEXT    NOT NULL,    -- Collection identifier
-            density            REAL,
-            linear_density     REAL,
-            quadratic_density  REAL,
+            min                REAL,        -- Minimum value
+            max                REAL,        -- Maximum value
+            linear_min         REAL,        -- Minimum linear coefficient
+            linear_max         REAL,        -- Maximum linear coefficient
+            quadratic_min      REAL,        -- Minimum quadratic coefficient
+            quadratic_max      REAL,        -- Maximum quadratic coefficient
+            density            REAL,        -- Coefficient density
+            linear_density     REAL,        -- Linear coefficient density
+            quadratic_density  REAL,        -- Quadratic coefficient density
             FOREIGN KEY (collection) REFERENCES collections (collection)
         );
         """
     )
 
-    return nothing
+    return db
 end
 
-function _build_index!(path::AbstractString; verbose::Bool = false)
-    verbose && @info "Building Index Database"
+function create_archive(path::AbstractString)
+    rm(path; force=true) # remove file if it exists
 
-    db_path = joinpath(path, "index.sqlite")
+    fp = HDF5.h5open(path, "w")
 
-    db = SQLite.DB(db_path)
+    HDF5.create_group(fp, "collections")
 
-    DBInterface.execute(
-        db,
-        """
-        INSERT INTO problems (problem, name)
-        VALUES
-            ('3R3X', '3-Regular 3-XORSAT'),
-            ('5R5X', '5-Regular 5-XORSAT'),
-            ('QUBO', 'Quadratic Unconstrained Binary Optimization');
-        """    
-    )
+    return fp
+end
 
-    for collection in _list_collections(path)
-        coll_data = _metadata(path, collection)
+struct InstanceIndex
+    db::SQLite.DB
+    fp::HDF5.File
+    root_path::String
+    dist_path::String
+    list_path::String
+end
 
-        problem = get(coll_data, "problem", "QUBO")
+function create_index(
+    root_path::AbstractString,
+    dist_path::AbstractString=abspath(root_path, "dist")
+)
+    mkpath(dist_path) # create dist directory if it doesn't exist
 
-        DBInterface.execute(
-            db,
-            """
-            INSERT INTO collections (collection, problem, size)
-            VALUES
-                (?, ?, 0);
-            """,
-            [collection, problem]
-        )
+    db = create_database(joinpath(dist_path, "index.sqlite"))
+    fp = create_archive(joinpath(dist_path, "archive.h5"))
 
-        for instance in _list_instances(path, collection)
-            inst_path = joinpath(path, collection, "data", instance)
+    list_path = abspath(root_path, "collections")
 
-            inst_format = try
-                QUBOTools.infer_format(inst_path)
-            catch
-                continue
-            end
+    @assert isdir(list_path) "'$list_path' is not a directory"
 
-            model = try
-                QUBOTools.read_model(inst_path, inst_format)
-            catch
-                continue
-            end
+    return InstanceIndex(db, fp, abspath(root_path), abspath(dist_path), list_path)
+end
 
-            inst_size              = QUBOTools.domain_size(model)
-            inst_density           = QUBOTools.density(model)
-            inst_linear_density    = QUBOTools.linear_density(model)
-            inst_quadratic_density = QUBOTools.quadratic_density(model)
+function _list_collections(path::AbstractString)
+    return basename.(filter(isdir, readdir(path; join=true)))
+end
 
-            DBInterface.execute(
-                db,
+function _list_collections(index::InstanceIndex)
+    return _list_collections(index.list_path)
+end
+
+function _list_instances(path::AbstractString, collection::AbstractString)
+    data_path = joinpath(path, collection, "data")
+
+    @assert isdir(data_path) "'$data_path' is not a directory"
+
+    return readdir(data_path; join=false)
+end
+
+function _list_instances(index::InstanceIndex, collection::AbstractString)
+    return _list_instances(index.list_path, collection)
+end
+
+const _METADATA_SCHEMA = JSONSchema.Schema(JSON.parsefile(joinpath(@__DIR__, "metadata.schema.json")))
+
+function _get_metadata(path::AbstractString, collection::AbstractString; validate::Bool=true)
+    metapath = joinpath(path, collection, "metadata.json")
+    metadata = JSON.parsefile(metapath)
+
+    if validate
+        report = JSONSchema.validate(_METADATA_SCHEMA, metadata)
+
+        if !isnothing(report)
+            error(
                 """
-                INSERT INTO instances
-                    (instance, size, format, collection, density, linear_density, quadratic_density)
-                VALUES
-                    (?, ?, ?, ?, ?, ?, ?);
-                """,
-                [
-                    instance,
-                    inst_size,
-                    inst_format,
-                    collection,
-                    inst_density,
-                    inst_linear_density,
-                    inst_quadratic_density,
-                ]
+                Invalid collection metadata for $(collection):
+                $(report)
+                """
             )
         end
-
-        DBInterface.execute(
-            db,
-            """
-            UPDATE collections
-            SET size = (SELECT COUNT(*) FROM instances WHERE collection == ?)
-            WHERE collection = ?;
-            """,
-            [collection, collection]
-        )
     end
 
-    return nothing
+    return metadata
 end
 
-function _index!(path::AbstractString; verbose::Bool = false)
-    _setup_index!(path; verbose)
-    _build_index!(path; verbose)
+function _get_metadata(index::InstanceIndex, collection::AbstractString; validate::Bool=true)
+    return _get_metadata(index.list_path, collection; validate=validate)
+end
 
-    return nothing
+function _get_instance_model(path::AbstractString, collection::AbstractString, instance::AbstractString; on_read_error::Function=msg -> @warn(msg))
+    model_path = abspath(path, collection, "data", instance)
+
+    return try
+        QUBOTools.read_model(model_path)
+    catch
+        on_read_error("Failed to read model at '$model_path'")
+
+        nothing
+    end
+end
+
+function _get_instance_model(index::InstanceIndex, collection::AbstractString, instance::AbstractString; on_read_error::Function=msg -> @warn(msg))
+    return _get_instance_model(index.list_path, collection, instance; on_read_error)
 end
