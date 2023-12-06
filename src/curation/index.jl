@@ -395,7 +395,7 @@ function curate!(index::InstanceIndex; on_read_error::Function=msg -> @warn(msg)
         # add collection to HDF5 file
         HDF5.create_group(index.fp["collections"], collection)
 
-        @showprogress desc = "Reading instances @ '$collection'" for instance in _list_instances(index, collection)
+        @showprogress dt = 1.0 desc = "Reading instances @ '$collection'" for instance in _list_instances(index, collection)
 
             # Add instance to HDF5 file
             HDF5.create_group(index.fp["collections"][collection], instance)
