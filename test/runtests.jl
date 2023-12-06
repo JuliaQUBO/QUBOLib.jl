@@ -1,8 +1,12 @@
 using Test
 using QUBOInstances
 
+include("curation.jl")
+
 function main()
-    @test true  
+    @testset "♣ QUBOInstances.jl «$(QUBOInstances.__VERSION__)» Test Suite ♣" verbose = true begin
+        test_curation()
+    end
 
     return nothing
 end

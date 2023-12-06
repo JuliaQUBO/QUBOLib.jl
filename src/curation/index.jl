@@ -84,6 +84,8 @@ struct InstanceIndex
     root_path::String
     dist_path::String
     list_path::String
+    tree_hash::Ref{String}
+    next_tag::Ref{String}
 end
 
 function create_index(
@@ -99,7 +101,7 @@ function create_index(
 
     @assert isdir(list_path) "'$list_path' is not a directory"
 
-    return InstanceIndex(db, fp, abspath(root_path), abspath(dist_path), list_path)
+    return InstanceIndex(db, fp, abspath(root_path), abspath(dist_path), list_path, Ref{String}(), Ref{String}())
 end
 
 function _list_collections(path::AbstractString)
@@ -162,4 +164,308 @@ end
 
 function _get_instance_model(index::InstanceIndex, collection::AbstractString, instance::AbstractString; on_read_error::Function=msg -> @warn(msg))
     return _get_instance_model(index.list_path, collection, instance; on_read_error)
+end
+
+function hash!(index::InstanceIndex)
+    index.tree_hash[] = bytes2hex(Pkg.GitTools.tree_hash(index.list_path))
+
+    return nothing
+end
+
+function deploy(index::InstanceIndex; curate_data::Bool = false, on_read_error::Function=msg -> @warn(msg))
+    if curate_data
+        curate!(index; on_read_error)
+    end
+
+    deploy(index.dist_path)
+    
+    return nothing
+end
+
+function deploy(dist_path::AbstractString)
+    # Build tarball
+    temp_path = abspath(Tar.create(dist_path))
+
+    # Compress tarball
+    run(`gzip -9 $temp_path`)
+
+    # Move tarball
+    file_path = mkpath(abspath(dist_path, "qubolib.tar.gz"))
+
+    rm(file_path; force = true)
+
+    cp("$temp_path.gz", file_path; force = true)
+
+    # Remove temporary files
+    rm(temp_path; force = true)
+    rm("$temp_path.gz"; force = true)
+    
+    return nothing
+end
+
+function tag(path::AbstractString)
+    last_tag_path = abspath(path, "last.tag")
+
+    if isfile(last_tag_path)
+        text = read(last_tag_path, String)
+
+        m = match(r"tag:\s*v(.*)", text)
+
+        if isnothing(m)
+            @error("Tag not found in '$last_tag_path'")
+
+            exit(1)
+        end
+
+        last_tag = parse(VersionNumber, m[1])
+
+        next_tag_path = abspath(path, "next.tag")
+
+        next_tag = VersionNumber(
+            last_tag.major,
+            last_tag.minor,
+            last_tag.patch + 1,
+            last_tag.prerelease,
+            last_tag.build,
+        )
+
+        return "v$next_tag"
+    else
+        @error("File '$last_tag_path' not found")
+
+        exit(1)
+    end
+
+    return nothing
+end
+
+function tag!(index::InstanceIndex)
+    index.next_tag = tag(index.root_path)
+
+    return nothing
+end
+
+if !isdefined(LaTeXStrings, :latexescape)
+    function latexescape(s::AbstractString)
+        return replace(
+            s,
+            raw"\\" => raw"\textbackslash{}",
+            raw"&"  => raw"\&",
+            raw"%"  => raw"\%",
+            raw"$"  => raw"\$",
+            raw"#"  => raw"\#",
+            raw"_"  => raw"\_",
+            raw"{"  => raw"\{",
+            raw"}"  => raw"\}",
+            raw"~"  => raw"\textasciitilde{}",
+            raw"^"  => raw"\^{}",
+            raw"<"  => raw"\textless{}",
+            raw">"  => raw"\textgreater{}",
+        )
+    end
+end
+
+if !isdefined(LaTeXStrings, :bibtexescape)
+    function bibtexescape(s::AbstractString)
+        return replace(s,
+            raw"\\" => raw"\textbackslash{}",
+            raw"&"  => raw"\&",
+            raw"%"  => raw"\%",
+            raw"$"  => raw"\$",
+            raw"#"  => raw"\#",
+            raw"_"  => raw"\_",
+            raw"~"  => raw"\textasciitilde{}",
+            raw"^"  => raw"\^{}",
+            raw"<"  => raw"\textless{}",
+            raw">"  => raw"\textgreater{}",
+        )
+    end
+end
+
+function _bibtex_entry(data::Dict{String,Any}; indent=2)
+    # Replace list with author names by them joined together
+    data["author"] = join(pop!(data, "author", []), " and ")
+
+    # The document type / media type defaults to @misc
+    doctype = pop!(data, "type", "misc")
+
+    # Citekey: use '?' as placeholder if none is given
+    citekey = pop!(data, "citekey", "?")
+
+    # Get the size of longest key to align them
+    keysize = maximum(length.(keys(data)))
+
+    entries = join(
+        [
+            (" "^indent) * "$(rpad(k, keysize)) = {$(bibtexescape(string(v)))}"
+            for (k, v) in data
+        ],
+        "\n",
+    )
+
+    return """
+    @$doctype{$citekey,
+    $entries
+    }"""
+end
+
+function _problem_name(problem::AbstractString)
+    return _problem_name(data_path(), problem)
+end
+
+function _problem_name(path::AbstractString, collection::AbstractString)
+    db = database(path::AbstractString)
+
+    df = DBInterface.execute(
+        db,
+        "SELECT problems.name
+        FROM problems
+        INNER JOIN collections ON problems.problem=collections.problem
+        WHERE collections.collection = ?",
+        [collection]
+    ) |> DataFrame
+
+    try
+        return only(df[!, :name])
+    catch e
+        @show problem
+        @show df
+        rethrow(e)
+    end
+end
+
+function _collection_size(collection::AbstractString)
+    return _collection_size(data_path(), collection::AbstractString)
+end
+
+function _collection_size(path::AbstractString, collection::AbstractString)
+    db = database(path)
+
+    df = DBInterface.execute(
+        db,
+        "SELECT COUNT(*) FROM instances WHERE collection = ?;",
+        [collection]
+    ) |> DataFrame
+
+    return only(df[!, begin])
+end
+
+function _collection_size_range(collection::AbstractString)
+    return _collection_size_range(data_path(), collection::AbstractString)
+end
+
+function _collection_size_range(path::AbstractString, collection::AbstractString)
+    db = database(path)
+
+    df = DBInterface.execute(
+        db,
+        "SELECT MIN(size), MAX(size) FROM instances WHERE collection = ?;",
+        [collection]
+    ) |> DataFrame
+
+    return (only(df[!, 1]), only(df[!, 2]))
+end
+
+function curate(root_path::AbstractString, dist_path::AbstractString=abspath(root_path, "dist"); on_read_error::Function=msg -> @warn(msg))
+    index = create_index(root_path, dist_path)
+
+    curate!(index; on_read_error)
+
+    return index
+end
+
+function curate!(index::InstanceIndex; on_read_error::Function=msg -> @warn(msg))
+    # curate collections
+    for collection in _list_collections(index)
+        # extract collection metadata
+        coll_metadata = _get_metadata(index, collection)
+
+        problem = get(coll_metadata, "problem", "QUBO")
+
+        DBInterface.execute(
+            index.db,
+            """
+            INSERT INTO collections (collection, problem, size)
+            VALUES
+                (?, ?, 0);
+            """,
+            [collection, problem]
+        )
+
+        # add collection to HDF5 file
+        HDF5.create_group(index.fp["collections"], collection)
+
+        @showprogress desc = "Reading instances @ '$collection'" for instance in _list_instances(index, collection)
+
+            # Add instance to HDF5 file
+            HDF5.create_group(index.fp["collections"][collection], instance)
+
+            let model = _get_instance_model(index, collection, instance; on_read_error)
+                isnothing(model) && continue
+
+                dimension = QUBOTools.dimension(model)
+                density = QUBOTools.density(model)
+                linear_density = QUBOTools.linear_density(model)
+                quadratic_density = QUBOTools.quadratic_density(model)
+
+                linear_min, linear_max = extrema(last, QUBOTools.linear_terms(model))
+                quadratic_min, quadratic_max = extrema(last, QUBOTools.quadratic_terms(model))
+
+                _min = min(linear_min, quadratic_min)
+                _max = max(linear_max, quadratic_max)
+
+                DBInterface.execute(
+                    index.db,
+                    """
+                    INSERT INTO instances
+                        (
+                            instance,
+                            dimension,
+                            collection,
+                            min,
+                            max,
+                            linear_min,
+                            linear_max,
+                            quadratic_min,
+                            quadratic_max,
+                            density,
+                            linear_density,
+                            quadratic_density
+                        )
+                    VALUES
+                        (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    """,
+                    [
+                        instance,
+                        dimension,
+                        collection,
+                        _min,
+                        _max,
+                        linear_min,
+                        linear_max,
+                        quadratic_min,
+                        quadratic_max,
+                        density,
+                        linear_density,
+                        quadratic_density,
+                    ]
+                )
+
+                # add instance to HDF5 file
+                QUBOTools.write_model(index.fp["collections"][collection][instance], model, QUBOTools.QUBin())
+            end
+        end
+
+        DBInterface.execute(
+            index.db,
+            """
+            UPDATE collections
+            SET size = (SELECT COUNT(*) FROM instances WHERE collection == ?)
+            WHERE collection = ?;
+            """,
+            [collection, collection]
+        )
+    end
+
+    return nothing
 end

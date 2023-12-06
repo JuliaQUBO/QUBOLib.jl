@@ -1,7 +1,7 @@
 function database(path::AbstractString)
-    return SQLite.DB(joinpath(path, "index.sqlite"))
+    return SQLite.DB(abspath(path, "index.sqlite"))
 end
 
 function database()
-    return database(artifact"collections")
+    return database(data_path())
 end
