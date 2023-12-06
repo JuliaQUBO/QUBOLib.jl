@@ -172,7 +172,7 @@ function hash!(index::InstanceIndex)
     return nothing
 end
 
-function deploy(index::InstanceIndex; curate_data::Bool = false, on_read_error::Function=msg -> @warn(msg))
+function deploy!(index::InstanceIndex; curate_data::Bool = false, on_read_error::Function=msg -> @warn(msg))
     if curate_data
         curate!(index; on_read_error)
     end
@@ -204,43 +204,43 @@ function deploy(dist_path::AbstractString)
 end
 
 function tag(path::AbstractString)
-    last_tag_path = abspath(path, "last.tag")
+    last_tag = if haskey(ENV, "LAST_QUBOLIB_TAG")
+        parse(VersionNumber, ENV["LAST_QUBOLIB_TAG"])
+    else
+        last_tag_path = abspath(path, "last.tag")
 
-    if isfile(last_tag_path)
-        text = read(last_tag_path, String)
+        if isfile(last_tag_path)
+            text = read(last_tag_path, String)
 
-        m = match(r"tag:\s*v(.*)", text)
+            m = match(r"tag:\s*v(.*)", text)
 
-        if isnothing(m)
-            @error("Tag not found in '$last_tag_path'")
+            if isnothing(m)
+                @error("Tag not found in '$last_tag_path'")
+
+                exit(1)
+            end
+
+            parse(VersionNumber, m[1])
+        else
+            @error("File '$last_tag_path' not found")
 
             exit(1)
         end
-
-        last_tag = parse(VersionNumber, m[1])
-
-        next_tag_path = abspath(path, "next.tag")
-
-        next_tag = VersionNumber(
-            last_tag.major,
-            last_tag.minor,
-            last_tag.patch + 1,
-            last_tag.prerelease,
-            last_tag.build,
-        )
-
-        return "v$next_tag"
-    else
-        @error("File '$last_tag_path' not found")
-
-        exit(1)
     end
 
-    return nothing
+    next_tag = VersionNumber(
+        last_tag.major,
+        last_tag.minor,
+        last_tag.patch + 1,
+        last_tag.prerelease,
+        last_tag.build,
+    )
+
+    return "v$next_tag"
 end
 
 function tag!(index::InstanceIndex)
-    index.next_tag = tag(index.root_path)
+    index.next_tag[] = tag(index.root_path)
 
     return nothing
 end
@@ -408,8 +408,8 @@ function curate!(index::InstanceIndex; on_read_error::Function=msg -> @warn(msg)
                 linear_density = QUBOTools.linear_density(model)
                 quadratic_density = QUBOTools.quadratic_density(model)
 
-                linear_min, linear_max = extrema(last, QUBOTools.linear_terms(model))
-                quadratic_min, quadratic_max = extrema(last, QUBOTools.quadratic_terms(model))
+                linear_min, linear_max = extrema(last, QUBOTools.linear_terms(model); init = (0, 0))
+                quadratic_min, quadratic_max = extrema(last, QUBOTools.quadratic_terms(model); init = (0, 0))
 
                 _min = min(linear_min, quadratic_min)
                 _max = max(linear_max, quadratic_max)
