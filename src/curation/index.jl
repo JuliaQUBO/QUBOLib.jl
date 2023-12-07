@@ -208,6 +208,8 @@ function tag(path::AbstractString)
         x = tryparse(VersionNumber, ENV["LAST_QUBOLIB_TAG"])
 
         if isnothing(x)
+            @warn("Pushing tag forward")
+
             v"0.1.0"
         else
             x
