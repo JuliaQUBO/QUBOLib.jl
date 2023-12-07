@@ -205,7 +205,13 @@ end
 
 function tag(path::AbstractString)
     last_tag = if haskey(ENV, "LAST_QUBOLIB_TAG")
-        parse(VersionNumber, ENV["LAST_QUBOLIB_TAG"])
+        x = tryparse(VersionNumber, ENV["LAST_QUBOLIB_TAG"])
+
+        if isnothing(x)
+            v"0.1.0"
+        else
+            x
+        end
     else
         last_tag_path = abspath(path, "last.tag")
 
