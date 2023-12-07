@@ -1,10 +1,10 @@
 using Test
-using QUBOInstances
+using QUBOLib
 
 include("curation.jl")
 
 function main()
-    @testset "♣ QUBOInstances.jl «$(QUBOInstances.__VERSION__)» Test Suite ♣" verbose = true begin
+    @testset "♣ QUBOLib.jl «$(QUBOLib.__VERSION__)» Test Suite ♣" verbose = true begin
         test_curation()
     end
 

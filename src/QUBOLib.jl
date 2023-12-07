@@ -1,4 +1,4 @@
-module QUBOInstances
+module QUBOLib
 
 using LazyArtifacts
 using HDF5
@@ -35,4 +35,4 @@ include("public/database.jl")
 # Data curation methods
 include("curation/index.jl")
 
-end # module QUBOInstances
+end # module QUBOLib

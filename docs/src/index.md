@@ -1,4 +1,4 @@
-# QUBOInstances.jl
+# QUBOLib.jl
 
 ## Getting Started
 
@@ -7,15 +7,15 @@
 ```julia
 import Pkg
 
-Pkg.add(url="https://github.com/pedromxavier/QUBOInstances.jl")
+Pkg.add(url="https://github.com/pedromxavier/QUBOLib.jl")
 
-using QUBOInstances
+using QUBOLib
 ```
 
 ### Basic Example
 
 ```@example load
-using QUBOInstances
+using QUBOLib
 
 # Get code of the first registered collection
 coll = first(list_collections())
@@ -30,13 +30,13 @@ load_instance(coll, inst)
 ### Accessing the instance index database
 
 ```@setup sql
-using QUBOInstances
+using QUBOLib
 ```
 
 ```@example sql
 using SQLite, DataFrames
 
-db = QUBOInstances.database()
+db = QUBOLib.database()
 
 df = DBInterface.execute(
     db,

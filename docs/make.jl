@@ -1,11 +1,11 @@
 using Documenter
-using QUBOInstances
+using QUBOLib
 
 # Set up to run docstrings with jldoctest
-DocMeta.setdocmeta!(QUBOInstances, :DocTestSetup, :(using QUBOInstances); recursive = true)
+DocMeta.setdocmeta!(QUBOLib, :DocTestSetup, :(using QUBOLib); recursive = true)
 
 makedocs(;
-    modules = [QUBOInstances],
+    modules = [QUBOLib],
     doctest = true,
     clean   = true,
     format  = Documenter.HTML(
@@ -13,7 +13,7 @@ makedocs(;
         mathengine       = Documenter.KaTeX(),
         sidebar_sitename = false,
     ),
-    sitename = "QUBOInstances.jl",
+    sitename = "QUBOLib.jl",
     authors  = "Pedro Maciel Xavier and David E. Bernal Neira",
     pages = [
         "Home" => "index.md",
@@ -25,5 +25,5 @@ makedocs(;
 if "--skip-deploy" ∈ ARGS
     @warn "Skipping deployment"
 else
-    deploydocs(repo = raw"github.com/pedromxavier/QUBOInstances.jl.git", push_preview = true)
+    deploydocs(repo = raw"github.com/pedromxavier/QUBOLib.jl.git", push_preview = true)
 end

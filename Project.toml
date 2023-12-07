@@ -1,4 +1,4 @@
-name = "QUBOInstances"
+name = "QUBOLib"
 uuid = "c2d3eca2-2309-4628-88a9-9d4a554e7c47"
 authors = ["pedromxavier <pedrox@cos.ufrj.br>"]
 version = "0.1.0"
