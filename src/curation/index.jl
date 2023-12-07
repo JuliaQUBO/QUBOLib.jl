@@ -167,7 +167,7 @@ function _get_instance_model(index::InstanceIndex, collection::AbstractString, i
 end
 
 function hash!(index::InstanceIndex)
-    index.tree_hash[] = bytes2hex(Pkg.GitTools.tree_hash(index.list_path))
+    index.tree_hash[] = bytes2hex(Pkg.GitTools.tree_hash(index.dist_path))
 
     return nothing
 end
