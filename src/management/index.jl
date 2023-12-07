@@ -172,25 +172,17 @@ function hash!(index::InstanceIndex)
     return nothing
 end
 
-function deploy!(index::InstanceIndex; curate_data::Bool = false, on_read_error::Function=msg -> @warn(msg))
-    if curate_data
-        curate!(index; on_read_error)
-    end
+function deploy!(index::InstanceIndex)
+    hash!(index)
 
-    deploy(index.dist_path)
-    
-    return nothing
-end
-
-function deploy(dist_path::AbstractString)
     # Build tarball
-    temp_path = abspath(Tar.create(dist_path))
+    temp_path = abspath(Tar.create(index.dist_path))
 
     # Compress tarball
     run(`gzip -9 $temp_path`)
 
     # Move tarball
-    file_path = mkpath(abspath(dist_path, "qubolib.tar.gz"))
+    file_path = mkpath(abspath(index.dist_path, "qubolib.tar.gz"))
 
     rm(file_path; force = true)
 
