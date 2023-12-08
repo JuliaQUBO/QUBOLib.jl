@@ -304,9 +304,10 @@ function _bibtex_entry(data::Dict{String,Any}; indent=2)
     )
 
     return """
-    @$doctype{$citekey,
-    $entries
-    }"""
+        @$doctype{$citekey,
+        $entries
+        }
+        """
 end
 
 function _problem_name(problem::AbstractString)
@@ -315,6 +316,8 @@ end
 
 function _problem_name(path::AbstractString, collection::AbstractString)
     db = database(path::AbstractString)
+
+    @assert isopen(db)
 
     df = DBInterface.execute(
         db,
@@ -325,13 +328,11 @@ function _problem_name(path::AbstractString, collection::AbstractString)
         [collection]
     ) |> DataFrame
 
-    try
-        return only(df[!, :name])
-    catch e
-        @show problem
-        @show df
-        rethrow(e)
-    end
+    close(db)
+
+    @assert !isopen(db)
+
+    return only(df[!, :name])
 end
 
 function _collection_size(collection::AbstractString)
@@ -341,11 +342,17 @@ end
 function _collection_size(path::AbstractString, collection::AbstractString)
     db = database(path)
 
+    @assert isopen(db)
+
     df = DBInterface.execute(
         db,
         "SELECT COUNT(*) FROM instances WHERE collection = ?;",
         [collection]
     ) |> DataFrame
+
+    close(db)
+
+    @assert !isopen(db)
 
     return only(df[!, begin])
 end
@@ -357,11 +364,17 @@ end
 function _collection_size_range(path::AbstractString, collection::AbstractString)
     db = database(path)
 
+    @assert isopen(db)
+
     df = DBInterface.execute(
         db,
         "SELECT MIN(size), MAX(size) FROM instances WHERE collection = ?;",
         [collection]
     ) |> DataFrame
+
+    close(db)
+
+    @assert !isopen(db)
 
     return (only(df[!, 1]), only(df[!, 2]))
 end
@@ -375,6 +388,9 @@ function curate(root_path::AbstractString, dist_path::AbstractString=abspath(roo
 end
 
 function curate!(index::InstanceIndex; on_read_error::Function=msg -> @warn(msg))
+    @assert isopen(index.db)
+    @assert isopen(index.fp)
+
     # curate collections
     for collection in _list_collections(index)
         # extract collection metadata
@@ -466,6 +482,13 @@ function curate!(index::InstanceIndex; on_read_error::Function=msg -> @warn(msg)
             [collection, collection]
         )
     end
+
+    # Close files
+    close(index.db)
+    close(index.fp)
+
+    @assert !isopen(index.db)
+    @assert !isopen(index.fp)
 
     return nothing
 end
