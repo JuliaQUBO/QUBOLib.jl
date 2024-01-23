@@ -1,4 +1,5 @@
 using Documenter
+using DocumenterDiagrams
 using QUBOLib
 
 # Set up to run docstrings with jldoctest
@@ -16,8 +17,17 @@ makedocs(;
     sitename = "QUBOLib.jl",
     authors  = "Pedro Maciel Xavier and David E. Bernal Neira",
     pages = [
-        "Home" => "index.md",
-        "API"  => "api.md",
+        "Home"     => "index.md",
+        "API"      => "api.md",
+        "Manual"   => [
+            "Introduction" => "manual/0-intro.md",
+            "Access"       => "manual/1-access.md",
+            "Extension"    => "manual/2-extension.md",
+        ],
+        "Booklet"  => [
+            "Introduction"   => "booklet/0-intro.md",
+            "Library Design" => "booklet/1-design.md",
+        ],
     ],
     workdir = @__DIR__,
 )

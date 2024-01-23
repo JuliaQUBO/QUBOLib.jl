@@ -25,3 +25,10 @@ function list_instances end
 Returns a SQLite pointer for the instance index database.
 """
 function database end
+
+@doc raw"""
+    access()
+
+Returns an Index pointer for the library index.
+"""
+function access end
