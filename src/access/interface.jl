@@ -32,3 +32,9 @@ function database end
 Returns an Index pointer for the library index.
 """
 function access end
+
+@doc raw"""
+    has_collection(index::Index, code::Symbol)
+    has_collection(index::Index, collection::Collection)
+"""
+function has_collection end

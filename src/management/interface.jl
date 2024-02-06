@@ -11,11 +11,11 @@ function build end
 function build! end
 
 @doc raw"""
-    cache!(index::Index)
+    load!(index::Index; cache::Bool = true)
 
-    cache!(index::Index, collection::Collection)
+    load!(index::Index, collection::Collection; cache::Bool = true)
 """
-function cache! end
+function load! end
 
 @doc raw"""
     index!(index::Index)

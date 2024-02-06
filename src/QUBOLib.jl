@@ -19,18 +19,19 @@ using ProgressMeter
 const __PROJECT__ = abspath(@__DIR__, "..")
 const __VERSION__ = VersionNumber(TOML.parsefile(joinpath(__PROJECT__, "Project.toml"))["version"])
 
-# function data_path()::AbstractString
-#     return abspath(artifact"qubolib")
-# end
+# Standard Collection List
+const COLLECTIONS = Symbol[]
 
-# Data management methods
-# include("management/index.jl")
+# Library
+include("logo.jl")
+include("path.jl")
+include("collection.jl")
+include("database.jl")
+include("archive.jl")
+include("index.jl")
+include("build.jl")
 
-# Public API
-# include("access/interface.jl")
-# include("access/load.jl")
-# include("access/list.jl")
-# include("access/archive.jl")
-# include("access/database.jl")
+# Collections
+include("collections/qplib.jl")
 
 end # module QUBOLib

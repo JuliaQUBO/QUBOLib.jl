@@ -1,5 +1,5 @@
 function access(callback::Function)
-    io = Index()
+    io = load_index()
 
     try
         return callback(io)

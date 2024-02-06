@@ -1,19 +1,10 @@
-# Library Design
+# Database Design
 
-```@diagram tikz
-\documentclass{standalone}
-\usepackage{tikz}
+In this section we discuss the decisions and specifications behind the construction of the database.
 
-\begin{document}
-\begin{tikzpicture}[
-    node/.style={draw, rectangle, minimum width=2cm, minimum height=1cm, font=\large},
-    ]
-    % Nodes
-    \node (A) at (0, 0) {\texttt{build()}};
-    \node (B) at (2, 0) {\texttt{build(coll.code)}};
+## Models and Solutions
 
-    % Arrows
-    \draw[->] (A) -- node[above] {\texttt{coll.code}} (B);
-\end{tikzpicture}
-\end{document}
-```
+The HDF5 file format is used to store the data. The data is stored in a hierarchical structure, which is a natural fit for the data. The data is stored in a tree-like structure, with the root group being the top level. The root group contains the following groups:
+
+- `instances`: Contains the instances of the data.
+- `solutions`: Contains the solutions to the instances.

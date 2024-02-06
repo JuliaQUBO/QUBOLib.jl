@@ -25,7 +25,7 @@ end
 
 
 function hash!(index::InstanceIndex)
-    index.tree_hash[] = bytes2hex(Pkg.GitTools.tree_hash(index.dist_path))
+    index.tree_hash[] =     
 
     return nothing
 end
@@ -157,31 +157,4 @@ end
 function _collection_size_range(collection::AbstractString)
     return _collection_size_range(data_path(), collection::AbstractString)
 end
-
-function _collection_size_range(path::AbstractString, collection::AbstractString)
-    db = database(path)
-
-    @assert isopen(db)
-
-    df = DBInterface.execute(
-        db,
-        "SELECT MIN(size), MAX(size) FROM instances WHERE collection = ?;",
-        [collection]
-    ) |> DataFrame
-
-    close(db)
-
-    @assert !isopen(db)
-
-    return (only(df[!, 1]), only(df[!, 2]))
-end
-
-function curate(root_path::AbstractString, dist_path::AbstractString=abspath(root_path, "dist"); on_read_error::Function=msg -> @warn(msg))
-    index = create_index(root_path, dist_path)
-
-    curate!(index; on_read_error)
-
-    return index
-end
-
 
