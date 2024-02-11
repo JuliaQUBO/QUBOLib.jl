@@ -1,0 +1,33 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string"
+        },
+        "description": {
+            "type": "string"
+        },
+        "author": {
+            "type": "array",
+            "items": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "string"
+                }
+            ]
+        },
+        "year": {
+            "type": "integer"
+        },
+        "url": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "name",
+        "author"
+    ]
+}

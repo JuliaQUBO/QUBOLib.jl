@@ -1,14 +1,14 @@
+include("index/database.jl")
+include("index/archive.jl")
+
+@doc raw"""
+    LibraryIndex
+
+The QUBOLib index is composed of two parts: a SQLite database and an HDF5 archive.
+"""
 struct LibraryIndex
     db::SQLite.DB
     fp::HDF5.File
-
-    collections::Vector{Symbol}
-
-    metadata::Dict{String,Any}
-end
-
-function LibraryIndex(db::SQLite.DB, fp::HDF5.File)
-    return LibraryIndex(db, fp, Symbol[], Dict{String,Any}())
 end
 
 function Base.isopen(index::LibraryIndex)
@@ -65,18 +65,7 @@ function load_index(callback::Function, path::AbstractString=qubolib_path(); cre
     end
 end
 
-function has_collection(index::LibraryIndex, code::Symbol)
-    @assert isopen(index)
-
-    df = DBInterface.execute(
-        index.db,
-        "SELECT COUNT(*) FROM collections WHERE collection = ?",
-        (code,)
-    ) |> DataFrame
-
-    return only(df[!, 1]) > 0
-end
-
-function has_collection(index::LibraryIndex, ::Collection{code}) where {code}
-    return has_collection(index, code)
-end
+include("index/collections.jl")
+include("index/instances.jl")
+include("index/solvers.jl")
+include("index/solutions.jl")

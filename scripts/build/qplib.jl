@@ -1,4 +1,5 @@
 # Define codec for QPLIB format
+# TODO: Make it available @ QUBOTools
 
 function _read_qplib_model(path::AbstractString)
     return open(path, "r") do io
@@ -87,7 +88,7 @@ end
 
 function _read_qplib_solution!(io::IO, model::QUBOTools.Model{Int,Float64,Int})
     # Read the header
-    value = let
+    λ = let
         m = match(r"objvar\s+([\S]+)", readline(io))
 
         if isnothing(m)
@@ -99,15 +100,15 @@ function _read_qplib_solution!(io::IO, model::QUBOTools.Model{Int,Float64,Int})
         tryparse(Float64, m[1])
     end
 
-    if isnothing(value)
+    if isnothing(λ)
         QUBOTools.syntax_error("Invalid objective value")
     end
 
-    v = Tuple{Int,Float64}[]
-    n = 0
+    n = QUBOTools.dimension(model)
+    ψ = zeros(Int, n)
 
     for line in eachline(io)
-        i, λ = let
+        i, x = let
             m = match(r"b([0-9]+)\s+([\S]+)", line)
 
             if isnothing(m)
@@ -119,32 +120,22 @@ function _read_qplib_solution!(io::IO, model::QUBOTools.Model{Int,Float64,Int})
             (tryparse(Int, m[1]), tryparse(Float64, m[2]))
         end
 
-        if isnothing(i) || isnothing(λ)
+        if isnothing(i) || isnothing(x)
             QUBOTools.syntax_error("Invalid variable assignment")
 
             return nothing
         end
 
-        n = max(n, i)
-
-        push!(v, (i, λ))
-    end
-
-    ψ = zeros(Int, n)
-
-    for (i, λ) in v
-        ψ[i] = ifelse(iszero(λ), 0, 1)
+        ψ[i] = ifelse(x > 0, 1, 0)
     end
 
     s = QUBOTools.Sample{Float64,Int}[QUBOTools.Sample{Float64,Int}(ψ, λ)]
 
-    sol = QUBOTools.SampleSet{Float64,Int}(
+    return QUBOTools.SampleSet{Float64,Int}(
         s;
         sense  = QUBOTools.sense(model),
         domain = :bool,
     )
-
-    QUBOTools.attach!(model, sol)
 end
 
 function _is_qplib_qubo(path::AbstractString)
@@ -160,17 +151,51 @@ end
 
 const QPLIB_URL = "http://qplib.zib.de/qplib.zip"
 
-function build!(index::LibraryIndex, coll::Collection{:qplib})
-    load!(coll)
+function build_qplib!(index::LibraryIndex)
+    if QUBOLib.has_collection(index, :qplib)
+        @info "[qplib] Collection already exists"
+
+        QUBOLib.remove_collection!(index, :qplib)
+    end
+
+    QUBOLib.add_collection!(
+        index,
+        :qplib,
+        Dict{String,Any}(
+            "name"        => "QPLIB",
+            "author"      => ["", ""],
+            "description" => "The Quadratic Programming Library",
+            "year"        => 2014,
+            "url"         => "http://qplib.zib.de/",
+        ),
+    )
+
+    code_list = _load_qplib!()
 
     @info "[qplib] Building index"
 
     qplib_data_path = abspath(cache_path(), "qplib", "data")
 
+    for code in code_list
+        mod_path = joinpath(qplib_data_path, "$(code).qplib")
+        sol_path = joinpath(qplib_data_path, "$(code).sol")
+
+        model = _read_qplib_model(mod_path)
+        mod_i = QUBOLib.add_instance!(index, model, :qplib)
+
+        if isfile(sol_path)
+            sol = _read_qplib_solution(sol_path, model)
+
+            QUBOLib.add_solution!(index, mod_i, sol)
+        end
+    end
+
+    @info "[qplib] Done!"
+
     return nothing
 end
 
-function load!(::Collection{:qplib})
+function _load_qplib!()
     @assert Sys.isunix() "Processing QPLIB is only possible on Unix systems"
 
     qplib_cache_path = mkpath(abspath(cache_path(), "qplib"))
@@ -197,17 +222,18 @@ function load!(::Collection{:qplib})
     # Remove non-QUBO instances
     @info "[qplib] Removing non-QUBO instances"
 
+    code_list = String[]
+
     for file_path in filter(endswith(".qplib"), readdir(qplib_data_path; join = true))
         if !_is_qplib_qubo(file_path)
             code = readline(file_path)
+
+            push!(code_list, code)
 
             rm(joinpath(qplib_data_path, "$(code).qplib"); force = true)
             rm(joinpath(qplib_data_path, "$(code).sol"); force = true)
         end
     end
 
-    return nothing
+    return code_list
 end
-
-# Add QPLIB to the standard collection list
-push!(COLLECTIONS, :qplib)
