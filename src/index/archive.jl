@@ -9,9 +9,10 @@ end
 function _create_archive(path::AbstractString)
     rm(path; force=true) # remove file if it exists
 
-    fp = HDF5.h5open(path, "w")
+    h5 = HDF5.h5open(path, "w")
 
-    HDF5.create_group(fp, "collections")
+    HDF5.create_group(h5, "instances")
+    HDF5.create_group(h5, "solutions")
 
-    return fp
+    return h5
 end

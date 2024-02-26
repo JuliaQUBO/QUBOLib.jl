@@ -23,11 +23,12 @@ function _create_database(path::AbstractString)
 
     db = SQLite.DB(path)
 
-    # Enable Foreign keys
-    DBInterface.execute(db, "PRAGMA foreign_keys = ON;")
+    @info "Creating tables"
 
     open(QUBOLIB_SQL_PATH) do file
-        DBInterface.execute(db, read(file, String))
+        for stmt in (split(read(file, String), ";") .|> strip |> filter(!isempty))
+            DBInterface.execute(db, stmt)
+        end
     end
 
     return db

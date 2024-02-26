@@ -34,7 +34,7 @@ function add_collection!(
             index.db,
             "INSERT INTO collections (collection, name) VALUES (?, ?)",
             (
-                code,
+                string(code),
                 data["name"],
             )
         )
@@ -54,7 +54,7 @@ function remove_collection!(index::LibraryIndex, code::Symbol)
         DBInterface.execute(
             index.db,
             "DELETE FROM collections WHERE code = ?",
-            (code,)
+            (string(code),)
         )
 
         @info "Collection '$code' removed from index"

@@ -1,34 +1,62 @@
-function add_solution!(index::LibraryIndex, instance::Integer, sol::SampleSet{Float64,Int})
+function _write_solution(
+    fp::P,
+    sol::QUBOTools.AbstractSolution,
+    fmt::QUBOTools.QUBin,
+) where {P<:Union{HDF5.File,HDF5.Group}}
+    HDF5.create_group(fp, "solution")
+
+    QUBOTools._write_solution_data(fp, sol, fmt)
+
+    fp["solution"]["sense"]  = String(QUBOTools.sense(sol))
+    fp["solution"]["domain"] = String(QUBOTools.domain(sol))
+
+    QUBOTools._write_solution_metadata(fp, sol, fmt)
+
+    return nothing
+end
+
+function add_solution!(index::LibraryIndex, instance::Integer, sol::SampleSet{Float64,Int})::Integer
     @assert isopen(index)
     @assert !isempty(sol)
 
-    data = QUBOTools.metadata(sol)
-
-    if !haskey(data, "solver")
-        data["solver"] = "unknown"
+    if isempty(sol)
+        return nothing
     end
 
-    DBInterface.execute(
+    data = QUBOTools.metadata(sol)
+
+    solver  = get(data, "solver", nothing)
+    value   = QUBOTools.value(sol, 1)
+    optimal = get(data, "status", nothing) == "optimal"
+
+    q = DBInterface.execute(
         index.db,
         """
-        INSERT INTO solutions (
+        INSERT INTO Solutions (
             instance,
-            value,
             solver,
+            value,
+            optimal
         ) 
         VALUES (
+            ?,
             ?,
             ?,
             ?
         )   
         """,
-        (instance, QUBOTools.value(sol[begin]), sol.num_occurrences[1]),
+        (
+            instance,
+            solver,
+            value,
+            optimal,
+        )
     )
 
-    i = string(DBInterface.lastrowid(index.db))
-    g = HDF5.create_group(index.h5["solutions"], i)
+    i = DBInterface.lastrowid(q)
+    g = HDF5.create_group(index.h5["solutions"], string(i))
 
-    QUBOTools.write_sampleset(g, sol, QUBOTools.QUBin())
+    _write_solution(g, sol, QUBOTools.QUBin())
 
-    return nothing
+    return i
 end

@@ -8,25 +8,25 @@ The QUBOLib index is composed of two parts: a SQLite database and an HDF5 archiv
 """
 struct LibraryIndex
     db::SQLite.DB
-    fp::HDF5.File
+    h5::HDF5.File
 end
 
 function Base.isopen(index::LibraryIndex)
-    return isopen(index.db) && isopen(index.fp)
+    return isopen(index.db) && isopen(index.h5)
 end
 
 function Base.close(index::LibraryIndex)
     close(index.db)
-    close(index.fp)
+    close(index.h5)
 
     return nothing
 end
 
 function _create_index(path::AbstractString)
     db = _create_database(database_path(path))
-    fp = _create_archive(archive_path(path))
+    h5 = _create_archive(archive_path(path))
 
-    return LibraryIndex(db, fp)
+    return LibraryIndex(db, h5)
 end
 
 @doc raw"""
@@ -36,9 +36,9 @@ Loads the library index from the given path.
 """
 function load_index(path::AbstractString; create::Bool=false)
     db = _load_database(database_path(path))
-    fp = _load_archive(archive_path(path))
+    h5 = _load_archive(archive_path(path))
 
-    if isnothing(db) || isnothing(fp)
+    if isnothing(db) || isnothing(h5)
         if create
             @info "Creating index at '$path'"
 
@@ -50,7 +50,7 @@ function load_index(path::AbstractString; create::Bool=false)
         end
     end
 
-    return LibraryIndex(db, fp)
+    return LibraryIndex(db, h5)
 end
 
 function load_index(callback::Function, path::AbstractString=qubolib_path(); create::Bool=false)
