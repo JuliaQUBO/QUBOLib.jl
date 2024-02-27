@@ -2,7 +2,7 @@ using QUBOTools
 using QUBOLib
 
 # Standard Library
-include("build/qplib.jl")
+include("qplib.jl")
 
 function build_standard_qubolib(
     path::AbstractString = root_path();

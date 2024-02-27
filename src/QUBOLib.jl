@@ -14,6 +14,9 @@ using TOML
 using Pkg
 using UUIDs
 using QUBOTools
+using QUBODrivers
+using JuMP
+using SparseArrays
 using ProgressMeter
 
 const __PROJECT__ = abspath(@__DIR__, "..")
@@ -25,8 +28,6 @@ include("logo.jl")
 include("path.jl")
 include("interface.jl")
 include("index.jl")
-
-# Collections
-# include("collections/qplib.jl")
+include("run.jl")
 
 end # module QUBOLib

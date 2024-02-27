@@ -67,11 +67,8 @@ function add_instance!(
     return i
 end
 
-function get_instance(index::LibraryIndex, i::Integer)
+function load_instance(index::LibraryIndex, i::Integer)
     @assert isopen(index)
 
-    i = string(i)
-    g = HDF5.open(index.h5["instances"], i)
-
-    return QUBOTools.read_model(g, QUBOTools.QUBin())
+    return QUBOTools.read_model(index.h5["instances"][string(i)], QUBOTools.QUBin())
 end

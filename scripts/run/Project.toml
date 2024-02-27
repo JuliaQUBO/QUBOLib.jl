@@ -1,0 +1,9 @@
+[deps]
+DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"
+DWave = "4d534982-bf11-4157-9e48-fe3a62208a50"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+InfinityQ = "f014c839-c17b-44be-a366-f421804f8372"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+MQLib = "16f11440-1623-44c9-850c-358a6c72f3c9"
+PySA = "46b73cfa-376a-48ee-8926-0c45ac3f7830"
+QUBOLib = "c2d3eca2-2309-4628-88a9-9d4a554e7c47"

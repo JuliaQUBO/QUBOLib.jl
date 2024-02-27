@@ -1,4 +1,4 @@
-function _load_archive(path::AbstractString, mode::AbstractString="w")
+function _load_archive(path::AbstractString, mode::AbstractString="cw")
     if !isfile(path)
         return nothing
     else

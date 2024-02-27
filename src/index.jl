@@ -11,6 +11,18 @@ struct LibraryIndex
     h5::HDF5.File
 end
 
+function database(index::LibraryIndex)
+    @assert isopen(index)
+
+    return index.db
+end
+
+function archive(index::LibraryIndex)
+    @assert isopen(index)
+
+    return index.h5
+end
+
 function Base.isopen(index::LibraryIndex)
     return isopen(index.db) && isopen(index.h5)
 end

@@ -6,17 +6,18 @@ using QUBOLib
 DocMeta.setdocmeta!(QUBOLib, :DocTestSetup, :(using QUBOLib); recursive = true)
 
 makedocs(;
-    modules = [QUBOLib],
-    doctest = true,
-    clean   = true,
-    format  = Documenter.HTML(
+    modules  = [QUBOLib],
+    doctest  = true,
+    clean    = true,
+    warnonly = [:missing_docs],
+    format   = Documenter.HTML(
         assets           = ["assets/extra_styles.css", "assets/favicon.ico"],
         mathengine       = Documenter.KaTeX(),
         sidebar_sitename = false,
     ),
     sitename = "QUBOLib.jl",
     authors  = "Pedro Maciel Xavier and David E. Bernal Neira",
-    pages = [
+    pages    = [
         "Home"     => "index.md",
         "API"      => "api.md",
         "Manual"   => [
@@ -29,7 +30,7 @@ makedocs(;
             "Library Design" => "booklet/1-design.md",
         ],
     ],
-    workdir = @__DIR__,
+    workdir  = @__DIR__,
 )
 
 if "--skip-deploy" ∈ ARGS
