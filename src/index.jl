@@ -72,6 +72,10 @@ function load_index(callback::Function, path::AbstractString=qubolib_path(); cre
 
     try
         return callback(index)
+    catch e
+        @error("Error during index access: $(sprint(showerror, e)))")
+
+        return nothing
     finally
         close(index)
     end

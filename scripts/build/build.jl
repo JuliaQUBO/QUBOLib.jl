@@ -1,8 +1,11 @@
 using QUBOTools
 using QUBOLib
+using Downloads
 
 # Standard Library
 include("qplib.jl")
+include("arXiv_1903_10928_3r3x.jl")
+include("arXiv_1903_10928_5r5x.jl")
 
 function build_standard_qubolib(
     path::AbstractString = root_path();
@@ -25,6 +28,8 @@ function build_standard_qubolib(
 
     QUBOLib.load_index(path; create = true) do index
         build_qplib!(index)
+        build_arXiv_1903_10928_3r3x!(index)
+        build_arXiv_1903_10928_5r5x!(index)
     end
 
     return nothing

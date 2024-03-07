@@ -1,6 +1,6 @@
 [deps]
+AIMOpt = "a160bcaa-3679-4194-bb69-dd396f88ea15"
 DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"
-DWave = "4d534982-bf11-4157-9e48-fe3a62208a50"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 InfinityQ = "f014c839-c17b-44be-a366-f421804f8372"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"

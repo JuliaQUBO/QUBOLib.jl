@@ -8,7 +8,7 @@ function has_collection(index::LibraryIndex, code::Symbol)
     df = DBInterface.execute(
         index.db,
         "SELECT COUNT(*) FROM collections WHERE collection = ?",
-        (code,)
+        (string(code),)
     ) |> DataFrame
 
     return only(df[!, 1]) > 0

@@ -1,0 +1,3 @@
+[deps]
+QUBOLib = "c2d3eca2-2309-4628-88a9-9d4a554e7c47"
+QUBOTools = "60eb5b62-0a39-4ddc-84c5-97d2adff9319"
