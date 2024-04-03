@@ -27,7 +27,7 @@
     </style>
 
     <defs>
-        <pattern id="pattern" x="0" y="0" width="10%" height="10%">
+        <pattern id="pattern" x="0" y="0" width="9%" height="9%">
             <path class="red"    d="M 50 0 L 100 25 L 50 50 L 0 25 Z" />
             <path class="violet" d="M 0 25 L 50 50 L 50 100 L 0 75 Z" />
             <path class="green"  d="M 50 50 L 100 25 L 100 75 L 50 100 Z" />
@@ -50,6 +50,6 @@
     <!-- FRAME -->
     <g mask="url(#mask)">
         <rect class="blue" x="0" y="0" width="1000" height="1000" stroke="none" />
-        <rect fill="url(#pattern)" x="0" y="0" width="1000" height="1000" stroke="none" />
+        <rect fill="url(#pattern)" x="-50" y="-50" width="1100" height="1100" stroke="none" />
     </g>
 </svg>
