@@ -4,15 +4,13 @@ using DataFrames
 using DBInterface
 
 # Solvers
-using DWave
-using MQLib
-using PySA
-using InfinityQ
-using AIMOpt
+# using DWave
+# using MQLib
+# using PySA
+# using InfinityQ
+# using AIMOpt
 
 function main()
-    QUBOLib.logo()
-
     QUBOLib.load_index(QUBOLib.root_path(); create = false) do index
         df = DBInterface.execute(
             QUBOLib.database(index),
@@ -48,4 +46,4 @@ function main()
     return nothing
 end
 
-main() # Here we go!
+# main() # Here we go!

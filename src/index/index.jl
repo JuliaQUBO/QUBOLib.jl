@@ -1,5 +1,5 @@
-include("index/database.jl")
-include("index/archive.jl")
+include("database.jl")
+include("archive.jl")
 
 @doc raw"""
     LibraryIndex
@@ -81,7 +81,7 @@ function load_index(callback::Function, path::AbstractString=qubolib_path(); cre
     end
 end
 
-include("index/collections.jl")
-include("index/instances.jl")
-include("index/solvers.jl")
-include("index/solutions.jl")
+include("collections.jl")
+include("instances.jl")
+include("solvers.jl")
+include("solutions.jl")

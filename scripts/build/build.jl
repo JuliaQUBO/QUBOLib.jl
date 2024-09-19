@@ -6,6 +6,7 @@ using Downloads
 include("qplib.jl")
 include("arXiv_1903_10928_3r3x.jl")
 include("arXiv_1903_10928_5r5x.jl")
+include("arXiv_2103_08464_3r3x.jl")
 
 function build_standard_qubolib(
     path::AbstractString = root_path();
@@ -36,9 +37,7 @@ function build_standard_qubolib(
 end
 
 
-function main()
-    QUBOLib.logo()
-
+function build()
     build_standard_qubolib(
         QUBOLib.root_path();
         clear_build = ("--clear-build" ∈ ARGS),
@@ -48,4 +47,4 @@ function main()
     return nothing
 end
 
-main() # Here we go!
+# main() # Here we go!

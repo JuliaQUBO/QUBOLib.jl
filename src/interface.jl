@@ -33,3 +33,16 @@ function add_solution! end
     run!(index::LibraryIndex, instances::Vector{U}, optimizer) where {U<:Integer}
 """
 function run! end
+
+@doc raw"""
+    AbstractProblem{T}
+"""
+abstract type AbstractProblem{T} end
+
+@doc raw"""
+    generate(problem)
+    generate(rng, problem)
+
+Generates a QUBO problem and returns it as a [`QUBOTools.Model`](@ref).
+"""
+function generate end

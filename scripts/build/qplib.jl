@@ -235,8 +235,6 @@ end
 const QPLIB_URL = "http://qplib.zib.de/qplib.zip"
 
 function build_qplib!(index::LibraryIndex; cache::Bool = true)
-    @info "[qplib] Building QPLIB"
-
     if QUBOLib.has_collection(index, :qplib)
         @info "[qplib] Collection already exists"
 
@@ -246,6 +244,8 @@ function build_qplib!(index::LibraryIndex; cache::Bool = true)
             QUBOLib.remove_collection!(index, :qplib)
         end
     end
+
+    @info "[qplib] Building QPLIB"
 
     QUBOLib.add_collection!(
         index,
