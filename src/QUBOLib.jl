@@ -1,5 +1,6 @@
 module QUBOLib
 
+using ArgParse
 using LazyArtifacts
 using HDF5
 using JSON
@@ -25,18 +26,40 @@ import PseudoBooleanOptimization as PBO
 const __PROJECT__ = abspath(@__DIR__, "..")
 const __VERSION__ = VersionNumber(TOML.parsefile(joinpath(__PROJECT__, "Project.toml"))["version"])
 
-export LibraryIndex
+const QUBOLIB_LOGO = """
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  ██████  ██    ██ ██████   ██████  ┃
+┃ ██    ██ ██    ██ ██   ██ ██    ██ ┃
+┃ ██    ██ ██    ██ ██████  ██    ██ ┃
+┃ ██ ▄▄ ██ ██    ██ ██   ██ ██    ██ ┃
+┃  ██████   ██████  ██████   ██████  ┃
+┃     ▀▀                             ┃
+┃  ██      ██ ██       ▒▒▒▒▒▒▒▒▒▒▒▒  ┃
+┃  ██         ██       ▒▒▒▒▒▒▒▒▒▒▒▒  ┃
+┃  ██      ██ ██████   ▒▒▒▒▒▒▒▒▒▒▒▒  ┃
+┃  ██      ██ ██  ██   ▒▒▒▒▒▒▒▒▒▒▒▒  ┃
+┃  ███████ ██ ██████   ▒▒▒▒▒▒▒▒▒▒▒▒  ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+"""
 
-include("logo.jl")
-include("path.jl")
-include("interface.jl")
+function print_logo(io::IO = stdout)
+    println(io, QUBOLIB_LOGO)
 
-include("index/index.jl")
+    return nothing
+end
+
+include("interface/interface.jl")
+
+include("library/path.jl")
+include("library/index/index.jl")
+
+include("library/register.jl")
+include("library/build.jl")
 
 include("synthesis/abstract.jl")
 include("synthesis/sherrington_kirkpatrick.jl")
 include("synthesis/wishart.jl")
 
-include("run.jl")
+include("main.jl")
 
 end # module QUBOLib

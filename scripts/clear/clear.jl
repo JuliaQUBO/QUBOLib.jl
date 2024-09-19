@@ -1,3 +1,0 @@
-function clear()
-
-end

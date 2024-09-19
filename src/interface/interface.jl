@@ -1,4 +1,21 @@
 @doc raw"""
+    register!(source::Symbol)
+
+Registers an instance source.
+"""
+function register! end
+
+@doc raw"""
+    load!(source::Symbol, cache::Bool = true)
+"""
+function load! end
+
+@doc raw"""
+    clear!(source::Symbol, cache::Bool = true)
+"""
+function clear! end
+
+@doc raw"""
     add_collection!(index::LibraryIndex, code::Symbol, data::Dict{String,Any})
 
 Creates a new collection in the library index.
