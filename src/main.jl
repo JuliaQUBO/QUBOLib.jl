@@ -7,9 +7,6 @@ function main()
         "build"
             action = :command
             help   = "an option with an argument"
-        "run"
-            action = :command
-            help   = "another option"
         "clear"
             action = :command
             help   = "Clears current QUBOLib"
@@ -19,6 +16,9 @@ function main()
         "generate"
             action = :command
             help   = "Generates instances for a given problem"
+        "run"
+            action = :command
+            help   = "another option"
     end
 
     @add_arg_table! settings["build"] begin

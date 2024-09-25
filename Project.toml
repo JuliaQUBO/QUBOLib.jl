@@ -1,6 +1,6 @@
 name = "QUBOLib"
 uuid = "c2d3eca2-2309-4628-88a9-9d4a554e7c47"
-authors = ["pedromxavier <pedrox@cos.ufrj.br>"]
+authors = ["pedromxavier <mail@pedro.ϵλ>"]
 version = "0.1.0"
 
 [deps]
@@ -17,7 +17,6 @@ LazyArtifacts = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 PseudoBooleanOptimization = "c8fa9a04-bc42-452d-8558-dc51757be744"
-QUBODrivers = "a3f166f7-2cd3-47b6-9e1e-6fbfe0449eb0"
 QUBOTools = "60eb5b62-0a39-4ddc-84c5-97d2adff9319"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SQLite = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
@@ -27,4 +26,4 @@ Tar = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
-QUBOTools = "0.9"
+QUBOTools = "0.10"

@@ -7,7 +7,7 @@
 ```julia
 import Pkg
 
-Pkg.add(url="https://github.com/pedromxavier/QUBOLib.jl")
+Pkg.add(url="https://github.com/JuliaQUBO/QUBOLib.jl")
 
 using QUBOLib
 ```

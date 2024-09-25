@@ -14,7 +14,6 @@ using Tar
 using TOML
 using Pkg
 using UUIDs
-using QUBODrivers
 using JuMP
 using SparseArrays
 using ProgressMeter

@@ -20,15 +20,15 @@ makedocs(;
     pages    = [
         "Home"     => "index.md",
         "API"      => "api.md",
-        "Manual"   => [
-            "Introduction" => "manual/0-intro.md",
-            "Access"       => "manual/1-access.md",
-            "Extension"    => "manual/2-extension.md",
-        ],
-        "Booklet"  => [
-            "Introduction"   => "booklet/0-intro.md",
-            "Library Design" => "booklet/1-design.md",
-        ],
+        # "Manual"   => [
+        #     "Introduction" => "manual/0-intro.md",
+        #     "Access"       => "manual/1-access.md",
+        #     "Extension"    => "manual/2-extension.md",
+        # ],
+        # "Booklet"  => [
+        #     "Introduction"   => "booklet/0-intro.md",
+        #     "Library Design" => "booklet/1-design.md",
+        # ],
     ],
     workdir  = @__DIR__,
 )
@@ -36,5 +36,5 @@ makedocs(;
 if "--skip-deploy" ∈ ARGS
     @warn "Skipping deployment"
 else
-    deploydocs(repo = raw"github.com/pedromxavier/QUBOLib.jl.git", push_preview = true)
+    deploydocs(repo = raw"github.com/JuliaQUBO/QUBOLib.jl.git", push_preview = true)
 end

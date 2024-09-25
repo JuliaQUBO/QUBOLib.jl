@@ -13,3 +13,9 @@ clear-build:
 
 run: setup
 	@julia --project=scripts/run/mqlib ./scripts/run/mqlib/run.jl
+
+setup-docs:
+	@julia --project=docs -e 'import Pkg; Pkg.develop(path=@__DIR__); Pkg.instantiate()'
+
+docs:
+	@julia --project=docs ./docs/make.jl --skip-deploy

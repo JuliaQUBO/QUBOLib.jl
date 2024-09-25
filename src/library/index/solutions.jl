@@ -15,7 +15,7 @@ function _write_solution(
     return nothing
 end
 
-function add_solution!(index::LibraryIndex, instance::Integer, sol::SampleSet{Float64,Int})::Integer
+function add_solution!(index::LibraryIndex, instance::Integer, sol::QUBOTools.SampleSet{Float64,Int})::Integer
     @assert isopen(index)
     @assert !isempty(sol)
 
