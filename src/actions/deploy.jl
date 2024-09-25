@@ -1,5 +1,3 @@
-import QUBOLib
-
-function deploy()
+function QUBOLib.deploy!(target::AbstractString)
     
 end

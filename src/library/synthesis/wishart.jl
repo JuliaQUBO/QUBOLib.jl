@@ -32,7 +32,7 @@ function Wishart(n::Integer, m::Integer; discretize::Bool = false, precision::In
     return Wishart{Float64}(n, m; discretize, precision)
 end
 
-function QUBOLib.generate(rng, problem::Wishart{T}) where {T}
+function generate(rng, problem::Wishart{T}) where {T}
     f, x = PBO.wishart(
         rng,
         PBO.PBF{Int,T},

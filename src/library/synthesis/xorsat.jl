@@ -13,10 +13,6 @@ struct XORSAT{T} <: AbstractProblem{T}
     end
 end
 
-function generate(problem::XORSAT{T}, ::BoolDomain) where {T}
+function generate(rng, problem::XORSAT{T}) where {T}
 
-end
-
-function generate(rng, problem::XORSAT{T}, ::SpinDomain; kws...) where {T}
-    return cast(𝔹 => 𝕊, generate(rng, problem, 𝔹)...; kws...)
 end

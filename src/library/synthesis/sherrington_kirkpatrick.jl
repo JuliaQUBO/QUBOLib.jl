@@ -20,7 +20,7 @@ end
 
 const SK{T} = SherringtonKirkpatrick{T}
 
-function QUBOLib.generate(rng, problem::SherringtonKirkpatrick{T}) where {T}
+function generate(rng, problem::SherringtonKirkpatrick{T}) where {T}
     f, x = PBO.sherrington_kirkpatrick(
         rng,
         PBO.PBF{Int,T},

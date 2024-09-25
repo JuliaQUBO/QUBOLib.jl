@@ -16,6 +16,11 @@ function load! end
 function clear! end
 
 @doc raw"""
+    build!(source::Symbol)
+"""
+function build! end
+
+@doc raw"""
     add_collection!(index::LibraryIndex, code::Symbol, data::Dict{String,Any})
 
 Creates a new collection in the library index.

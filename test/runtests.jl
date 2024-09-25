@@ -1,13 +1,13 @@
 using Test
 using Statistics
 
-import QUBOLib
 import QUBOTools
+import QUBOLib
 
 include("synthesis.jl")
 
 function main()
-    @testset "♣ QUBOLib.jl «$(QUBOLib.__VERSION__)» Test Suite ♣" verbose = true begin
+    @testset "♣ QUBOLib.jl «$(QUBOLib.__version__())» Test Suite ♣" verbose = true begin
         test_synthesis()
     end
 

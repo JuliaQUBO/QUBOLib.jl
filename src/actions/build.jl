@@ -1,12 +1,12 @@
-using QUBOTools
-using QUBOLib
-using Downloads
+function build!(reg::Registry)
 
-# Standard Library
-include("qplib.jl")
-include("arXiv_1903_10928_3r3x.jl")
-include("arXiv_1903_10928_5r5x.jl")
-include("arXiv_2103_08464_3r3x.jl")
+end
+
+function build!(source::Symbol)
+    build!(Val(source))
+
+    return nothing
+end
 
 function build_standard_qubolib(
     path::AbstractString = root_path();
