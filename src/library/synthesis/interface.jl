@@ -7,6 +7,6 @@ abstract type AbstractProblem{T} end
     generate(problem)
     generate(rng, problem)
 
-Generates a QUBO problem and returns it as a [`QUBOTools.Model`](@ref).
+Generates a QUBO problem and returns it as a [`QUBOTools.Model`](@extref).
 """
 function generate end

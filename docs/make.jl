@@ -1,9 +1,15 @@
 using Documenter
 using DocumenterDiagrams
+using DocumenterInterLinks
+
 using QUBOLib
 
 # Set up to run docstrings with jldoctest
 DocMeta.setdocmeta!(QUBOLib, :DocTestSetup, :(using QUBOLib); recursive = true)
+
+links = InterLinks(
+    "QUBOTools" => "https://juliaqubo.github.io/QUBOTools.jl/dev/objects.inv",
+)
 
 makedocs(;
     modules  = [QUBOLib],
@@ -30,6 +36,7 @@ makedocs(;
         #     "Library Design" => "booklet/1-design.md",
         # ],
     ],
+    plugins  = [links],
     workdir  = @__DIR__,
 )
 

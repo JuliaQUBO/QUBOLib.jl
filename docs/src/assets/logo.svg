@@ -27,22 +27,31 @@
     </style>
 
     <defs>
-        <pattern id="pattern" x="0" y="0" width="9%" height="9%">
-            <path class="red"    d="M 50 0 L 100 25 L 50 50 L 0 25 Z" />
-            <path class="violet" d="M 0 25 L 50 50 L 50 100 L 0 75 Z" />
-            <path class="green"  d="M 50 50 L 100 25 L 100 75 L 50 100 Z" />
+        <pattern id="pattern" x="10" y="0" width="26%" height="50%">
+            <g transform="scale(1.1)">
+                <path class="red"    d="M 50 0 L 
+                100 25 L 50 50 L 0 25 Z" />
+                <path class="violet" d="M 0 25 L 50 50 L 50 
+                100 L 0 75 Z" />
+                <path class="green"  d="M 50 50 L 
+                100 25 L 
+                100 75 L 50 
+                100 Z" />
+            </g>
         </pattern>
 
 
 
         <mask id="mask">
             <rect x="0" y="0" width="1000" height="1000" fill="white" />
-            <text x="50" y="450" fill="black" font-size="300" font-family="Helvetica" font-weight="bold">
+            <rect x="40" y="40" width="920" height="920" fill="black" />
+            <text x="50" y="450" fill="white" font-size="300" font-family="Helvetica" font-weight="bold">
                 QUBO
             </text>
-            <text x="50" y="750" fill="black" font-size="300" font-family="Helvetica" font-weight="bold">
+            <text x="50" y="750" fill="white" font-size="300" font-family="Helvetica" font-weight="bold">
                 Lib
             </text>
+            <!-- <rect x="521.5" y="530" width="415" height="220" fill="white" /> -->
         </mask>
     </defs>
 
@@ -50,6 +59,7 @@
     <!-- FRAME -->
     <g mask="url(#mask)">
         <rect class="blue" x="0" y="0" width="1000" height="1000" stroke="none" />
-        <rect fill="url(#pattern)" x="-50" y="-50" width="1100" height="1100" stroke="none" />
     </g>
+
+    <rect fill="url(#pattern)" x="521.5" y="530" width="415" height="220" stroke="none" />
 </svg>
