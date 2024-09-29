@@ -13,8 +13,12 @@ end
 
 Returns the absolute path to the database file, given a reference `path`.
 """
-function database_path(path::AbstractString=library_path(); create::Bool=false)::AbstractString
-    return abspath(build_path(path; create), "index.db")
+function database_path(
+    path::AbstractString = library_path();
+    create::Bool = false,
+    ifmissing::Any = path -> error("There's no database file at '$path'"),
+)::AbstractString
+    return abspath(build_path(path; create, ifmissing), "index.db")
 end
 
 @doc raw"""
@@ -22,8 +26,12 @@ end
 
 Returns the absolute path to the archive file, given a reference `path`.
 """
-function archive_path(path::AbstractString=library_path(); create::Bool=false)::AbstractString
-    return abspath(build_path(path; create), "archive.h5")
+function archive_path(
+    path::AbstractString = library_path();
+    create::Bool = false,
+    ifmissing::Any = path -> error("There's no archive file at '$path'"),
+)::AbstractString
+    return abspath(build_path(path; create, ifmissing), "archive.h5")
 end
 
 # Functions below will be more often used when building the library,
@@ -46,13 +54,17 @@ end
 raw"""
     _get_path(path::AbstractString; create::Bool = false)
 """
-function _get_path(path::AbstractString; create::Bool=false)::AbstractString
+function _get_path(
+    path::AbstractString;
+    create::Bool = false,
+    ifmissing::Any = path -> error("Path '$path' does not exist"),
+)::AbstractString
     if ispath(path)
         return abspath(path)
     elseif create
         return abspath(mkdir(path))
     else
-        error("Path '$path' does not exist")
+        ifmissing(path)
 
         return nothing
     end
@@ -64,8 +76,12 @@ end
 Returns the absolute path to the distribution folder, given a reference `path`.
 The path is created if it does not exist.
 """
-function dist_path(path::AbstractString=root_path(); create::Bool=false)::AbstractString
-    return _get_path(abspath(path, "dist"); create)
+function dist_path(
+    path::AbstractString = root_path();
+    create::Bool = false,
+    ifmissing::Any = path -> error("No distribution path at '$path'"),
+)::AbstractString
+    return _get_path(abspath(path, "dist"); create, ifmissing)
 end
 
 @doc raw"""
@@ -74,8 +90,12 @@ end
 Returns the absolute path to the build folder, given a reference `path`.
 The path is created if it does not exist.
 """
-function build_path(path::AbstractString=root_path(); create::Bool=false)::AbstractString
-    return _get_path(abspath(dist_path(path; create), "build"); create)
+function build_path(
+    path::AbstractString = root_path();
+    create::Bool = false,
+    ifmissing::Any = path -> error("No build path at '$path'"),
+)::AbstractString
+    return _get_path(abspath(dist_path(path; create, ifmissing), "build"); create, ifmissing)
 end
 
 @doc raw"""
@@ -84,6 +104,10 @@ end
 Returns the absolute path to the cache folder, given a reference `path`.
 The path is created if it does not exist.
 """
-function cache_path(path::AbstractString=root_path(); create::Bool=false)::AbstractString
-    return _get_path(abspath(dist_path(path; create), "cache"); create)
+function cache_path(
+    path::AbstractString = root_path();
+    create::Bool = false,
+    ifmissing::Any = path -> error("No cache path at '$path'"),
+)::AbstractString
+    return _get_path(abspath(dist_path(path; create, ifmissing), "cache"); create, ifmissing)
 end

@@ -1,11 +1,18 @@
-function access(; path::AbstractString=library_path(), create::Bool = false)
-    db = load_database(database_path(path; create))
-    h5 = load_archive(archive_path(path; create))
+function access(; path::AbstractString = library_path(), create::Bool = false)
+    ifmissing = _ -> error(
+        """
+        There's no valid QUBOLib installation at '$path'.
+        Try running `QUBOLib.access` with the `create = true` keyword set in order to generate one from scratch.
+        """,
+    )
+
+    db = load_database(database_path(path; create, ifmissing))
+    h5 = load_archive(archive_path(path; create, ifmissing))
 
     if isnothing(db) || isnothing(h5)
         if create
             return create_index(path)
-        else 
+        else
             error("Failed to load index from '$path'")
 
             return nothing
@@ -15,7 +22,7 @@ function access(; path::AbstractString=library_path(), create::Bool = false)
     return LibraryIndex(db, h5)
 end
 
-function access(callback::Any; path::AbstractString=library_path(), create::Bool=false)
+function access(callback::Any; path::AbstractString = library_path(), create::Bool = false)
     index = access(; path, create)
 
     @assert isopen(index)
@@ -28,8 +35,8 @@ function access(callback::Any; path::AbstractString=library_path(), create::Bool
 end
 
 function create_index(path::AbstractString)
-    db = create_database(path)
-    h5 = create_archive(path)
+    db = create_database(database_path(path; create = true))
+    h5 = create_archive(archive_path(path; create = true))
 
     return LibraryIndex(db, h5)
 end
@@ -43,12 +50,12 @@ function load_database(path::AbstractString)::Union{SQLite.DB,Nothing}
 end
 
 function create_database(path::AbstractString)
-    rm(path; force=true) # Remove file if it exists
+    rm(path; force = true) # Remove file if it exists
 
     db = SQLite.DB(path)
 
     open(QUBOLIB_SQL_PATH) do file
-        for stmt = eachsplit(read(file, String), ';')
+        for stmt in eachsplit(read(file, String), ';')
             stmt = strip(stmt)
 
             if !isempty(stmt)
@@ -60,7 +67,10 @@ function create_database(path::AbstractString)
     return db
 end
 
-function load_archive(path::AbstractString; mode::AbstractString="cw")::Union{HDF5.File,Nothing}
+function load_archive(
+    path::AbstractString;
+    mode::AbstractString = "cw",
+)::Union{HDF5.File,Nothing}
     if !isfile(path)
         return nothing
     else
@@ -69,7 +79,7 @@ function load_archive(path::AbstractString; mode::AbstractString="cw")::Union{HD
 end
 
 function create_archive(path::AbstractString)
-    rm(path; force=true) # remove file if it exists
+    rm(path; force = true) # remove file if it exists
 
     h5 = HDF5.h5open(path, "w")
 
