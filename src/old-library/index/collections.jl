@@ -1,6 +1,4 @@
-const COLLECTION_DATA_SCHEMA = JSONSchema.Schema(
-    JSON.parsefile(joinpath(@__DIR__, "collection-data.schema.json"))
-)
+
 
 function has_collection(index::LibraryIndex, code::Symbol)
     @assert isopen(index)

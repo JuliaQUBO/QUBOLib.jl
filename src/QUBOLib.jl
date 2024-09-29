@@ -2,22 +2,22 @@ module QUBOLib
 
 using ArgParse
 using LazyArtifacts
-using HDF5
-using JSON
 using Downloads
-using JSONSchema
 using JuliaFormatter
 using LaTeXStrings
 using SQLite
 using DataFrames
-using Tar
-using TOML
-using Pkg
 using UUIDs
 using JuMP
 using SparseArrays
 using ProgressMeter
 
+import JSONSchema
+import Tar
+import TOML
+import Pkg
+import HDF5
+import JSON
 import Random
 import QUBOTools
 import PseudoBooleanOptimization as PBO
@@ -52,6 +52,10 @@ function __version__()::VersionNumber
     return __VERSION__[]::VersionNumber
 end
 
+const QUBOLIB_SQL_PATH       = joinpath(@__DIR__, "assets", "qubolib.sql")
+const COLLECTION_SCHEMA_PATH = joinpath(@__DIR__, "assets", "collection.schema.json")
+const COLLECTION_SCHEMA      = JSONSchema.Schema(JSON.parsefile(COLLECTION_SCHEMA_PATH))
+
 const QUBOLIB_LOGO = """
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃  ▄██████▄   ██    ██  █████▄   ▄██████▄ ┃
@@ -74,16 +78,13 @@ function print_logo(io::IO = stdout)
     return nothing
 end
 
-include("interface/interface.jl")
+include("interface.jl")
 
 include("library/path.jl")
-include("library/index/index.jl")
+include("library/index.jl")
+include("library/access.jl")
 
-include("library/register.jl")
-include("library/build.jl")
-include("library/synthesis.jl")
-
-include("actions/clear.jl")
+include("library/synthesis/Synthesis.jl")
 
 include("main.jl")
 

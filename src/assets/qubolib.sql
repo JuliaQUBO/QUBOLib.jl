@@ -32,12 +32,12 @@ CREATE TABLE Instances
 CREATE TABLE Solutions
 (
   solution INTEGER PRIMARY KEY,
-  instance INTEGER NOT NULL,
-  solver   TEXT    NULL    ,
-  value    REAL    NOT NULL,
-  optimal  BOOLEAN NOT NULL,
+  instance INTEGER NOT NULL   ,
+  solver   TEXT    NULL       ,
+  value    REAL    NOT NULL   ,
+  optimal  BOOLEAN NOT NULL   ,
   FOREIGN KEY (instance) REFERENCES Instances (instance) ON DELETE CASCADE,
-  FOREIGN KEY (solver) REFERENCES Solvers (solver)
+  FOREIGN KEY (solver)   REFERENCES Solvers (solver)
 );
 
 CREATE TABLE Solvers

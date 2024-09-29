@@ -1,7 +1,7 @@
 @doc raw"""
-    XORSAT{T}
+    XORSAT{T}(n::Integer, r::Integer = 3, k::Integer = 3)
 
-``r``-regular ``k``-XORSAT
+``r``-regular ``k``-XORSAT on ``n`` variables.
 """
 struct XORSAT{T} <: AbstractProblem{T}
     n::Int

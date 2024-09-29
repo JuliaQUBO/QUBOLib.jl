@@ -26,11 +26,10 @@ makedocs(;
     pages    = [
         "Home"     => "index.md",
         "API"      => "api.md",
-        # "Manual"   => [
-        #     "Introduction" => "manual/0-intro.md",
-        #     "Access"       => "manual/1-access.md",
-        #     "Extension"    => "manual/2-extension.md",
-        # ],
+        "Manual"   => [
+            "Introduction" => "manual/0-intro.md",
+            "Basic Usage"  => "manual/1-basic.md",
+        ],
         # "Booklet"  => [
         #     "Introduction"   => "booklet/0-intro.md",
         #     "Library Design" => "booklet/1-design.md",
