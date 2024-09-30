@@ -27,8 +27,9 @@ makedocs(;
         "Home"     => "index.md",
         "API"      => "api.md",
         "Manual"   => [
-            "Introduction" => "manual/0-intro.md",
-            "Basic Usage"  => "manual/1-basic.md",
+            "Introduction"    => "manual/0-intro.md",
+            "Basic Usage"     => "manual/1-basic.md",
+            "Advanced Usage"  => "manual/2-advanced.md",
         ],
         # "Booklet"  => [
         #     "Introduction"   => "booklet/0-intro.md",

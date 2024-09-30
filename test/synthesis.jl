@@ -12,7 +12,7 @@ function test_wishart()
         let n = 100
             m = 10
 
-            model = QUBOLib.generate(QUBOLib.Wishart(n, m))
+            model = QUBOLib.Synthesis.generate(QUBOLib.Synthesis.Wishart(n, m))
 
             @test QUBOTools.dimension(model) == n
             @test QUBOTools.density(model) ≈ 1.0 atol = 1E-8
@@ -32,7 +32,7 @@ function test_sherrington_kirkpatrick()
             μ = 5.0
             σ = 1E-3
         
-            model = QUBOLib.generate(QUBOLib.SK(n, μ, σ))
+            model = QUBOLib.Synthesis.generate(QUBOLib.Synthesis.SK(n, μ, σ))
             
             @test QUBOTools.dimension(model) == n
             @test QUBOTools.density(model) ≈ 1.0 atol = 1E-8

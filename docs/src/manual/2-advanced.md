@@ -4,7 +4,7 @@
 
 ## Acessing Internal Data
 
-One is able to acess the database and archive of a [`LibraryIndex`](@ref) by recalling the [`QUBOLib.database`](@ref) and [`QUBOLib.archive`](@ref) functions.
+One is able to acess the database and archive of a [`QUBOLib.LibraryIndex`](@ref) by recalling the [`QUBOLib.database`](@ref) and [`QUBOLib.archive`](@ref) functions.
 
 
 ```julia
