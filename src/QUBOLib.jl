@@ -1,35 +1,99 @@
 module QUBOLib
 
+using ArgParse
 using LazyArtifacts
-using HDF5
-using JSON
-using JSONSchema
+using Downloads
 using JuliaFormatter
 using LaTeXStrings
 using SQLite
 using DataFrames
-using Tar
-using TOML
-using Pkg
 using UUIDs
-using QUBOTools
+using JuMP
+using SparseArrays
 using ProgressMeter
 
-const __PROJECT__ = abspath(@__DIR__, "..")
-const __VERSION__ = VersionNumber(TOML.parsefile(joinpath(__PROJECT__, "Project.toml"))["version"])
+import JSONSchema
+import Tar
+import TOML
+import Pkg
+import HDF5
+import JSON
+import Random
+import QUBOTools
+import PseudoBooleanOptimization as PBO
 
-function data_path()::AbstractString
-    return abspath(artifact"qubolib")
+const __PROJECT__ = Ref{Union{String,Nothing}}(nothing)
+
+function __project__()
+    if isnothing(__PROJECT__[])
+        proj_path = abspath(dirname(@__DIR__))
+    
+        @assert isdir(proj_path)
+    
+        __PROJECT__[] = proj_path
+    end
+
+    return __PROJECT__[]::String
 end
 
-# Data management methods
-include("management/index.jl")
+const __VERSION__ = Ref{Union{VersionNumber,Nothing}}(nothing)
 
-# Public API
-include("public/interface.jl")
-include("public/load.jl")
-include("public/list.jl")
-include("public/archive.jl")
-include("public/database.jl")
+function __version__()::VersionNumber
+    if isnothing(__VERSION__[])
+        proj_file_path = abspath(__project__(), "Project.toml")
+
+        @assert isfile(proj_file_path)
+
+        proj_file_data = TOML.parsefile(proj_file_path)
+
+        __VERSION__[] = VersionNumber(proj_file_data["version"])
+    end
+
+    return __VERSION__[]::VersionNumber
+end
+
+const QUBOLIB_SQL_PATH       = joinpath(@__DIR__, "assets", "qubolib.sql")
+const COLLECTION_SCHEMA_PATH = joinpath(@__DIR__, "assets", "collection.schema.json")
+const COLLECTION_SCHEMA      = JSONSchema.Schema(JSON.parsefile(COLLECTION_SCHEMA_PATH))
+
+const QUBOLIB_LOGO = """
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  ▄██████▄   ██    ██  █████▄   ▄██████▄ ┃
+┃ ██      ██  ██    ██  ██   ██  ██    ██ ┃
+┃ ██      ██  ██    ██  ██████   ██    ██ ┃
+┃ ██  ▀▀▄███  ██    ██  ██   ██  ██    ██ ┃
+┃  ▀██████▀▄▄ ▀██████▀  █████▀   ▀██████▀ ┃
+┃                                         ┃
+┃  ██       ██  ██      ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ┃
+┃  ██           ██      ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ┃
+┃  ██       ██  █████▄  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ┃
+┃  ██       ██  ██  ██  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ┃
+┃  ███████  ██  █████▀  ▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+"""
+
+function print_logo(io::IO = stdout)
+    println(io, QUBOLIB_LOGO)
+
+    return nothing
+end
+
+include("interface.jl")
+
+include("library/index.jl")
+include("library/path.jl")
+include("library/access.jl")
+
+include("library/instances.jl")
+include("library/collections.jl")
+include("library/solvers.jl")
+include("library/solutions.jl")
+
+include("library/synthesis/Synthesis.jl")
+
+include("actions/clear.jl")
+include("actions/deploy.jl")
+
+include("main.jl")
 
 end # module QUBOLib

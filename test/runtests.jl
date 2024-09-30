@@ -1,11 +1,14 @@
 using Test
-using QUBOLib
+using Statistics
 
-include("curation.jl")
+import QUBOTools
+import QUBOLib
+
+include("synthesis.jl")
 
 function main()
-    @testset "♣ QUBOLib.jl «$(QUBOLib.__VERSION__)» Test Suite ♣" verbose = true begin
-        test_curation()
+    @testset "♣ QUBOLib.jl «$(QUBOLib.__version__())» Test Suite ♣" verbose = true begin
+        test_synthesis()
     end
 
     return nothing

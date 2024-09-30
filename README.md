@@ -1,5 +1,11 @@
 # QUBOLib.jl
-QUBO Instances for benchmarking
+
+<div align="center">
+    <a href="/docs/src/assets/">
+        <img src="/docs/src/assets/logo.svg" width=400px alt="ToQUBO.jl" />
+    </a>
+    <br>
+</div>
 
 ## Introduction
 

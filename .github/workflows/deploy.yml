@@ -1,0 +1,58 @@
+name: Deployment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: '*'
+
+jobs:
+  publish:
+    if: ${{ !(github.event_name == 'push') || contains(github.event.head_commit.message, '[deploy]') }}
+    runs-on: ubuntu-latest
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+    - uses: actions/checkout@v2
+    - uses: julia-actions/setup-julia@v1
+      with:
+        version: '1.10'
+
+    # - name: Last release tag + Run main script + Git tree hash + Next release tag
+    #   run: |
+    #     export LAST_QUBOLIB_TAG="$(gh release view | sed -nr 's/tag:\s*(v\S*)/\1/p')"
+    #     julia "$GITHUB_WORKSPACE/deployment/script.jl"
+    #     export GIT_TREE_HASH=$(cat $GITHUB_WORKSPACE/deployment/tree.hash)
+    #     echo "GIT_TREE_HASH=$GIT_TREE_HASH" >> $GITHUB_ENV
+    #     export NEXT_QUBOLIB_TAG=$(cat $GITHUB_WORKSPACE/deployment/next.tag)
+    #     echo "TAG=$NEXT_QUBOLIB_TAG" >> $GITHUB_ENV
+
+    # - name: Compute SHA256 for the compressed tarball
+    #   run: |
+    #     SHA_256="$(sha256sum -z $GITHUB_WORKSPACE/dist/qubolib.tar.gz | cut -d " " -f 1)"
+    #     echo "SHA_256=$SHA_256" >> $GITHUB_ENV
+
+    # - name: Write release title
+    #   run: |
+    #     TITLE="QUBOLib $TAG"
+    #     echo "TITLE=$TITLE" >> $GITHUB_ENV
+
+    # - name: Write release notes
+    #   run: envsubst < "$GITHUB_WORKSPACE/deployment/NOTES.md" > "$RUNNER_TEMP/NOTES.md"
+
+    # - name: Publish release
+    #   run: >
+    #     gh release create $TAG
+    #     --latest
+    #     --notes-file "$RUNNER_TEMP/NOTES.md"
+    #     --title "$TITLE"
+    #     --target $GITHUB_SHA
+    #     dist/qubolib.tar.gz
+
+    # - name: Update Documentation
+    #   run: |
+    #     git config user.name  "github-actions"
+    #     git config user.email "github-actions@github.com"
+    #     git add "./*README.md"
+    #     git commit --allow-empty -m "Update Documentation"
+    #     git push
