@@ -84,6 +84,11 @@ include("library/path.jl")
 include("library/index.jl")
 include("library/access.jl")
 
+include("library/instances.jl")
+include("library/collections.jl")
+include("library/solvers.jl")
+include("library/solutions.jl")
+
 include("library/synthesis/Synthesis.jl")
 
 include("main.jl")

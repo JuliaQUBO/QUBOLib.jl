@@ -1,15 +1,19 @@
 function add_instance!(
     index::LibraryIndex,
-    coll::Symbol,
     model::QUBOTools.Model{Int,Float64,Int},
+    collection::AbstractString = "standalone",
 )::Integer
     @assert isopen(index)
 
+    db = QUBOLib.database(index)
+    h5 = QUBOLib.archive(index)
+
+    # Retrieve coefficients
     L = map(last, QUBOTools.linear_terms(model))
     Q = map(last, QUBOTools.quadratic_terms(model))
 
-    q = DBInterface.execute(
-        index.db,
+    query = DBInterface.execute(
+        db,
         """
         INSERT INTO Instances (
             collection       ,
@@ -43,7 +47,7 @@ function add_instance!(
         );
         """,
         (
-            string(coll),
+            String(collection),
             QUBOTools.dimension(model),
             min(minimum(L), minimum(Q)),
             max(maximum(L), maximum(Q)),
@@ -59,16 +63,32 @@ function add_instance!(
         ),
     )
 
-    i = DBInterface.lastrowid(q)
-    g = HDF5.create_group(index.h5["instances"], string(i))
+    i = DBInterface.lastrowid(query)::Integer
 
-    QUBOTools.write_model(g, model, QUBOTools.QUBin())
+    group = HDF5.create_group(h5["instances"], string(i))
+
+    QUBOTools.write_model(group, model, QUBOTools.QUBin())
 
     return i
+end
+
+function remove_instance!(index::LibraryIndex, i::Integer)
+    @assert isopen(index)
+
+    db = QUBOLib.database(index)
+    h5 = QUBOLib.archive(index)
+
+    DBInterface.execute(db, "DELETE FROM Instances WHERE instance = ?;", (i,))
+
+    HDF5.delete_object(h5["instances"], string(i))
+
+    return nothing
 end
 
 function load_instance(index::LibraryIndex, i::Integer)
     @assert isopen(index)
 
-    return QUBOTools.read_model(index.h5["instances"][string(i)], QUBOTools.QUBin())
+    h5 = QUBOLib.archive(index)
+
+    return QUBOTools.read_model(h5["instances"][string(i)], QUBOTools.QUBin())
 end

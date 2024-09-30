@@ -8,8 +8,8 @@ setup:
 build:
 	@julia --project=scripts/build ./scripts/build/build.jl
 
-clear-build:
-	@julia --project=scripts/build ./scripts/build/build.jl --clear-build
+clear:
+	@rm -rf ./dist
 
 run: setup
 	@julia --project=scripts/run/mqlib ./scripts/run/mqlib/run.jl

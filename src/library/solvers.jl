@@ -10,24 +10,24 @@ function has_solver(index::LibraryIndex, solver::String)
     return (only(df[!, 1]) > 0)
 end
 
-function add_solver!(index::LibraryIndex, solver::String, version::String, desc::String)
+function add_solver!(index::LibraryIndex, solver::AbstractString, data::Dict{String,Any})
     @assert isopen(index)
 
+    db = QUBOLib.database(index)
+
     DBInterface.execute(
-        index.db,
+        db,
         """
-        INSERT INTO solvers (
-            solver,
-            version,
-            description,
-        ) 
-        VALUES (
-            ?,
-            ?,
-            ?
-        )   
+        INSERT INTO solvers
+            (solver, version, description) 
+        VALUES
+            (?, ?, ?);
         """,
-        (name, version, desc),
+        (
+            String(solver),
+            get(data, "version", missing),
+            get(data, "description", missing),
+        ),
     )
 
     return nothing

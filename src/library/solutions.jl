@@ -19,44 +19,32 @@ function add_solution!(index::LibraryIndex, instance::Integer, sol::QUBOTools.Sa
     @assert isopen(index)
     @assert !isempty(sol)
 
-    if isempty(sol)
-        return nothing
-    end
-
     data = QUBOTools.metadata(sol)
 
     solver  = get(data, "solver", nothing)
     value   = QUBOTools.value(sol, 1)
+
     optimal = get(data, "status", nothing) == "optimal"
 
-    q = DBInterface.execute(
-        index.db,
+    db = QUBOLib.database(index)
+    h5 = QUBOLib.archive(index)
+
+    query = DBInterface.execute(
+        db,
         """
-        INSERT INTO Solutions (
-            instance,
-            solver,
-            value,
-            optimal
-        ) 
-        VALUES (
-            ?,
-            ?,
-            ?,
-            ?
-        )   
+        INSERT INTO Solutions
+            (instance, solver, value, optimal) 
+        VALUES
+            (?, ?, ?, ?)   
         """,
-        (
-            instance,
-            solver,
-            value,
-            optimal,
-        )
+        (instance, solver, value, optimal)
     )
 
-    i = DBInterface.lastrowid(q)
-    g = HDF5.create_group(index.h5["solutions"], string(i))
+    i = DBInterface.lastrowid(query)::Integer
 
-    _write_solution(g, sol, QUBOTools.QUBin())
+    group = HDF5.create_group(h5["solutions"], string(i))
+
+    QUBOTools.write_solution(group, sol, QUBOTools.QUBin())
 
     return i
 end
