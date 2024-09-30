@@ -2,7 +2,7 @@
 
 ## Getting Started
 
-```@example basic
+```julia
 using QUBOLib
 
 QUBOLib.access() do index
