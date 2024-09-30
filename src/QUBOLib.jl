@@ -80,8 +80,8 @@ end
 
 include("interface.jl")
 
-include("library/path.jl")
 include("library/index.jl")
+include("library/path.jl")
 include("library/access.jl")
 
 include("library/instances.jl")
@@ -90,6 +90,9 @@ include("library/solvers.jl")
 include("library/solutions.jl")
 
 include("library/synthesis/Synthesis.jl")
+
+include("actions/clear.jl")
+include("actions/deploy.jl")
 
 include("main.jl")
 

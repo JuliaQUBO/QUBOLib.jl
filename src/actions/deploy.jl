@@ -1,9 +1,9 @@
 function deploy(path::AbstractString)
     # Calculate tree hash
-    tree_hash = bytes2hex(Pkg.GitTools.tree_hash(dist_path(path)))
+    tree_hash = bytes2hex(Pkg.GitTools.tree_hash(build_path(path)))
 
     # Build tarball
-    temp_path = abspath(Tar.create(dist_path(path)))
+    temp_path = abspath(Tar.create(build_path(path)))
 
     # Compress tarball
     run(`gzip -9 $temp_path`)
@@ -18,11 +18,14 @@ function deploy(path::AbstractString)
     # Remove temporary files
     rm(temp_path; force = true)
     rm("$temp_path.gz"; force = true)
+
+    # Write hash to file
+    write(joinpath(dist_path(path), "tree.hash"), tree_hash)
     
     return nothing
 end
 
-function tag(path::AbstractString)
+function next_tag(path::AbstractString)
     last_tag = if haskey(ENV, "LAST_QUBOLIB_TAG")
         x = tryparse(VersionNumber, ENV["LAST_QUBOLIB_TAG"])
 
@@ -64,10 +67,4 @@ function tag(path::AbstractString)
     )
 
     return "v$next_tag"
-end
-
-function tag!(index::InstanceIndex)
-    index.next_tag[] = tag(index.root_path)
-
-    return nothing
 end

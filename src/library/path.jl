@@ -1,3 +1,20 @@
+raw"""
+    _get_path(path::AbstractString; create::Bool = false)
+"""
+function _get_path(
+    path::AbstractString;
+    create::Bool = false,
+    ifmissing::Any = path -> error("Path '$path' does not exist"),
+)::AbstractString
+    if ispath(path)
+        return abspath(path)
+    elseif create
+        return abspath(mkdir(path))
+    else
+        return ifmissing(path)
+    end
+end
+
 @doc raw"""
     library_path()::AbstractString
 
@@ -21,6 +38,8 @@ function database_path(
     return abspath(build_path(path; create, ifmissing), "index.db")
 end
 
+database_path(index::LibraryIndex; kws...) = database_path(index.path; kws...)
+
 @doc raw"""
     archive_path(path::AbstractString=library_path())::AbstractString
 
@@ -33,6 +52,8 @@ function archive_path(
 )::AbstractString
     return abspath(build_path(path; create, ifmissing), "archive.h5")
 end
+
+archive_path(index::LibraryIndex; kws...) = archive_path(index.path; kws...)
 
 # Functions below will be more often used when building the library,
 # therefore they will point to the the project's root path by default.
@@ -51,25 +72,6 @@ function root_path()::AbstractString
     return __project__()
 end
 
-raw"""
-    _get_path(path::AbstractString; create::Bool = false)
-"""
-function _get_path(
-    path::AbstractString;
-    create::Bool = false,
-    ifmissing::Any = path -> error("Path '$path' does not exist"),
-)::AbstractString
-    if ispath(path)
-        return abspath(path)
-    elseif create
-        return abspath(mkdir(path))
-    else
-        ifmissing(path)
-
-        return nothing
-    end
-end
-
 @doc raw"""
     dist_path(path::AbstractString=root_path())::AbstractString
 
@@ -83,6 +85,8 @@ function dist_path(
 )::AbstractString
     return _get_path(abspath(path, "dist"); create, ifmissing)
 end
+
+dist_path(index::LibraryIndex; kws...) = dist_path(index.path; kws...)
 
 @doc raw"""
     build_path(path::AbstractString=root_path())::AbstractString
@@ -98,6 +102,8 @@ function build_path(
     return _get_path(abspath(dist_path(path; create, ifmissing), "build"); create, ifmissing)
 end
 
+build_path(index::LibraryIndex; kws...) = build_path(index.path; kws...)
+
 @doc raw"""
     cache_path(path::AbstractString=root_path())::AbstractString
 
@@ -111,3 +117,5 @@ function cache_path(
 )::AbstractString
     return _get_path(abspath(dist_path(path; create, ifmissing), "cache"); create, ifmissing)
 end
+
+cache_path(index::LibraryIndex; kws...) = cache_path(index.path; kws...)

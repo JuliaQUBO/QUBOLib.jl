@@ -1,6 +1,10 @@
 # Define codec for QPLIB format
 # TODO: Make it available @ QUBOTools
 
+struct Format{F} <: QUBOTools.AbstractFormat
+    Format(F::Symbol) = new{F}()
+end
+
 function _read_qplib_model(path::AbstractString)
     return open(path, "r") do io
         _read_qplib_model(io)
@@ -24,7 +28,7 @@ function _read_qplib_float(io::IO, ∞::AbstractString)
     end
 end
 
-function _read_qplib_model(io::IO)
+function QUBOTools.read_model(io::IO, ::Format{:qplib})
     # Read the header
     code = _read_qplib_line(io)
 
@@ -102,8 +106,7 @@ function _read_qplib_model(io::IO)
     end
 
     for _ = 1:ln
-        let
-            line = _read_qplib_line(io)
+        let line = _read_qplib_line(io)
             m    = match(r"([0-9]+)\s+(\S+)", line)
 
             if isnothing(m)
@@ -121,25 +124,23 @@ function _read_qplib_model(io::IO)
 
     β = parse(Float64, _read_qplib_line(io)) # objective constant
 
-    ∞ = _read_qplib_line(io) # value for infinity
+    inf = _read_qplib_line(io) # value for infinity
 
-    @assert _read_qplib_float(io, ∞) isa Float64 # default variable primal value in starting point
+    @assert _read_qplib_float(io, inf) isa Float64 # default variable primal value in starting point
     @assert iszero(parse(Int, _read_qplib_line(io))) # number of non-default variable primal values in starting point
 
-    @assert _read_qplib_float(io, ∞) isa Float64 # default variable bound dual value in starting point
+    @assert _read_qplib_float(io, inf) isa Float64 # default variable bound dual value in starting point
     @assert iszero(parse(Int, _read_qplib_line(io))) # number of non-default variable bound dual values in starting point
 
     @assert iszero(parse(Int, _read_qplib_line(io))) # number of non-default variable names
     @assert iszero(parse(Int, _read_qplib_line(io))) # number of non-default constraint names
 
     return QUBOTools.Model{Int,Float64,Int}(
-        V,
-        L,
-        Q;
-        offset = β,
-        domain = :bool,
-        sense = (sense == "minimize") ? :min : :max,
-        description = "QPLib instance '$code'",
+        V, L, Q;
+        offset      = β,
+        domain      = :bool,
+        sense       = (sense == "minimize") ? :min : :max,
+        description = "QPLib instance no. $code",
     )
 end
 
@@ -234,14 +235,14 @@ end
 
 const QPLIB_URL = "http://qplib.zib.de/qplib.zip"
 
-function build_qplib!(index::LibraryIndex; cache::Bool = true)
-    if QUBOLib.has_collection(index, :qplib)
+function build_qplib!(index::QUBOLib.LibraryIndex; cache::Bool = true)
+    if QUBOLib.has_collection(index, "qplib")
         @info "[qplib] Collection already exists"
 
         if cache
             return nothing
         else
-            QUBOLib.remove_collection!(index, :qplib)
+            QUBOLib.remove_collection!(index, "qplib")
         end
     end
 
@@ -249,29 +250,43 @@ function build_qplib!(index::LibraryIndex; cache::Bool = true)
 
     QUBOLib.add_collection!(
         index,
-        :qplib,
+        "qplib",
         Dict{String,Any}(
             "name"        => "QPLIB",
-            "author"      => ["", ""],
+            "author"      => [
+                "Fabio Furini",
+                "Emiliano Traversi",
+                "Pietro Belotti",
+                "Antonio Frangioni",
+                "Ambros Gleixner",
+                "Nick Gould",
+                "Leo Liberti",
+                "Andrea Lodi",
+                "Ruth Misener",
+                "Hans Mittelmann",
+                "Nikolaos Sahinidis",
+                "Stefan Vigerske",
+                "Angelika Wiegele"
+            ],
             "description" => "The Quadratic Programming Library",
             "year"        => 2014,
             "url"         => "http://qplib.zib.de/",
         ),
     )
 
-    code_list = _load_qplib!()
+    code_list = load_qplib!(index)
 
     @info "[qplib] Building index"
 
-    qplib_data_path = abspath(QUBOLib.cache_path(), "qplib", "data")
+    _data_path = abspath(QUBOLib.cache_path(index; create = true), "qplib", "data")
 
     for code in code_list
-        mod_path = joinpath(qplib_data_path, "$(code).qplib")
-        var_path = joinpath(qplib_data_path, "$(code).lp")
-        sol_path = joinpath(qplib_data_path, "$(code).sol")
+        mod_path = joinpath(_data_path, "$(code).qplib")
+        var_path = joinpath(_data_path, "$(code).lp")
+        sol_path = joinpath(_data_path, "$(code).sol")
 
-        model = _read_qplib_model(mod_path)
-        mod_i = QUBOLib.add_instance!(index, :qplib, model)
+        model = QUBOTools.read_model(mod_path, Format(:qplib))
+        mod_i = QUBOLib.add_instance!(index, model, "qplib")
 
         if isfile(sol_path)
             var_map = _get_qplib_var_map(var_path)
@@ -291,19 +306,20 @@ function build_qplib!(index::LibraryIndex; cache::Bool = true)
     return nothing
 end
 
-function _load_qplib!()
+function load_qplib!(index::QUBOLib.LibraryIndex)
     @assert Sys.isunix() "Processing QPLIB is only possible on Unix systems"
 
-    qplib_cache_path = mkpath(abspath(QUBOLib.cache_path(), "qplib"))
-    qplib_data_path  = mkpath(abspath(qplib_cache_path, "data"))
-    qplib_zip_path   = abspath(qplib_cache_path, "qplib.zip")
+    _cache_path = mkpath(abspath(QUBOLib.cache_path(index; create = true), "qplib"))
+    _data_path  = mkpath(abspath(_cache_path, "data"))
+    _zip_path   = abspath(_cache_path, "qplib.zip")
 
     # Download QPLIB archive
-    if isfile(qplib_zip_path)
+    if isfile(_zip_path)
         @info "[qplib] Archive already downloaded"
     else
         @info "[qplib] Downloading archive"
-        Downloads.download(QPLIB_URL, qplib_zip_path)
+
+        Downloads.download(QPLIB_URL, _zip_path)
     end
 
     # Extract QPLIB archive
@@ -313,11 +329,11 @@ function _load_qplib!()
 
     run(```
         unzip -qq -o -j 
-            $qplib_zip_path
+            $_zip_path
             'qplib/html/qplib/*'
             'qplib/html/sol/*'
             'qplib/html/lp/*'
-            -d $qplib_data_path
+            -d $_data_path
         ```)
 
     # Remove non-QUBO instances
@@ -325,13 +341,13 @@ function _load_qplib!()
 
     code_list = String[]
 
-    for file_path in filter(endswith(".qplib"), readdir(qplib_data_path; join = true))
+    for file_path in filter(endswith(".qplib"), readdir(_data_path; join = true))
         code = readline(file_path)
 
         if !_is_qplib_qubo(file_path)
-            rm(joinpath(qplib_data_path, "$(code).qplib"); force = true)
-            rm(joinpath(qplib_data_path, "$(code).lp"); force = true)
-            rm(joinpath(qplib_data_path, "$(code).sol"); force = true)
+            rm(joinpath(_data_path, "$(code).qplib"); force = true)
+            rm(joinpath(_data_path, "$(code).lp"); force = true)
+            rm(joinpath(_data_path, "$(code).sol"); force = true)
         else
             push!(code_list, code)
         end

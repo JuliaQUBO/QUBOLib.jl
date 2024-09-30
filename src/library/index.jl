@@ -6,6 +6,12 @@ The QUBOLib index is composed of two pieces: a SQLite database and an HDF5 archi
 struct LibraryIndex
     db::SQLite.DB
     h5::HDF5.File
+
+    path::String
+
+    function LibraryIndex(db::SQLite.DB, h5::HDF5.File; path::AbstractString = library_path())
+        return new(db, h5, path)
+    end
 end
 
 function Base.isopen(index::LibraryIndex)

@@ -19,7 +19,7 @@ function access(; path::AbstractString = library_path(), create::Bool = false)
         end
     end
 
-    return LibraryIndex(db, h5)
+    return LibraryIndex(db, h5; path)
 end
 
 function access(callback::Any; path::AbstractString = library_path(), create::Bool = false)
@@ -38,7 +38,7 @@ function create_index(path::AbstractString)
     db = create_database(database_path(path; create = true))
     h5 = create_archive(archive_path(path; create = true))
 
-    return LibraryIndex(db, h5)
+    return LibraryIndex(db, h5; path)
 end
 
 function load_database(path::AbstractString)::Union{SQLite.DB,Nothing}

@@ -44,7 +44,7 @@ function add_solution!(index::LibraryIndex, instance::Integer, sol::QUBOTools.Sa
 
     group = HDF5.create_group(h5["solutions"], string(i))
 
-    QUBOTools.write_solution(group, sol, QUBOTools.QUBin())
+    _write_solution(group, sol, QUBOTools.QUBin())
 
     return i
 end

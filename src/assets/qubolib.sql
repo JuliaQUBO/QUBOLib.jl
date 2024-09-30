@@ -68,5 +68,5 @@ CREATE TABLE Solvers
 (
   solver      TEXT PRIMARY KEY,
   version     TEXT        NULL,
-  description TEXT        NULL,
+  description TEXT        NULL
 );
