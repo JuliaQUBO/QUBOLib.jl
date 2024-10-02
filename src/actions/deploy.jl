@@ -1,4 +1,6 @@
 function deploy(path::AbstractString)
+    @assert Sys.islinux()
+
     # Calculate tree hash
     tree_hash = bytes2hex(Pkg.GitTools.tree_hash(build_path(path)))
 
@@ -21,6 +23,11 @@ function deploy(path::AbstractString)
 
     # Write hash to file
     write(joinpath(dist_path(path), "tree.hash"), tree_hash)
+
+    # Also, compute sha256 sum
+    ball_hash = read(pipeline(`sha256sum -z $file_path`, `cut -d ' ' -f 1`), String)
+
+    write(joinpath(dist_path(path), "ball.hash"), ball_hash)
     
     return nothing
 end

@@ -7,9 +7,9 @@ struct LibraryIndex
     db::SQLite.DB
     h5::HDF5.File
 
-    path::String
+    path::String # equivalent to .../build
 
-    function LibraryIndex(db::SQLite.DB, h5::HDF5.File; path::AbstractString = library_path())
+    function LibraryIndex(db::SQLite.DB, h5::HDF5.File, path::AbstractString)
         return new(db, h5, path)
     end
 end
