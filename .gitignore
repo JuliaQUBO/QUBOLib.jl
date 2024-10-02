@@ -25,6 +25,7 @@ Manifest.toml
 
 # Distribution Files
 dist/
+qubolib/
 
 # PythonCall
 .CondaPkg
