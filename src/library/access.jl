@@ -16,11 +16,11 @@ function access(callback::Any; path::AbstractString)
 end
 
 function access(; path::AbstractString = pwd())
-    if !is_installed(path)
-        install(path)
+    if !is_installed(library_path(path))
+        install(library_path(path))
     end
 
-    return load_index(path)
+    return load_index(library_path(path))
 end
 
 function is_installed(path::AbstractString)::Bool
@@ -28,9 +28,21 @@ function is_installed(path::AbstractString)::Bool
 end
 
 function install(path::AbstractString)
-    cp(library_path(), mkdir(library_path(path)); force = true)
+    mkdir(path)
 
-    chmod(library_path(path), 0o666; recursive = true)
+    for src_name in readdir(library_path())
+        src_path = abspath(library_path(), src_name)
+        dst_path = abspath(path, src_name)
+        
+        cp(
+            src_path,
+            dst_path;
+            force           = true,
+            follow_symlinks = true,
+        )
+
+        chmod(dst_path, 0o644)
+    end
 
     return nothing
 end
