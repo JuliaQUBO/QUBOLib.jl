@@ -1,4 +1,4 @@
-function access(callback::Any; path::AbstractString)
+function access(callback::Any; path::AbstractString = pwd())
     index = access(; path)
 
     @assert isopen(index)
