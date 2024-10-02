@@ -46,3 +46,14 @@ julia> models = QUBOLib.access() do index
            return [load_instance(index, i) for i in df[!, :instance]]
        end
 ```
+
+### Listing Collections
+
+```julia
+julia> QUBOLib.access() do index
+           DBInterface.execute(
+               QUBOLib.database(index),
+               "SELECT * FROM Collections;"
+           ) |> DataFrame
+       end
+```
