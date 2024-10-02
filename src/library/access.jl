@@ -1,44 +1,60 @@
-function access(; path::AbstractString = library_path(), create::Bool = false)
-    ifmissing = _ -> error(
-        """
-        There's no valid QUBOLib installation at '$path'.
-        Try running `QUBOLib.access` with the `create = true` keyword set in order to generate one from scratch.
-        """,
-    )
-
-    db = load_database(database_path(path; create, ifmissing))
-    h5 = load_archive(archive_path(path; create, ifmissing))
-
-    if isnothing(db) || isnothing(h5)
-        if create
-            return create_index(path)
-        else
-            error("Failed to load index from '$path'")
-
-            return nothing
-        end
-    end
-
-    return LibraryIndex(db, h5; path)
-end
-
-function access(callback::Any; path::AbstractString = library_path(), create::Bool = false)
-    index = access(; path, create)
+function access(callback::Any; path::AbstractString)
+    index = access(; path)
 
     @assert isopen(index)
 
     try
+        # TODO: Start transaction here
         return callback(index)
+    catch err
+        # TODO: Implement some transaction rollback functionality!
+        rethrow(err)
     finally
+        # TODO: Close transaction here
         close(index)
     end
 end
 
-function create_index(path::AbstractString)
-    db = create_database(database_path(path; create = true))
-    h5 = create_archive(archive_path(path; create = true))
+function access(; path::AbstractString = pwd())
+    if !is_installed(path)
+        install(path)
+    end
 
-    return LibraryIndex(db, h5; path)
+    return load_index(path)
+end
+
+function is_installed(path::AbstractString)::Bool
+    return isdir(path) && isfile(database_path(path)) && isfile(archive_path(path))
+end
+
+function install(path::AbstractString)
+    cp(library_path(), mkdir(library_path(path)); force = true)
+
+    chmod(library_path(path), 0o666; recursive = true)
+
+    return nothing
+end
+
+function load_index(path::AbstractString)
+    @assert isdir(path)
+
+    db = load_database(database_path(path))
+    h5 = load_archive(archive_path(path))
+
+    if isnothing(db) || isnothing(h5)
+        # In this case, we have to create both
+        return create_index(path)
+    else
+        return LibraryIndex(db, h5, path)
+    end
+end
+
+function create_index(path::AbstractString)
+    # When building, $path is assumed to be pointing to dist/build
+    db = create_database(database_path(path))
+    h5 = create_archive(archive_path(path))
+
+    return LibraryIndex(db, h5, path)
 end
 
 function load_database(path::AbstractString)::Union{SQLite.DB,Nothing}
@@ -55,13 +71,7 @@ function create_database(path::AbstractString)
     db = SQLite.DB(path)
 
     open(QUBOLIB_SQL_PATH) do file
-        for stmt in eachsplit(read(file, String), ';')
-            stmt = strip(stmt)
-
-            if !isempty(stmt)
-                DBInterface.execute(db, stmt)
-            end
-        end
+        DBInterface.executemultiple(db, read(file, String))
     end
 
     return db
