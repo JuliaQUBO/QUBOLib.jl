@@ -1,10 +1,15 @@
+using JuliaFormatter
+using LaTeXStrings
+
 import QUBOLib
 import QUBOTools
 import Downloads
 
-include("arXiv_1903_10928_3r3x.jl")
-include("arXiv_1903_10928_5r5x.jl")
-include("qplib.jl")
+include("library/deploy.jl")
+
+include("sources/arXiv_1903_10928_3r3x.jl")
+include("sources/arXiv_1903_10928_5r5x.jl")
+include("sources/qplib.jl")
 
 function build_standard_qubolib(
     path::AbstractString = root_path();

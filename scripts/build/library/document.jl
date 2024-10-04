@@ -1,31 +1,41 @@
-function _document!(path::AbstractString, collection::AbstractString; verbose::Bool = false)
-    verbose && @info "Writing docs: '$collection'"
+function document(index::LibraryIndex)
+    df = DBInterface.execute(
+        QUBOLib.database(index),
+        "SELECT collection FROM Collections WHERE collection != 'standalone';"
+    ) |> DataFrame
 
+    for collection in df[!, :collection]
+        @info "Generating Documentation for '$collection'"
+
+        document(index, collection)
+    end
+
+    return nothing
+end
+
+function document(index::LibraryIndex, collection::AbstractString)
     coll_path = joinpath(path, collection)
     file_path = joinpath(coll_path, "README.md")
 
     readme = """
     # $(collection)
 
-    $(_summary_table(path, collection))
+    $(summary_table(path, collection))
 
-    $(_references(path, collection))
+    $(references(path, collection))
     """
 
     write(file_path, readme)
 
-    while !JuliaFormatter.format_file(file_path; format_markdown=true)
-    end
+    while !JuliaFormatter.format_file(file_path; format_markdown=true) end
 
     return nothing
 end
 
-function _document!(path::AbstractString; verbose::Bool = false)
-    for collection in _list_collections(path)
-        _document!(path, collection; verbose)
+function document(path::AbstractString)
+    for collection in list_collections(path)
+        document(path, collection)
     end
-
-    verbose && @info "Writing docs: Table of Contents"
 
     file_path = joinpath(path, "README.md")
     
@@ -37,8 +47,7 @@ function _document!(path::AbstractString; verbose::Bool = false)
 
     write(file_path, readme)
 
-    while !JuliaFormatter.format_file(file_path; format_markdown=true)
-    end
+    while !JuliaFormatter.format_file(file_path; format_markdown=true) end
 
     return nothing
 end
