@@ -6,7 +6,6 @@ using DataFrames
 using JuMP
 
 import JSONSchema
-import Tar
 import Pkg
 import HDF5
 import JSON
