@@ -1,7 +1,8 @@
 function add_instance!(
     index::LibraryIndex,
     model::QUBOTools.Model{Int,Float64,Int},
-    collection::AbstractString = "standalone",
+    collection::AbstractString = "standalone";
+    name::Union{<:AbstractString,Nothing} = nothing,
 )::Integer
     @assert isopen(index)
 
@@ -15,39 +16,29 @@ function add_instance!(
     query = DBInterface.execute(
         db,
         """
-        INSERT INTO Instances (
-            collection       ,
-            dimension        ,
-            min              ,
-            max              ,
-            abs_min          ,
-            abs_max          ,
-            linear_min       ,
-            linear_max       ,
-            quadratic_min    ,
-            quadratic_max    ,
-            density          ,
-            linear_density   ,
-            quadratic_density
-        ) 
-        VALUES (
-            ?,
-            ?,
-            ?,
-            ?,
-            ?,
-            ?,
-            ?,
-            ?,
-            ?,
-            ?,
-            ?,
-            ?,
-            ?
-        );
+        INSERT INTO
+            Instances (
+                collection       ,
+                name             ,
+                dimension        ,
+                min              ,
+                max              ,
+                abs_min          ,
+                abs_max          ,
+                linear_min       ,
+                linear_max       ,
+                quadratic_min    ,
+                quadratic_max    ,
+                density          ,
+                linear_density   ,
+                quadratic_density
+            ) 
+        VALUES
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """,
         (
             String(collection),
+            isnothing(name) ? missing : String(name),
             QUBOTools.dimension(model),
             min(minimum(L), minimum(Q)),
             max(maximum(L), maximum(Q)),

@@ -38,6 +38,7 @@ CREATE TABLE Instances
 (
   instance          INTEGER PRIMARY KEY,
   collection        TEXT    NOT NULL   ,
+  name              TEXT        NULL   ,
   dimension         INTEGER NOT NULL   ,
   min               REAL    NOT NULL   ,
   max               REAL    NOT NULL   ,

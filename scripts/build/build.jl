@@ -1,40 +1,38 @@
 using JuliaFormatter
 using LaTeXStrings
+import Downloads
 
 import QUBOLib
 import QUBOTools
-import Downloads
 
+include("library/clear.jl")
 include("library/deploy.jl")
 
-include("sources/arXiv_1903_10928_3r3x.jl")
-include("sources/arXiv_1903_10928_5r5x.jl")
+include("sources/hen.jl")
 include("sources/qplib.jl")
 
 function build_standard_qubolib(
-    path::AbstractString = root_path();
-    clear_build::Bool = false,
+    path::AbstractString;
     clear_cache::Bool = false,
+    clear_build::Bool = false,
 )
-    @info "Building QUBOLib v$(QUBOLib.__version__())"
-
-    if clear_build
-        QUBOLib.clear_build(path)
-    end
+    @info "Building QUBOLib v$(QUBOLib.__version__()) @ $(path)"
 
     if clear_cache
-        QUBOLib.clear_cache(path)
+        @info "[Clearing Cache]"
+
+        clear_cache!(path)
     end
 
-    close(QUBOLib.access(; path, create = true))
+    if clear_build
+        @info "[Clearing Build]"
+
+        QUBOLib.access(; path, clear = true) |> close
+    end
 
     QUBOLib.access(; path) do index
-        build_arXiv_1903_10928_3r3x!(index)
+        build_hen!(index)
     end
-
-    # QUBOLib.access(; path) do index
-    #     build_arXiv_1903_10928_5r5x!(index)
-    # end
 
     QUBOLib.access(; path) do index
         build_qplib!(index)
@@ -43,15 +41,14 @@ function build_standard_qubolib(
     return nothing
 end
 
+function main(args::Vector{String} = ARGS)
+    QUBOLib.print_logo(stdout)
 
-function main()
     build_standard_qubolib(
         QUBOLib.root_path();
-        clear_build = ("--clear-build" ∈ ARGS),
-        clear_cache = ("--clear-cache" ∈ ARGS),
+        clear_cache = ("--clear-cache" ∈ args),
+        clear_build = ("--clear-build" ∈ args),
     )
 
     return nothing
 end
-
-main() # Here we go!

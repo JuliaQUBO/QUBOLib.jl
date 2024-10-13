@@ -278,15 +278,15 @@ function build_qplib!(index::QUBOLib.LibraryIndex; cache::Bool = true)
 
     @info "[qplib] Building index"
 
-    _data_path = abspath(QUBOLib.cache_path(index; create = true), "qplib", "data")
+    data_path = QUBOLib.cache_data_path(index, "qplib")
 
     for code in code_list
-        mod_path = joinpath(_data_path, "$(code).qplib")
-        var_path = joinpath(_data_path, "$(code).lp")
-        sol_path = joinpath(_data_path, "$(code).sol")
+        mod_path = joinpath(data_path, "$(code).qplib")
+        var_path = joinpath(data_path, "$(code).lp")
+        sol_path = joinpath(data_path, "$(code).sol")
 
         model = QUBOTools.read_model(mod_path, Format(:qplib))
-        mod_i = QUBOLib.add_instance!(index, model, "qplib")
+        mod_i = QUBOLib.add_instance!(index, model, "qplib"; name = basename(mod_path))
 
         if isfile(sol_path)
             var_map = _get_qplib_var_map(var_path)
@@ -309,17 +309,16 @@ end
 function load_qplib!(index::QUBOLib.LibraryIndex)
     @assert Sys.isunix() "Processing QPLIB is only possible on Unix systems"
 
-    _cache_path = mkpath(abspath(QUBOLib.cache_path(index; create = true), "qplib"))
-    _data_path  = mkpath(abspath(_cache_path, "data"))
-    _zip_path   = abspath(_cache_path, "qplib.zip")
+    data_path  = mkpath(QUBOLib.cache_data_path(index, "qplib"))
+    file_path   = abspath(QUBOLib.cache_path(index, "qplib"), "qplib.zip")
 
     # Download QPLIB archive
-    if isfile(_zip_path)
+    if isfile(file_path)
         @info "[qplib] Archive already downloaded"
     else
         @info "[qplib] Downloading archive"
 
-        Downloads.download(QPLIB_URL, _zip_path)
+        Downloads.download(QPLIB_URL, file_path)
     end
 
     # Extract QPLIB archive
@@ -329,11 +328,11 @@ function load_qplib!(index::QUBOLib.LibraryIndex)
 
     run(```
         unzip -qq -o -j 
-            $_zip_path
+            $file_path
             'qplib/html/qplib/*'
             'qplib/html/sol/*'
             'qplib/html/lp/*'
-            -d $_data_path
+            -d $data_path
         ```)
 
     # Remove non-QUBO instances
@@ -341,13 +340,13 @@ function load_qplib!(index::QUBOLib.LibraryIndex)
 
     code_list = String[]
 
-    for file_path in filter(endswith(".qplib"), readdir(_data_path; join = true))
-        code = readline(file_path)
+    for model_path in filter(endswith(".qplib"), readdir(data_path; join = true))
+        code = readline(model_path)
 
-        if !_is_qplib_qubo(file_path)
-            rm(joinpath(_data_path, "$(code).qplib"); force = true)
-            rm(joinpath(_data_path, "$(code).lp"); force = true)
-            rm(joinpath(_data_path, "$(code).sol"); force = true)
+        if !_is_qplib_qubo(model_path)
+            rm(joinpath(data_path, "$(code).qplib"); force = true)
+            rm(joinpath(data_path, "$(code).lp"); force = true)
+            rm(joinpath(data_path, "$(code).sol"); force = true)
         else
             push!(code_list, code)
         end

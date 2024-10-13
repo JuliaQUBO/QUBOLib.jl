@@ -8,3 +8,7 @@ The HDF5 file format is used to store the data. The data is stored in a hierarch
 
 - `instances`: Contains the instances of the data.
 - `solutions`: Contains the solutions to the instances.
+
+## Collections
+
+One of the core ideas behind [`QUBOLib`](https://github.com/JuliaQUBO/QUBOLib.jl) is to deploy other QUBO instance libraries in a bundle.

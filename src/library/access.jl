@@ -1,5 +1,5 @@
-function access(callback::Any; path::AbstractString = pwd())
-    index = access(; path)
+function access(callback::Any; path::AbstractString = pwd(), clear::Bool = false)
+    index = access(; path, clear)
 
     @assert isopen(index)
 
@@ -15,58 +15,78 @@ function access(callback::Any; path::AbstractString = pwd())
     end
 end
 
-function access(; path::AbstractString = pwd())
-    if !is_installed(library_path(path))
-        install(library_path(path))
+function access(; path::AbstractString = pwd(), clear::Bool = false)
+    if !is_installed(path) || clear
+        install(path; clear)
     end
 
-    return load_index(library_path(path))
+    return load_index(path)
 end
 
 function is_installed(path::AbstractString)::Bool
-    return isdir(path) && isfile(database_path(path)) && isfile(archive_path(path))
+    lib_path = library_path(path)
+
+    return isdir(lib_path) && isfile(database_path(lib_path)) && isfile(archive_path(lib_path))
 end
 
-function install(path::AbstractString)
-    mkdir(path)
+function install(path::AbstractString; clear::Bool = false)
+    lib_path = library_path(path)
 
-    for src_name in readdir(library_path())
-        src_path = abspath(library_path(), src_name)
-        dst_path = abspath(path, src_name)
-        
-        cp(
-            src_path,
-            dst_path;
-            force           = true,
-            follow_symlinks = true,
-        )
+    if clear
+        rm(lib_path; force = true, recursive = true)
 
-        chmod(dst_path, 0o644)
+        mkpath(lib_path)
+    else
+        mkpath(lib_path)
+
+        for src_name in readdir(library_path())
+            src_path = abspath(library_path(), src_name)
+            dst_path = abspath(lib_path, src_name)
+            
+            cp(
+                src_path,
+                dst_path;
+                force           = true,
+                follow_symlinks = true,
+            )
+
+            chmod(dst_path, 0o644)
+        end
     end
 
     return nothing
 end
 
 function load_index(path::AbstractString)
-    @assert isdir(path)
+    lib_path = library_path(path)
 
-    db = load_database(database_path(path))
-    h5 = load_archive(archive_path(path))
+    @assert isdir(lib_path)
 
-    if isnothing(db) || isnothing(h5)
+    db = load_database(database_path(lib_path))
+    h5 = load_archive(archive_path(lib_path))
+
+    if isnothing(db) && isnothing(h5)
         # In this case, we have to create both
         return create_index(path)
+    elseif isnothing(db) || isnothing(h5)
+        error("QUBOLib Installation is compromised: Try running `access` with the `clear` argument set to `true`.")
+
+        return nothing
     else
-        return LibraryIndex(db, h5, path)
+        return LibraryIndex(db, h5, lib_path)
     end
 end
 
 function create_index(path::AbstractString)
-    # When building, $path is assumed to be pointing to dist/build
-    db = create_database(database_path(path))
-    h5 = create_archive(archive_path(path))
+    # When building, $path is assumed to be pointing to dist/ or any other root path
+    lib_path = library_path(path)
 
-    return LibraryIndex(db, h5, path)
+    @assert isdir(lib_path)
+
+    db = create_database(database_path(lib_path))
+    h5 = create_archive(archive_path(lib_path))
+
+    return LibraryIndex(db, h5, lib_path)
 end
 
 function load_database(path::AbstractString)::Union{SQLite.DB,Nothing}
@@ -77,13 +97,19 @@ function load_database(path::AbstractString)::Union{SQLite.DB,Nothing}
     end
 end
 
+function each_stmt(src::AbstractString)
+    return Iterators.filter(!isempty, Iterators.map(strip, eachsplit(src, ';')))
+end
+
 function create_database(path::AbstractString)
     rm(path; force = true) # Remove file if it exists
 
     db = SQLite.DB(path)
 
     open(QUBOLIB_SQL_PATH) do file
-        DBInterface.executemultiple(db, read(file, String))
+        for stmt in each_stmt(read(file, String))
+            DBInterface.execute(db, stmt)
+        end
     end
 
     return db

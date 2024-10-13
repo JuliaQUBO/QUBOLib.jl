@@ -6,13 +6,13 @@ setup:
 	@julia --project=scripts/build -e 'import Pkg; Pkg.develop(path=@__DIR__)'
 
 build:
-	@julia --project=scripts/build ./scripts/build/build.jl
+	@julia --project=scripts/build scripts/build/script.jl
+
+test-build:
+	@julia --project=scripts/build --load scripts/build/runtests.jl --eval 'test_main()'
 
 clear:
 	@rm -rf ./dist
-
-run: setup
-	@julia --project=scripts/run/mqlib ./scripts/run/mqlib/run.jl
 
 setup-docs:
 	@julia --project=docs -e 'import Pkg; Pkg.develop(path=@__DIR__); Pkg.instantiate()'
