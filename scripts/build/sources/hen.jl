@@ -1,6 +1,6 @@
 const HEN_DATA = Dict(
     "arXiv-1903-10928-3r3x" => Dict(
-        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror/arXiv-1903-10928-3r3x.zip",
+        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/arXiv-1903-10928-3r3x.zip",
         :data => Dict{String,Any}(
             "name"        => "3-Regular 3-XORSAT (arXiv:1903.10928)",
             "author"      => ["Itay Hen"],
@@ -10,7 +10,7 @@ const HEN_DATA = Dict(
         ),
     ),
     "arXiv-1903-10928-5r5x" => Dict(
-        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror/arXiv-1903-10928-5r5x.zip",
+        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/arXiv-1903-10928-5r5x.zip",
         :data => Dict{String,Any}(
             "name"        => "5-Regular 5-XORSAT (arXiv:1903.10928)",
             "author"      => ["Itay Hen"],
@@ -20,7 +20,7 @@ const HEN_DATA = Dict(
         ),
     ),
     "arXiv-2103-08464-3r3x" => Dict(
-        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror/arXiv-2103-08464-3r3x.zip",
+        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/arXiv-2103-08464-3r3x.zip",
         :data => Dict{String,Any}(
             "name"        => "3-Regular 3-XORSAT (arXiv:2103.08464)",
             "author"      => ["Matthew Kowalsky", "Tameem Albash", "Itay Hen", "Daniel A. Lidar"],

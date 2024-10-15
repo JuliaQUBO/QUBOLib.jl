@@ -233,7 +233,7 @@ function _get_qplib_var_map(path::AbstractString, n::Integer = 1)
     return Dict{Int,Int}(v => i for (i, v) in enumerate(sort!(collect(var_set))))
 end
 
-const QPLIB_URL = "http://qplib.zib.de/qplib.zip"
+const QPLIB_URL = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/qplib.zip"
 
 function build_qplib!(index::QUBOLib.LibraryIndex; cache::Bool = true)
     if QUBOLib.has_collection(index, "qplib")
