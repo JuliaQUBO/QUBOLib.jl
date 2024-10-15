@@ -1,0 +1,6 @@
+# Julia residue
+Manifest.toml
+
+# QUBOLib
+dist/
+qubolib/
