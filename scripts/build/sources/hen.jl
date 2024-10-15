@@ -1,6 +1,6 @@
 const HEN_DATA = Dict(
     "arXiv-1903-10928-3r3x" => Dict(
-        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror-v0/arXiv-1903-10928-3r3x.zip",
+        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror/arXiv-1903-10928-3r3x.zip",
         :data => Dict{String,Any}(
             "name"        => "3-Regular 3-XORSAT (arXiv:1903.10928)",
             "author"      => ["Itay Hen"],
@@ -10,7 +10,7 @@ const HEN_DATA = Dict(
         ),
     ),
     "arXiv-1903-10928-5r5x" => Dict(
-        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror-v0/arXiv-1903-10928-5r5x.zip",
+        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror/arXiv-1903-10928-5r5x.zip",
         :data => Dict{String,Any}(
             "name"        => "5-Regular 5-XORSAT (arXiv:1903.10928)",
             "author"      => ["Itay Hen"],
@@ -20,7 +20,7 @@ const HEN_DATA = Dict(
         ),
     ),
     "arXiv-2103-08464-3r3x" => Dict(
-        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror-v0/arXiv-2103-08464-3r3x.zip",
+        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror/arXiv-2103-08464-3r3x.zip",
         :data => Dict{String,Any}(
             "name"        => "3-Regular 3-XORSAT (arXiv:2103.08464)",
             "author"      => ["Matthew Kowalsky", "Tameem Albash", "Itay Hen", "Daniel A. Lidar"],
@@ -67,8 +67,6 @@ function build_hen!(index::QUBOLib.LibraryIndex; cache::Bool = true)
 end
 
 function build_hen!(index::QUBOLib.LibraryIndex, code::AbstractString; cache::Bool = true)
-    @info "[$code] Building index"
-
     if QUBOLib.has_collection(index, code)
         @info "[$code] Collection already exists"
 
@@ -80,6 +78,8 @@ function build_hen!(index::QUBOLib.LibraryIndex, code::AbstractString; cache::Bo
     end
 
     load_hen!(index, code)
+
+    @info "[$code] Building index"
 
     QUBOLib.add_collection!(index, code, HEN_DATA[code][:data])
 
@@ -126,6 +126,20 @@ function patch_hen!(index::QUBOLib.LibraryIndex, code::AbstractString)
 
             rm(path; force = true)
         end
+    end
+
+    return nothing
+end
+
+function deploy_hen!(index::QUBOLib.LibraryIndex)
+    close(index)
+
+    for code in keys(HEN_DATA)
+        src_path = QUBOLib.cache_data_path(index, code)
+        dst_path = mkpath(joinpath(QUBOLib.build_path(index), "mirror"))
+        zip_path = joinpath(dst_path, "$code.zip")
+
+        run(`zip -q -j -r $zip_path $src_path`)
     end
 
     return nothing

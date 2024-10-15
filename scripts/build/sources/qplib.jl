@@ -301,8 +301,6 @@ function build_qplib!(index::QUBOLib.LibraryIndex; cache::Bool = true)
         end
     end
 
-    @info "[qplib] Done!"
-
     return nothing
 end
 
@@ -353,4 +351,16 @@ function load_qplib!(index::QUBOLib.LibraryIndex)
     end
 
     return code_list
+end
+
+function deploy_qplib!(index::QUBOLib.LibraryIndex)
+    close(index)
+
+    src_path = QUBOLib.cache_data_path(index, "qplib")
+    dst_path = mkpath(joinpath(QUBOLib.build_path(index), "mirror"))
+    zip_path = joinpath(dst_path, "qplib.zip")
+
+    run(`zip -q -j -r $zip_path $src_path`)
+
+    return nothing
 end

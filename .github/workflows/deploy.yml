@@ -18,36 +18,42 @@ jobs:
       with:
         version: '1.10'
 
-    # - name: Last release tag + Run main script + Git tree hash + Next release tag
-    #   run: |
-    #     export LAST_QUBOLIB_TAG="$(gh release view | sed -nr 's/tag:\s*(v\S*)/\1/p')"
-    #     julia "$GITHUB_WORKSPACE/deployment/script.jl"
-    #     export GIT_TREE_HASH=$(cat $GITHUB_WORKSPACE/deployment/tree.hash)
-    #     echo "GIT_TREE_HASH=$GIT_TREE_HASH" >> $GITHUB_ENV
-    #     export NEXT_QUBOLIB_TAG=$(cat $GITHUB_WORKSPACE/deployment/next.tag)
-    #     echo "TAG=$NEXT_QUBOLIB_TAG" >> $GITHUB_ENV
+    - name: Create distribution directories
+      run: |
+        cd $GITHUB_WORKSPACE
+        mkpath ./dist/build/
+        mkpath ./dist/cache/
 
-    # - name: Compute SHA256 for the compressed tarball
-    #   run: |
-    #     SHA_256="$(sha256sum -z $GITHUB_WORKSPACE/dist/qubolib.tar.gz | cut -d " " -f 1)"
-    #     echo "SHA_256=$SHA_256" >> $GITHUB_ENV
+    - name: Retrieve Last Release Tag
+      run: |
+        cd $GITHUB_WORKSPACE
+        LAST_TAG="$(gh release view | sed -nr 's/tag:\s*(v\S*)/\1/p')"
+        echo "$LAST_TAG" >> ./dist/build/last.tag
 
-    # - name: Write release title
-    #   run: |
-    #     TITLE="QUBOLib $TAG"
-    #     echo "TITLE=$TITLE" >> $GITHUB_ENV
+    - name: Build and Deploy QUBOLib
+      run: |
+        cd $GITHUB_WORKSPACE
+        julia --proj=./scripts/build ./scripts/build/script.jl --deploy
 
-    # - name: Write release notes
-    #   run: envsubst < "$GITHUB_WORKSPACE/deployment/NOTES.md" > "$RUNNER_TEMP/NOTES.md"
+    - name: Load Next Release Tag
+      run: |
+        cd $GITHUB_WORKSPACE
+        NEXT_TAG="$(cat $GITHUB_WORKSPACE/dist/build/next.tag)"
+        echo "NEXT_TAG=$NEXT_TAG" >> $GITHUB_ENV
 
-    # - name: Publish release
-    #   run: >
-    #     gh release create $TAG
-    #     --latest
-    #     --notes-file "$RUNNER_TEMP/NOTES.md"
-    #     --title "$TITLE"
-    #     --target $GITHUB_SHA
-    #     dist/qubolib.tar.gz
+    - name: Write release title
+      run: |
+        TITLE="$(cat $GITHUB_WORKSPACE/dist/build/title.txt)"
+        echo "TITLE=$TITLE" >> $GITHUB_ENV
+
+    - name: Publish QUBOLib data release
+      run: >
+        gh release create $NEXT_TAG
+        --latest
+        --notes-file "$GITHUB_WORKSPACE/dist/build/NOTES.md"
+        --title "$TITLE"
+        --target $GITHUB_SHA
+        $GITHUB_WORKSPACE/dist/build/qubolib.tar.gz
 
     # - name: Update Documentation
     #   run: |
@@ -56,3 +62,20 @@ jobs:
     #     git add "./*README.md"
     #     git commit --allow-empty -m "Update Documentation"
     #     git push
+
+    - name: Clean up old mirror release
+      run: |
+        gh release delete mirror --yes || true
+        git push origin --delete refs/tags/mirror || true
+
+    - name: Switch to mirror branch
+      run: git checkout mirror
+
+    - name: Publish mirror release
+      run: >
+        gh release create mirror
+        --prerelease
+        --notes-file "$GITHUB_WORKSPACE/dist/build/mirror/NOTES.md"
+        --title "$SUBJECT"
+        --target $GITHUB_SHA
+        $GITHUB_WORKSPACE/dist/build/mirror/*.zip
