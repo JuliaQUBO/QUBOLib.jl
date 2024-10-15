@@ -307,8 +307,8 @@ end
 function load_qplib!(index::QUBOLib.LibraryIndex)
     @assert Sys.isunix() "Processing QPLIB is only possible on Unix systems"
 
-    data_path  = mkpath(QUBOLib.cache_data_path(index, "qplib"))
-    file_path   = abspath(QUBOLib.cache_path(index, "qplib"), "qplib.zip")
+    data_path = mkpath(QUBOLib.cache_data_path(index, "qplib"))
+    file_path = abspath(QUBOLib.cache_path(index, "qplib"), "qplib.zip")
 
     # Download QPLIB archive
     if isfile(file_path)
@@ -324,14 +324,17 @@ function load_qplib!(index::QUBOLib.LibraryIndex)
 
     @info "[qplib] Extracting archive"
 
-    run(```
-        unzip -qq -o -j 
-            $file_path
-            'qplib/html/qplib/*'
-            'qplib/html/sol/*'
-            'qplib/html/lp/*'
-            -d $data_path
-        ```)
+    run(`unzip -qq -o -j $file_path -d $data_path`)
+
+    # When getting from original source:
+    # run(```
+    # unzip -qq -o -j 
+    #     $file_path
+    #     'qplib/html/qplib/*'
+    #     'qplib/html/sol/*'
+    #     'qplib/html/lp/*'
+    #     -d $data_path
+    # ```)
 
     # Remove non-QUBO instances
     @info "[qplib] Removing non-QUBO instances"
