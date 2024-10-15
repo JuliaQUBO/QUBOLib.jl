@@ -111,7 +111,6 @@ function last_data_tag(index::QUBOLib.LibraryIndex)::Union{String,Nothing}
     else
         @warn """
         No last tag information found @ '$last_tag_path'.
-        Thus, release tag must be created manually and 'Artifact.toml' has to be updated accordingly.
         """
 
         return nothing
