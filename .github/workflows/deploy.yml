@@ -6,7 +6,7 @@ on:
     branches: '*'
 
 jobs:
-  publish:
+  deploy:
     if: ${{ !(github.event_name == 'push') || contains(github.event.head_commit.message, '[deploy]') }}
     runs-on: ubuntu-latest
     env:
@@ -33,6 +33,7 @@ jobs:
     - name: Build and Deploy QUBOLib
       run: |
         cd $GITHUB_WORKSPACE
+        julia --proj=./scripts/build -e 'import Pkg; Pkg.develop(path=@__DIR__)'
         julia --proj=./scripts/build ./scripts/build/script.jl --deploy
 
     - name: Load Next Release Tag
