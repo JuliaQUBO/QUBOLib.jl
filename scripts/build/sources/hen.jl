@@ -1,6 +1,6 @@
 const HEN_DATA = Dict(
     "arXiv-1903-10928-3r3x" => Dict(
-        :url  => "https://sites.usc.edu/itayhen/files/2019/09/3r3x.zip",
+        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror-v0/arXiv-1903-10928-3r3x.zip",
         :data => Dict{String,Any}(
             "name"        => "3-Regular 3-XORSAT (arXiv:1903.10928)",
             "author"      => ["Itay Hen"],
@@ -10,7 +10,7 @@ const HEN_DATA = Dict(
         ),
     ),
     "arXiv-1903-10928-5r5x" => Dict(
-        :url  => "https://sites.usc.edu/itayhen/files/2019/09/5r5x.zip",
+        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror-v0/arXiv-1903-10928-5r5x.zip",
         :data => Dict{String,Any}(
             "name"        => "5-Regular 5-XORSAT (arXiv:1903.10928)",
             "author"      => ["Itay Hen"],
@@ -20,7 +20,7 @@ const HEN_DATA = Dict(
         ),
     ),
     "arXiv-2103-08464-3r3x" => Dict(
-        :url  => "https://unmm-my.sharepoint.com/personal/talbash_unm_edu/_layouts/15/download.aspx?SourceUrl=%2Fpersonal%2Ftalbash%5Funm%5Fedu%2FDocuments%2FWebsiteData%2FarXiv210308464%2F3r3x%5F2body%2Ezip",
+        :url  => "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/mirror-v0/arXiv-2103-08464-3r3x.zip",
         :data => Dict{String,Any}(
             "name"        => "3-Regular 3-XORSAT (arXiv:2103.08464)",
             "author"      => ["Matthew Kowalsky", "Tameem Albash", "Itay Hen", "Daniel A. Lidar"],
@@ -51,7 +51,9 @@ function load_hen!(index::QUBOLib.LibraryIndex, code::AbstractString)
 
     @info "[$code] Extracting archive"
 
-    run(`unzip -qq -o -j $file_path 'instance*.txt' -d $data_path`)
+    run(`unzip -qq -o -j $file_path '*.txt' -d $data_path`)
+
+    patch_hen!(index, code)
 
     return nothing
 end
@@ -89,7 +91,7 @@ function build_hen!(index::QUBOLib.LibraryIndex, code::AbstractString; cache::Bo
         catch e
             if e isa QUBOTools.SyntaxError
                 @warn """
-                [$code] Failed to read instance '$path':
+                [$code] Failed to read instance @ '$path':
                 $(sprint(showerror, e))
                 """
 
@@ -102,7 +104,27 @@ function build_hen!(index::QUBOLib.LibraryIndex, code::AbstractString; cache::Bo
         mod_i = QUBOLib.add_instance!(index, model, code; name = basename(path))
 
         if isnothing(mod_i)
-            @warn "[$code] Failed to read instance '$path'"
+            @warn "[$code] Failed to read instance @ '$path'"
+        end
+    end
+
+    return nothing
+end
+
+function patch_hen!(index::QUBOLib.LibraryIndex, code::AbstractString)
+    @info "[$code] Applying patches"
+
+    if code == "arXiv-1903-10928-5r5x"
+        let path = abspath(QUBOLib.cache_data_path(index, code), "._instance_5r5x_n24_s265.txt")
+            @info "[$code] Removing '$path'"
+
+            rm(path; force = true)
+        end
+    elseif code == "arXiv-1903-10928-3r3x"
+        let path = abspath(QUBOLib.cache_data_path(index, code), "instance_3r3x_n35_s2301.txt")
+            @info "[$code] Removing '$path'"
+
+            rm(path; force = true)
         end
     end
 

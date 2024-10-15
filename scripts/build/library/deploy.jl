@@ -30,23 +30,23 @@ function deploy!(path::AbstractString)
     write(joinpath(QUBOLib.build_path(path), "tar-ball.hash"), tar_ball_hash)
 
     # Retrieve last QUBOLib tag
-    # last_tag = read(joinpath(QUBOLib.build_path(path), "last.tag"), String)
-    # next_tag = next_data_tag(last_tag)
+    last_tag = read(joinpath(QUBOLib.build_path(path), "last.tag"), String)
+    next_tag = next_data_tag(last_tag)
 
-    # write(joinpath(QUBOLib.build_path(path), "next.tag"), next_tag)
+    write(joinpath(QUBOLib.build_path(path), "next.tag"), next_tag)
 
-    # # Write Artifacts.toml entry
-    # artifact_entry = """
-    # [qubolib]
-    # git-tree-sha1 = "$(git_tree_hash)"
-    # lazy          = true
+    # Write Artifacts.toml entry
+    artifact_entry = """
+    [qubolib]
+    git-tree-sha1 = "$(git_tree_hash)"
+    lazy          = true
 
-    #     [[qubolib.download]]
-    #     url    = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/$(qubolib_tag)/qubolib.tar.gz"
-    #     sha256 = "$(tar_ball_hash)"
-    # """
+        [[qubolib.download]]
+        url    = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/$(qubolib_tag)/qubolib.tar.gz"
+        sha256 = "$(tar_ball_hash)"
+    """
 
-    # write(joinpath(QUBOLib.build_path(path), "Artifacts.toml"), artifact_entry)
+    write(joinpath(QUBOLib.build_path(path), "Artifacts.toml"), artifact_entry)
     
     return nothing
 end
