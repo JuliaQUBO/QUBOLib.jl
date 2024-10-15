@@ -66,15 +66,15 @@ jobs:
 
     - name: Clean up old mirror release
       run: |
-        gh release delete mirror --yes || true
-        git push origin --delete refs/tags/mirror || true
+        gh release delete "mirror-data" --yes || true
+        git push origin --delete "refs/tags/mirror-data" || true
 
     - name: Switch to mirror branch
-      run: git checkout mirror
+      run: git checkout origin mirror
 
     - name: Publish mirror release
       run: >
-        gh release create mirror
+        gh release create "mirror-data"
         --prerelease
         --notes-file "$GITHUB_WORKSPACE/dist/build/mirror/NOTES.md"
         --title "$SUBJECT"
