@@ -89,14 +89,14 @@ function deploy_qubolib!(index::QUBOLib.LibraryIndex)
     write(joinpath(QUBOLib.build_path(index), "NOTES.md"), release_notes)
 
     @info "[QUBOLib] Generate Mirror release notes"
-
+    mirror_path  = mkpath(joinpath(QUBOLib.build_path(index), "mirror"))
     mirror_notes = """
     # QUBOLib Data Mirror Release Notes
 
     This release provides access to mirrored and preprocessed instances from other libraries.
     """
 
-    write(joinpath(QUBOLib.build_path(index), "mirror", "NOTES.md"), mirror_notes)
+    write(joinpath(mirror_path, "NOTES.md"), mirror_notes)
 
     @info "[QUBOLib] Deployment done!"
     
