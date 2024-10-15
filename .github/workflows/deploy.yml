@@ -21,8 +21,8 @@ jobs:
     - name: Create distribution directories
       run: |
         cd $GITHUB_WORKSPACE
-        mkpath ./dist/build/
-        mkpath ./dist/cache/
+        mkdir -p ./dist/build/
+        mkdir -p ./dist/cache/
 
     - name: Retrieve Last Release Tag
       run: |
