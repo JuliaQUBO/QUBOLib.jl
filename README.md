@@ -1,7 +1,5 @@
 # QUBOLib Data Mirror
 
-
-
 ## Contents
 
 |          Item           |  Access Date   | Source URL                                                                                                                                                                                         |
