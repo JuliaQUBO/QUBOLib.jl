@@ -2,5 +2,4 @@
 Manifest.toml
 
 # QUBOLib
-dist/
 qubolib/
