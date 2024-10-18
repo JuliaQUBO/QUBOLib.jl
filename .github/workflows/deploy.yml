@@ -38,6 +38,7 @@ jobs:
     - name: Build and Deploy QUBOLib
       run: |
         cd $GITHUB_WORKSPACE
+        ls -la ./dist/build/
         julia --proj=./scripts/build -e 'import Pkg; Pkg.develop(path=@__DIR__)'
         julia --proj=./scripts/build ./scripts/build/script.jl --clear-build --deploy
 

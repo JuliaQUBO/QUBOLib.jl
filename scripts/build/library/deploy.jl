@@ -3,6 +3,12 @@ function deploy_qubolib!(index::QUBOLib.LibraryIndex)
 
     close(index)
 
+    @info "[QUBOLib] Display Path Info"
+    @show "root_path    = $(abspath(QUBOLib.root_path(index)))"
+    @show "library_path = $(abspath(QUBOLib.library_path(index)))"
+    @show "dist_path    = $(abspath(QUBOLib.dist_path(index)))"
+    @show "build_path   = $(abspath(QUBOLib.build_path(index)))"
+
     # Calculate tree hash
     @info "[QUBOLib] Compute Tree Hash"
 
