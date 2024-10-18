@@ -33,8 +33,7 @@ jobs:
         cd $GITHUB_WORKSPACE
         LAST_TAG="$(gh release view | sed -nr 's/tag:\s*(v\S*)/\1/p')"
         echo "$LAST_TAG" >> ./dist/build/last.tag
-        ls -la $GITHUB_WORKSPACE
-        ls -la .
+        ls -la ./dist/build/
 
     - name: Build and Deploy QUBOLib
       run: |
