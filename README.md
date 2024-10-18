@@ -2,7 +2,7 @@
 
 <div align="center">
     <a href="/docs/src/assets/">
-        <img src="/docs/src/assets/logo.svg" width=400px alt="ToQUBO.jl" />
+        <img src="/docs/src/assets/logo.svg" width=400px alt="QUBOLib.jl" />
     </a>
     <br>
 </div>
@@ -43,11 +43,11 @@ julia> models = QUBOLib.access() do index
                "SELECT instance FROM Instances WHERE size BETWEEN 100 AND 200;"
            ) |> DataFrame
 
-           return [load_instance(index, i) for i in df[!, :instance]]
+           return [QUBOLib.load_instance(index, i) for i in df[!, :instance]]
        end
 ```
 
-### Listing Collections
+## Listing Collections
 
 ```julia
 julia> QUBOLib.access() do index
