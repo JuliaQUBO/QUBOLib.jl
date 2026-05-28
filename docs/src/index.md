@@ -26,6 +26,15 @@ local `qubolib` directory for use.
 Use [`QUBOLib.access`](@ref) to open the local index, query the SQLite database
 for instance identifiers, and load the selected models from the HDF5 archive:
 
+The database-query examples below use SQLite.jl and DataFrames.jl directly, so
+add them to the active Julia project before running those examples:
+
+```julia
+import Pkg
+
+Pkg.add(["SQLite", "DataFrames"])
+```
+
 ```julia
 using QUBOLib
 using SQLite, DataFrames

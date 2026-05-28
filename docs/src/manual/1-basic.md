@@ -30,6 +30,15 @@ end
 The [`QUBOLib.database`](@ref) function exposes the SQLite index, and
 [`QUBOLib.load_instance`](@ref) loads a selected model from the HDF5 archive:
 
+The example below queries the SQLite database directly, so add SQLite.jl and
+DataFrames.jl to the active Julia project before running it:
+
+```julia
+import Pkg
+
+Pkg.add(["SQLite", "DataFrames"])
+```
+
 ```julia
 using QUBOLib
 using SQLite, DataFrames

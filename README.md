@@ -34,6 +34,13 @@ QUBOLib instances are distributed as a Julia artifact recorded in
 downloaded from the package releases the first time `QUBOLib.access` needs it,
 then copied into a local `qubolib` directory for use.
 
+The database-query examples below use SQLite.jl and DataFrames.jl directly, so
+add them to the active Julia project before running those examples:
+
+```julia
+julia> import Pkg; Pkg.add(["SQLite", "DataFrames"])
+```
+
 Use `QUBOLib.access` to open the local index, query the SQLite database for
 instance identifiers, and load the selected models from the HDF5 archive:
 
@@ -60,7 +67,7 @@ directory and call `QUBOLib.access()` again without `clear = true`.
 ## Accessing the instance index database
 
 > **Warning**
-> This requires [SQLite.jl](https://github.com/JuliaDatabases/SQLite.jl) and [DataFrames.jl](https://github.com/JuliaData/DataFrames.jl) to be installed.
+> This requires [SQLite.jl](https://github.com/JuliaDatabases/SQLite.jl) and [DataFrames.jl](https://github.com/JuliaData/DataFrames.jl) to be installed in the active Julia project.
 
 ```julia
 julia> using QUBOLib

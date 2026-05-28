@@ -8,11 +8,13 @@ function test_docs()
         @test occursin("QUBOLib.access", docs_home)
         @test occursin("QUBOLib.load_instance", docs_home)
         @test occursin("delete the local `qubolib`", docs_home)
+        @test occursin("Pkg.add([\"SQLite\", \"DataFrames\"])", docs_home)
 
         @test occursin("Opening the library index", basic)
         @test occursin("Loading an instance", basic)
         @test occursin("QUBOLib.database", basic)
         @test occursin("QUBOLib.load_instance", basic)
+        @test occursin("Pkg.add([\"SQLite\", \"DataFrames\"])", basic)
     end
 
     return nothing
