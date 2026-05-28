@@ -7,6 +7,7 @@ function test_readme()
         @test occursin("QUBOLib.access", readme)
         @test occursin("QUBOLib.load_instance", readme)
         @test occursin("delete the local `qubolib`", readme)
+        @test occursin("Pkg.add([\"SQLite\", \"DataFrames\"])", readme)
         @test !occursin("`clear = true` to recreate it from the packaged artifact", readme)
     end
 

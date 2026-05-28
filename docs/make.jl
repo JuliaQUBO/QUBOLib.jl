@@ -1,5 +1,4 @@
 using Documenter
-using DocumenterDiagrams
 using DocumenterInterLinks
 
 using QUBOLib

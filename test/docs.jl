@@ -1,0 +1,21 @@
+function test_docs()
+    @testset "-> Website docs" begin
+        docs_home = read(joinpath(QUBOLib.root_path(), "docs", "src", "index.md"), String)
+        basic = read(joinpath(QUBOLib.root_path(), "docs", "src", "manual", "1-basic.md"), String)
+
+        @test occursin("Retrieving instances", docs_home)
+        @test occursin("Julia artifact", docs_home)
+        @test occursin("QUBOLib.access", docs_home)
+        @test occursin("QUBOLib.load_instance", docs_home)
+        @test occursin("delete the local `qubolib`", docs_home)
+        @test occursin("Pkg.add([\"SQLite\", \"DataFrames\"])", docs_home)
+
+        @test occursin("Opening the library index", basic)
+        @test occursin("Loading an instance", basic)
+        @test occursin("QUBOLib.database", basic)
+        @test occursin("QUBOLib.load_instance", basic)
+        @test occursin("Pkg.add([\"SQLite\", \"DataFrames\"])", basic)
+    end
+
+    return nothing
+end
