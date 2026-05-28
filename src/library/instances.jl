@@ -58,7 +58,7 @@ function add_instance!(
 
     group = HDF5.create_group(h5["instances"], string(i))
 
-    QUBOTools.write_model(group, model, QUBOTools.QUBin())
+    QUBOTools.write_model(group, model, _qubin_format())
 
     return i
 end
@@ -81,5 +81,5 @@ function load_instance(index::LibraryIndex, i::Integer)
 
     h5 = QUBOLib.archive(index)
 
-    return QUBOTools.read_model(h5["instances"][string(i)], QUBOTools.QUBin())
+    return QUBOTools.read_model(h5["instances"][string(i)], _qubin_format())
 end

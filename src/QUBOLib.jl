@@ -48,6 +48,7 @@ include("interface.jl")
 
 include("library/index.jl")
 include("library/path.jl")
+include("library/qubotools.jl")
 include("library/access.jl")
 
 include("library/instances.jl")
