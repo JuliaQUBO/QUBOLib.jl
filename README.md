@@ -53,8 +53,9 @@ julia> model = QUBOLib.access() do index
 ```
 
 By default, `QUBOLib.access()` creates or reuses `joinpath(pwd(), "qubolib")`.
-Pass `path = "/path/to/workdir"` to keep the local copy somewhere else, or pass
-`clear = true` to recreate it from the packaged artifact.
+Pass `path = "/path/to/workdir"` to keep the local copy somewhere else. To
+refresh the local copy from the packaged artifact, delete the local `qubolib`
+directory and call `QUBOLib.access()` again without `clear = true`.
 
 ## Accessing the instance index database
 
