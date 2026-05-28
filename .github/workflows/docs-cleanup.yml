@@ -14,16 +14,25 @@ jobs:
           ref: gh-pages
 
       - name: Delete preview and history
+        id: cleanup
         run: |
             git config user.name "Documenter.jl"
             git config user.email "documenter@juliadocs.github.io"
-            git rm -rf "previews/PR$PRNUM"
-            git commit -m "delete preview"
-            git branch gh-pages-new $(echo "delete history" | git commit-tree HEAD^{tree})
+            git rm -rf --ignore-unmatch "previews/PR$PRNUM"
+
+            if git diff --cached --quiet; then
+                echo "No docs preview found for PR$PRNUM."
+                echo "changed=false" >> "$GITHUB_OUTPUT"
+            else
+                git commit -m "delete preview"
+                git branch gh-pages-new $(echo "delete history" | git commit-tree HEAD^{tree})
+                echo "changed=true" >> "$GITHUB_OUTPUT"
+            fi
         env:
             PRNUM: ${{ github.event.number }}
 
       - name: Push changes
+        if: steps.cleanup.outputs.changed == 'true'
         run: |
             git push --force origin gh-pages-new:gh-pages
 # Workflow copied from https://github.com/CliMA/TimeMachine.jl
