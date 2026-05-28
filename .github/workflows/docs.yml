@@ -5,6 +5,11 @@ on:
     tags: '*'
   pull_request:
     types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,7 +25,11 @@ jobs:
         uses: julia-actions/julia-buildpkg@latest
         with: 
             project: "docs"
+      - name: Build documentation
+        if: github.event_name == 'pull_request'
+        run: julia --project=docs docs/make.jl --skip-deploy
       - name: Build and deploy
+        if: github.event_name != 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # For authentication with GitHub Actions token
         run: julia --project=docs docs/make.jl
