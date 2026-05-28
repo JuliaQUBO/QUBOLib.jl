@@ -27,6 +27,36 @@ julia> QUBOLib.access() do index
        end
 ```
 
+## Retrieving instances
+
+QUBOLib instances are distributed as a Julia artifact recorded in
+[`Artifacts.toml`](Artifacts.toml), not as checked-in data files. The artifact is
+downloaded from the package releases the first time `QUBOLib.access` needs it,
+then copied into a local `qubolib` directory for use.
+
+Use `QUBOLib.access` to open the local index, query the SQLite database for
+instance identifiers, and load the selected models from the HDF5 archive:
+
+```julia
+julia> using QUBOLib
+
+julia> using SQLite, DataFrames
+
+julia> model = QUBOLib.access() do index
+           df = DBInterface.execute(
+               QUBOLib.database(index),
+               "SELECT instance FROM Instances ORDER BY instance LIMIT 1;"
+           ) |> DataFrame
+
+           return QUBOLib.load_instance(index, only(df[!, :instance]))
+       end
+```
+
+By default, `QUBOLib.access()` creates or reuses `joinpath(pwd(), "qubolib")`.
+Pass `path = "/path/to/workdir"` to keep the local copy somewhere else. To
+refresh the local copy from the packaged artifact, delete the local `qubolib`
+directory and call `QUBOLib.access()` again without `clear = true`.
+
 ## Accessing the instance index database
 
 > **Warning**
@@ -40,7 +70,7 @@ julia> using SQLite, DataFrames
 julia> models = QUBOLib.access() do index
            df = DBInterface.execute(
                QUBOLib.database(index),
-               "SELECT instance FROM Instances WHERE size BETWEEN 100 AND 200;"
+               "SELECT instance FROM Instances WHERE dimension BETWEEN 100 AND 200;"
            ) |> DataFrame
 
            return [QUBOLib.load_instance(index, i) for i in df[!, :instance]]
