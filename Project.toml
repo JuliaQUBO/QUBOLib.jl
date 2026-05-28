@@ -1,6 +1,6 @@
 name = "QUBOLib"
 uuid = "c2d3eca2-2309-4628-88a9-9d4a554e7c47"
-authors = ["pedromxavier <mail@pedro.ϵλ>", "bernalde <dbernaln@purdue.edu>"]
+authors = ["pedromxavier <mail@pedro.ϵλ>", "David E. Bernal Neira <dbernaln@purdue.edu>"]
 version = "0.1.0"
 
 [deps]
@@ -19,12 +19,12 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [compat]
 DataFrames                = "1.7"
-HDF5                      = "0.16"
+HDF5                      = "0.16, 0.17.2"
 JSON                      = "0.21"
 JSONSchema                = "1"
 JuMP                      = "1"
 PseudoBooleanOptimization = "0.2"
-QUBOTools                 = "0.10"
+QUBOTools                 = "0.10, 0.12"
 SQLite                    = "1"
 Pkg                       = "1"
 TOML                      = "1"

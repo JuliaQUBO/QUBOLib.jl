@@ -1,7 +1,7 @@
 function _write_solution(
     fp::P,
     sol::QUBOTools.AbstractSolution,
-    fmt::QUBOTools.QUBin,
+    fmt::QUBOTools.AbstractFormat,
 ) where {P<:Union{HDF5.File,HDF5.Group}}
     HDF5.create_group(fp, "solution")
 
@@ -44,7 +44,7 @@ function add_solution!(index::LibraryIndex, instance::Integer, sol::QUBOTools.Sa
 
     group = HDF5.create_group(h5["solutions"], string(i))
 
-    _write_solution(group, sol, QUBOTools.QUBin())
+    _write_solution(group, sol, _qubin_format())
 
     return i
 end

@@ -5,20 +5,47 @@ on:
     tags: '*'
   pull_request:
     types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   build:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Setup Julia
-        uses: julia-actions/setup-julia@latest
+        uses: julia-actions/setup-julia@v2
         with:
-          version: '1.9'
+          version: '1'
       - name: Develop QUBOLib.jl
         run: julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd())'
       - name: Build Package
         uses: julia-actions/julia-buildpkg@latest
         with: 
+            project: "docs"
+      - name: Build documentation
+        run: julia --project=docs docs/make.jl --skip-deploy
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - name: Develop QUBOLib.jl
+        run: julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd())'
+      - name: Build Package
+        uses: julia-actions/julia-buildpkg@latest
+        with:
             project: "docs"
       - name: Build and deploy
         env:
