@@ -121,5 +121,120 @@ function test_library_access()
         end
     end
 
+    @testset "Legacy index migration" begin
+        mktempdir() do path
+            _create_legacy_index(path)
+
+            model = QUBOTools.Model(
+                Dict(1 => 1.0, 2 => 2.0),
+                Dict{Tuple{Int,Int},Float64}((1, 2) => 0.5),
+            )
+
+            QUBOLib.access(; path) do index
+                instance = QUBOLib.add_instance!(index, model)
+                record = QUBOLib.add_solution_record!(index, instance; bitstring = "00")
+                records = QUBOLib.list_solution_records(index, instance)
+                best = QUBOLib.best_solution_record(index, instance)
+
+                @test size(records, 1) == 1
+                @test only(records[!, :record]) == record
+                @test best[:record] == record
+            end
+        end
+    end
+
     return nothing
+end
+
+function _create_legacy_index(path::AbstractString)
+    lib_path = QUBOLib.library_path(path)
+
+    mkpath(lib_path)
+
+    db = QUBOLib.SQLite.DB(QUBOLib.database_path(lib_path))
+
+    try
+        for stmt in QUBOLib.each_stmt(_legacy_schema())
+            QUBOLib.DBInterface.execute(db, stmt)
+        end
+    finally
+        close(db)
+    end
+
+    h5 = QUBOLib.HDF5.h5open(QUBOLib.archive_path(lib_path), "w")
+
+    try
+        QUBOLib.HDF5.create_group(h5, "instances")
+        QUBOLib.HDF5.create_group(h5, "solutions")
+    finally
+        close(h5)
+    end
+
+    return nothing
+end
+
+function _legacy_schema()
+    return """
+    PRAGMA foreign_keys = ON;
+
+    CREATE TABLE Collections
+    (
+      collection  TEXT    PRIMARY KEY,
+      name        TEXT    NOT NULL   ,
+      author      TEXT        NULL   ,
+      year        INTEGER     NULL   ,
+      description TEXT        NULL   ,
+      url         TEXT        NULL
+    );
+
+    INSERT INTO Collections
+      (collection, name, author, year, description, url)
+    VALUES
+      (
+        'standalone',
+        'Standalone',
+        NULL,
+        NULL,
+        'Standalone instances',
+        NULL
+      );
+
+    CREATE TABLE Instances
+    (
+      instance          INTEGER PRIMARY KEY,
+      collection        TEXT    NOT NULL   ,
+      name              TEXT        NULL   ,
+      dimension         INTEGER NOT NULL   ,
+      min               REAL    NOT NULL   ,
+      max               REAL    NOT NULL   ,
+      abs_min           REAL    NOT NULL   ,
+      abs_max           REAL    NOT NULL   ,
+      linear_min        REAL    NOT NULL   ,
+      linear_max        REAL    NOT NULL   ,
+      quadratic_min     REAL    NOT NULL   ,
+      quadratic_max     REAL    NOT NULL   ,
+      density           REAL    NOT NULL   ,
+      linear_density    REAL    NOT NULL   ,
+      quadratic_density REAL    NOT NULL   ,
+      FOREIGN KEY (collection) REFERENCES Collections (collection) ON DELETE CASCADE
+    );
+
+    CREATE TABLE Solutions
+    (
+      solution INTEGER PRIMARY KEY,
+      instance INTEGER NOT NULL   ,
+      solver   TEXT        NULL   ,
+      value    REAL    NOT NULL   ,
+      optimal  BOOLEAN NOT NULL   ,
+      FOREIGN KEY (instance) REFERENCES Instances (instance) ON DELETE CASCADE,
+      FOREIGN KEY (solver)   REFERENCES Solvers (solver)
+    );
+
+    CREATE TABLE Solvers
+    (
+      solver      TEXT PRIMARY KEY,
+      version     TEXT        NULL,
+      description TEXT        NULL
+    );
+    """
 end

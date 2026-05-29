@@ -93,7 +93,11 @@ function load_database(path::AbstractString)::Union{SQLite.DB,Nothing}
     if !isfile(path)
         return nothing
     else
-        return SQLite.DB(path)
+        db = SQLite.DB(path)
+
+        migrate_database!(db)
+
+        return db
     end
 end
 
@@ -112,7 +116,144 @@ function create_database(path::AbstractString)
         end
     end
 
+    migrate_database!(db)
+
     return db
+end
+
+function _table_exists(db::SQLite.DB, table::AbstractString)::Bool
+    df = DBInterface.execute(
+        db,
+        """
+        SELECT COUNT(*) AS n
+        FROM sqlite_master
+        WHERE type IN ('table', 'view') AND name = ?;
+        """,
+        (String(table),),
+    ) |> DataFrame
+
+    return only(df[!, :n]) > 0
+end
+
+function _column_exists(db::SQLite.DB, table::AbstractString, column::AbstractString)::Bool
+    df = DBInterface.execute(db, "PRAGMA table_info($(String(table)));") |> DataFrame
+
+    return String(column) in string.(df[!, :name])
+end
+
+function migrate_database!(db::SQLite.DB)
+    DBInterface.execute(db, "PRAGMA foreign_keys = ON;")
+
+    if _table_exists(db, "Instances") && !_column_exists(db, "Instances", "sense")
+        DBInterface.execute(db, "ALTER TABLE Instances ADD COLUMN sense TEXT NOT NULL DEFAULT 'min';")
+    end
+
+    if _table_exists(db, "Instances") && !_column_exists(db, "Instances", "domain")
+        DBInterface.execute(db, "ALTER TABLE Instances ADD COLUMN domain TEXT NOT NULL DEFAULT 'bool';")
+    end
+
+    DBInterface.execute(
+        db,
+        """
+        CREATE TABLE IF NOT EXISTS Submissions
+        (
+          submission        INTEGER PRIMARY KEY,
+          submitter         TEXT        NULL,
+          date              TEXT        NULL,
+          reference         TEXT        NULL,
+          modeling_approach TEXT        NULL,
+          workflow          TEXT        NULL,
+          algorithm_type    TEXT        NULL,
+          runs              INTEGER     NULL,
+          feasible_runs     INTEGER     NULL,
+          successful_runs   INTEGER     NULL,
+          success_threshold REAL        NULL,
+          hardware          TEXT        NULL,
+          total_runtime     REAL        NULL,
+          cpu_runtime       REAL        NULL,
+          gpu_runtime       REAL        NULL,
+          qpu_runtime       REAL        NULL,
+          other_runtime     REAL        NULL,
+          remarks           TEXT        NULL,
+          source_path       TEXT        NULL,
+          metadata          TEXT        NULL
+        );
+        """,
+    )
+
+    DBInterface.execute(
+        db,
+        """
+        CREATE TABLE IF NOT EXISTS SolutionRecords
+        (
+          record              INTEGER PRIMARY KEY,
+          instance            INTEGER NOT NULL,
+          submission          INTEGER     NULL,
+          solution            INTEGER     NULL,
+          bitstring           TEXT        NULL,
+          qubo_value          REAL        NULL,
+          source_value        REAL        NULL,
+          objective_bound     REAL        NULL,
+          proven_optimal      BOOLEAN NOT NULL DEFAULT FALSE,
+          feasibility_status  TEXT        NULL,
+          validation_status   TEXT        NULL,
+          incumbent_candidate BOOLEAN NOT NULL DEFAULT TRUE,
+          source_path         TEXT        NULL,
+          metadata            TEXT        NULL,
+          FOREIGN KEY (instance)   REFERENCES Instances   (instance)   ON DELETE CASCADE,
+          FOREIGN KEY (submission) REFERENCES Submissions (submission) ON DELETE SET NULL,
+          FOREIGN KEY (solution)   REFERENCES Solutions   (solution)   ON DELETE SET NULL
+        );
+        """,
+    )
+
+    DBInterface.execute(db, "DROP VIEW IF EXISTS BestSolutions;")
+    DBInterface.execute(
+        db,
+        """
+        CREATE VIEW BestSolutions AS
+        SELECT *
+        FROM (
+          SELECT
+            r.*,
+            ROW_NUMBER() OVER (
+              PARTITION BY r.instance
+              ORDER BY
+                CASE
+                  WHEN lower(i.sense) = 'max' THEN -r.qubo_value
+                  ELSE r.qubo_value
+                END ASC,
+                r.proven_optimal DESC,
+                CASE lower(r.validation_status)
+                  WHEN 'verified' THEN 3
+                  WHEN 'validated' THEN 2
+                  WHEN 'evaluated' THEN 1
+                  ELSE 0
+                END DESC,
+                CASE WHEN s.date IS NULL THEN 1 ELSE 0 END ASC,
+                s.date ASC,
+                r.record ASC
+            ) AS incumbent_rank
+          FROM SolutionRecords AS r
+          JOIN Instances AS i
+            ON i.instance = r.instance
+          LEFT JOIN Submissions AS s
+            ON s.submission = r.submission
+          WHERE r.bitstring IS NOT NULL
+            AND length(r.bitstring) = i.dimension
+            AND r.bitstring NOT GLOB '*[^01]*'
+            AND r.qubo_value IS NOT NULL
+            AND r.qubo_value > -1.7976931348623157e308
+            AND r.qubo_value <  1.7976931348623157e308
+            AND lower(coalesce(r.validation_status, '')) IN ('evaluated', 'validated', 'verified')
+            AND r.incumbent_candidate = TRUE
+            AND lower(coalesce(r.feasibility_status, '')) NOT IN ('invalid', 'infeasible', 'withdrawn', 'unmapped')
+        )
+        WHERE incumbent_rank = 1;
+        """,
+    )
+
+    return nothing
 end
 
 function load_archive(
