@@ -17,6 +17,11 @@ Use [`QUBOLib.access`](@ref) with a dedicated working directory. Passing
 `clear = true` creates an empty local `qubolib` directory instead of copying the
 packaged artifact:
 
+!!! warning
+    `clear = true` deletes any existing local QUBOLib data under that working
+    directory before creating the empty index. Use it only when starting a new
+    private library or intentionally replacing the existing local library.
+
 The example below imports QUBOTools.jl directly to read a model file, so add it
 to the active Julia project before running the import workflow:
 
