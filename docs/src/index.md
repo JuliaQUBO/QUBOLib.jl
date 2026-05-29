@@ -74,3 +74,10 @@ end
 
 See [Basic Usage](manual/1-basic.md) for the common access workflow and
 [API](@ref) for the exported functions.
+
+## Contributing benchmark collections
+
+QUBOLib is also an invitation to donate challenging QUBOs. If you have benchmark
+instances, reproducible generators, or source archives that should be part of
+the library, see [Advanced Usage](manual/2-advanced.md) for the collection
+metadata, local import workflow, and packaged artifact workflow.
