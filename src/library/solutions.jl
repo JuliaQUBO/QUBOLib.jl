@@ -361,6 +361,7 @@ function add_solution!(
     index::LibraryIndex,
     instance::Integer,
     sol::QUBOTools.SampleSet{Float64,Int};
+    submission = nothing,
     qubo_value = nothing,
     source_value = nothing,
     objective_bound = nothing,
@@ -409,6 +410,7 @@ function add_solution!(
     add_solution_record!(
         index,
         instance;
+        submission,
         solution = i,
         bitstring = _solution_bitstring(sol),
         qubo_value,

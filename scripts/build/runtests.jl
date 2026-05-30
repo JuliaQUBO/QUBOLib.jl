@@ -107,6 +107,90 @@ function _write_qoblib_solution_dir(
     return solution_path
 end
 
+function _write_qoblib_submission_summary(
+    root::AbstractString,
+    path::AbstractString,
+    problem::AbstractString;
+    submitter::AbstractString,
+    date::AbstractString,
+    best = "0.0",
+    bound = "0.0",
+    algorithm_type::AbstractString = "Deterministic",
+    feasible_runs = "1",
+    successful_runs = "1",
+    remarks::AbstractString = "fixture submission",
+)
+    submission_path = mkpath(joinpath(root, path, problem))
+    header = join(
+        [
+            "Problem",
+            "Submitter",
+            "Date",
+            "Reference",
+            "Best Objective Value",
+            "Optimality Bound",
+            "Modeling Approach",
+            "# Decision Variables",
+            "# Binary Variables",
+            "# Integer Variables",
+            "# Continuous Variables",
+            "# Non-Zero Coefficients",
+            "Coefficients Type",
+            "Coefficients Range",
+            "Workflow",
+            "Algorithm Type",
+            "# Runs",
+            "# Feasible Runs",
+            "# Successful Runs",
+            "Success Threshold",
+            "Hardware Specifications",
+            "Total Runtime",
+            "CPU Runtime",
+            "GPU Runtime",
+            "QPU Runtime",
+            "Other HW Runtime",
+            "Remarks",
+        ],
+        ",",
+    )
+    row = join(
+        [
+            problem,
+            submitter,
+            date,
+            "fixture reference",
+            string(best),
+            string(bound),
+            "QUBO",
+            "3",
+            "3",
+            "0",
+            "0",
+            "4",
+            "Integer",
+            "1 - 3",
+            "fixture workflow",
+            algorithm_type,
+            "1",
+            string(feasible_runs),
+            string(successful_runs),
+            "0.0",
+            "fixture hardware",
+            "1.5",
+            "1.0",
+            "N/A",
+            "N/A",
+            "N/A",
+            remarks,
+        ],
+        ",",
+    )
+
+    write(joinpath(submission_path, "$(problem)_summary.csv"), "$header\n$row\n")
+
+    return submission_path
+end
+
 function _write_qoblib_portfolio_solution(root::AbstractString, group)
     solution_path = _write_qoblib_solution_dir(
         root,
@@ -197,10 +281,49 @@ function test_qoblib_build_fixture()
             )
             solution_path = _write_qoblib_solution_dir(root, groups[1])
             write(joinpath(solution_path, "marketsplit.opt.sol"), "1 0 1\n")
+            submission_path = _write_qoblib_submission_summary(
+                root,
+                "01-marketsplit/submissions/20250101_Deterministic",
+                "marketsplit";
+                submitter = "Deterministic Solver",
+                date = "2025-01-01",
+                best = "999.0",
+                bound = "999.0",
+                algorithm_type = "Deterministic",
+                remarks = "source objective intentionally differs from QUBO value",
+            )
+            write(joinpath(submission_path, "marketsplit_solution.sol"), "1 0 1\n")
+            write(
+                joinpath(submission_path, "marketsplit_objective_time_series.json.gz"),
+                "{}\n",
+            )
+            _write_qoblib_submission_summary(
+                root,
+                "01-marketsplit/submissions/20250103_Withdrawn",
+                "marketsplit-missing";
+                submitter = "Withdrawn Solver",
+                date = "2025-01-03",
+                best = "N/A",
+                bound = "N/A",
+                feasible_runs = "0",
+                successful_runs = "0",
+                remarks = "withdrawn by submitter",
+            )
 
             _write_qoblib_fixture_group(root, groups[2], ["labs001.qs"])
             solution_path = _write_qoblib_solution_dir(root, groups[2])
             write(joinpath(solution_path, "labs001.bst.sol"), "# Energy: 26\n1\n0\n")
+            submission_path = _write_qoblib_submission_summary(
+                root,
+                "02-labs/submissions/20250102_Stochastic",
+                "labs001";
+                submitter = "Stochastic Solver",
+                date = "2025-01-02",
+                best = "42.0",
+                bound = "N/A",
+                algorithm_type = "Stochastic",
+            )
+            write(joinpath(submission_path, "labs001_solution.sol"), "# Energy: 42\n1\n0\n")
 
             _write_qoblib_fixture_group(
                 root,
@@ -236,14 +359,24 @@ function test_qoblib_build_fixture()
                         QUBOLib.DBInterface.execute(
                             QUBOLib.database(index),
                             """
-                            SELECT i.instance, i.name, r.bitstring, r.qubo_value,
+                            SELECT i.instance, i.name, r.submission, r.bitstring, r.qubo_value,
                                    r.source_value, r.proven_optimal,
                                    r.feasibility_status, r.validation_status,
-                                   r.incumbent_candidate, r.source_path, r.solution
+                                   r.incumbent_candidate, r.source_path, r.solution,
+                                   r.metadata
                             FROM SolutionRecords AS r
                             JOIN Instances AS i
                               ON i.instance = r.instance
                             ORDER BY i.name;
+                            """,
+                        ) |> QUBOLib.DataFrame
+                    submissions =
+                        QUBOLib.DBInterface.execute(
+                            QUBOLib.database(index),
+                            """
+                            SELECT submitter, algorithm_type, source_path, metadata
+                            FROM Submissions
+                            ORDER BY submitter;
                             """,
                         ) |> QUBOLib.DataFrame
                     best =
@@ -265,12 +398,18 @@ function test_qoblib_build_fixture()
                           Set(getfield.(groups, :problem_class))
                     @test Set(data[!, :formulation]) == Set(getfield.(groups, :formulation))
                     @test all(endswith(path, ".qs") for path in data[!, :source_path])
-                    @test size(records, 1) == 5
+                    @test size(records, 1) == 8
+                    @test size(submissions, 1) == 3
                     @test size(best, 1) == 4
 
                     missing = only(
                         eachrow(
-                            filter(row -> row[:name] == "marketsplit-missing.qs", records),
+                            filter(
+                                row ->
+                                    row[:name] == "marketsplit-missing.qs" &&
+                                    ismissing(row[:submission]),
+                                records,
+                            ),
                         ),
                     )
 
@@ -280,7 +419,88 @@ function test_qoblib_build_fixture()
                     @test !Bool(missing[:incumbent_candidate])
                     @test QUBOLib.load_best_solution(index, missing[:instance]) === nothing
 
-                    labs = only(eachrow(filter(row -> row[:name] == "labs001.qs", records)))
+                    deterministic_submission = only(
+                        eachrow(
+                            filter(
+                                row -> row[:submitter] == "Deterministic Solver",
+                                submissions,
+                            ),
+                        ),
+                    )
+                    deterministic_metadata =
+                        QUBOLib.JSON.parse(deterministic_submission[:metadata])
+
+                    @test deterministic_submission[:algorithm_type] == "Deterministic"
+                    @test endswith(
+                        deterministic_submission[:source_path],
+                        "marketsplit_summary.csv",
+                    )
+                    @test deterministic_metadata["problem"] == "marketsplit"
+                    @test deterministic_metadata["best_objective_value"] == 999.0
+                    @test haskey(deterministic_metadata, "objective_time_series")
+
+                    deterministic = only(
+                        eachrow(
+                            filter(
+                                row ->
+                                    row[:name] == "marketsplit.qs" &&
+                                    !ismissing(row[:submission]) &&
+                                    !ismissing(row[:source_value]) &&
+                                    row[:source_value] == 999.0,
+                                records,
+                            ),
+                        ),
+                    )
+
+                    @test deterministic[:qubo_value] != deterministic[:source_value]
+                    @test deterministic[:validation_status] == "validated"
+                    @test Bool(deterministic[:incumbent_candidate])
+                    @test !ismissing(deterministic[:solution])
+                    @test QUBOLib.JSON.parse(deterministic[:metadata])["algorithm_type"] ==
+                          "Deterministic"
+
+                    stochastic = only(
+                        eachrow(
+                            filter(
+                                row ->
+                                    row[:name] == "labs001.qs" &&
+                                    !ismissing(row[:submission]) &&
+                                    !ismissing(row[:source_value]) &&
+                                    row[:source_value] == 42.0,
+                                records,
+                            ),
+                        ),
+                    )
+
+                    @test QUBOLib.JSON.parse(stochastic[:metadata])["algorithm_type"] ==
+                          "Stochastic"
+
+                    withdrawn = only(
+                        eachrow(
+                            filter(
+                                row ->
+                                    row[:name] == "marketsplit-missing.qs" &&
+                                    !ismissing(row[:submission]),
+                                records,
+                            ),
+                        ),
+                    )
+
+                    @test ismissing(withdrawn[:bitstring])
+                    @test withdrawn[:feasibility_status] == "withdrawn"
+                    @test withdrawn[:validation_status] == "unavailable"
+                    @test !Bool(withdrawn[:incumbent_candidate])
+
+                    labs = only(
+                        eachrow(
+                            filter(
+                                row ->
+                                    row[:name] == "labs001.qs" &&
+                                    ismissing(row[:submission]),
+                                records,
+                            ),
+                        ),
+                    )
                     portfolio = only(
                         eachrow(
                             filter(
