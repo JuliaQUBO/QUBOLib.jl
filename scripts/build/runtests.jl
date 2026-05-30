@@ -25,17 +25,46 @@ function _qoblib_fixture()
     """
 end
 
+function _qoblib_independent_set_fixture()
+    return """
+    # maximize obj: x[1] + x[2] - 2 * x[1] * x[2]
+    # Vars Non-zeros
+    2 3
+    1 1 -1
+    1 2 1
+    2 2 -1
+    """
+end
+
 function test_qoblib_qs_parser()
     @testset "▶ QOBLIB QS parser" begin
         model = QUBOTools.read_model(IOBuffer(_qoblib_fixture()), QOBLIBQS())
+        quadratic_terms = Dict(QUBOTools.quadratic_terms(model))
+        metadata = QUBOTools.metadata(model)
 
         @test QUBOTools.dimension(model) == 3
         @test String(QUBOTools.sense(model)) == "min"
         @test String(QUBOTools.domain(model)) == "bool"
         @test QUBOTools.offset(model) == 5.0
-        @test QUBOTools.metadata(model)["source_sense"] == "max"
-        @test QUBOTools.value(model, [1, 1, 0]) == 4.0
+        @test metadata["source_sense"] == "max"
+        @test metadata["raw_nonzeros"] == 4
+        @test metadata["raw_min_coeff"] == -4.0
+        @test metadata["raw_max_coeff"] == 3.0
+        @test quadratic_terms[(1, 2)] == -4.0
+        @test quadratic_terms[(2, 3)] == 6.0
+        @test QUBOTools.value(model, [1, 1, 0]) == 2.0
         @test _qoblib_density(model) ≈ 4 / 6
+
+        independent_set_model = QUBOTools.read_model(
+            IOBuffer(_qoblib_independent_set_fixture()),
+            QOBLIBQS(),
+        )
+        independent_set_quadratic_terms =
+            Dict(QUBOTools.quadratic_terms(independent_set_model))
+
+        @test independent_set_quadratic_terms[(1, 2)] == 2.0
+        @test QUBOTools.value(independent_set_model, [1, 0]) == -1.0
+        @test QUBOTools.value(independent_set_model, [1, 1]) == 0.0
     end
 
     return nothing

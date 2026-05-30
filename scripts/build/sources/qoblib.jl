@@ -139,6 +139,8 @@ function QUBOTools.read_model(io::IO, ::QOBLIBQS)
     terms = 0
     offset = 0.0
     source_sense = nothing
+    raw_min_coeff = nothing
+    raw_max_coeff = nothing
     linear_terms = Dict{Int,Float64}()
     quadratic_terms = Dict{Tuple{Int,Int},Float64}()
 
@@ -193,6 +195,8 @@ function QUBOTools.read_model(io::IO, ::QOBLIBQS)
         i = _qoblib_parse_int(parts[1])
         j = _qoblib_parse_int(parts[2])
         c = _qoblib_parse_float(parts[3])
+        raw_min_coeff = isnothing(raw_min_coeff) ? c : min(raw_min_coeff, c)
+        raw_max_coeff = isnothing(raw_max_coeff) ? c : max(raw_max_coeff, c)
 
         if !(1 <= i <= n) || !(1 <= j <= n)
             QUBOTools.syntax_error("QOBLIB QS variable index out of bounds: $line")
@@ -202,7 +206,7 @@ function QUBOTools.read_model(io::IO, ::QOBLIBQS)
             linear_terms[i] = get(linear_terms, i, 0.0) + c
         else
             u, v = minmax(i, j)
-            quadratic_terms[(u, v)] = get(quadratic_terms, (u, v), 0.0) + c
+            quadratic_terms[(u, v)] = get(quadratic_terms, (u, v), 0.0) + 2c
         end
 
         terms += 1
@@ -217,10 +221,16 @@ function QUBOTools.read_model(io::IO, ::QOBLIBQS)
     metadata = Dict{String,Any}(
         "format"           => "QOBLIB QS",
         "objective_offset" => offset,
+        "raw_nonzeros"     => terms,
     )
 
     if !isnothing(source_sense)
         metadata["source_sense"] = source_sense
+    end
+
+    if !isnothing(raw_min_coeff)
+        metadata["raw_min_coeff"] = raw_min_coeff
+        metadata["raw_max_coeff"] = raw_max_coeff
     end
 
     return QUBOTools.Model{Int,Float64,Int}(
@@ -540,7 +550,13 @@ function _qoblib_density(model::QUBOTools.Model{Int,Float64,Int})
     if n == 0
         return 0.0
     else
-        return length(_qoblib_coefficients(model)) / (n * (n + 1) / 2)
+        raw_nonzeros = get(
+            QUBOTools.metadata(model),
+            "raw_nonzeros",
+            length(_qoblib_coefficients(model)),
+        )
+
+        return raw_nonzeros / (n * (n + 1) / 2)
     end
 end
 
@@ -557,12 +573,14 @@ function _validate_qoblib_metrics!(
 
     row = metrics[key]
     coefficients = _qoblib_coefficients(model)
+    metadata = QUBOTools.metadata(model)
     expected_dimension = row["num_variables"]
     expected_density = row["density"]
     expected_min = row["min_coeff"]
     expected_max = row["max_coeff"]
+    raw_nonzeros = get(metadata, "raw_nonzeros", length(coefficients))
 
-    if isempty(coefficients)
+    if raw_nonzeros == 0
         error("[qoblib] Model '$path' has no nonzero coefficients")
     end
 
@@ -580,17 +598,29 @@ function _validate_qoblib_metrics!(
         )
     end
 
-    if !isapprox(minimum(coefficients), expected_min; rtol = 1e-8, atol = 1e-8)
+    raw_min_coeff = if haskey(metadata, "raw_min_coeff")
+        metadata["raw_min_coeff"]
+    else
+        minimum(coefficients)
+    end
+
+    raw_max_coeff = if haskey(metadata, "raw_max_coeff")
+        metadata["raw_max_coeff"]
+    else
+        maximum(coefficients)
+    end
+
+    if !isapprox(raw_min_coeff, expected_min; rtol = 1e-8, atol = 1e-8)
         error(
             "[qoblib] Minimum coefficient mismatch for '$key': " *
-            "expected $expected_min, got $(minimum(coefficients))",
+            "expected $expected_min, got $raw_min_coeff",
         )
     end
 
-    if !isapprox(maximum(coefficients), expected_max; rtol = 1e-8, atol = 1e-8)
+    if !isapprox(raw_max_coeff, expected_max; rtol = 1e-8, atol = 1e-8)
         error(
             "[qoblib] Maximum coefficient mismatch for '$key': " *
-            "expected $expected_max, got $(maximum(coefficients))",
+            "expected $expected_max, got $raw_max_coeff",
         )
     end
 
