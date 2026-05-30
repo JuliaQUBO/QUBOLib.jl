@@ -1,6 +1,10 @@
 function deploy_qubolib!(index::QUBOLib.LibraryIndex)
     @assert Sys.islinux()
 
+    @info "[QUBOLib] Normalize Database"
+
+    QUBOLib.DBInterface.execute(QUBOLib.database(index), "VACUUM;")
+
     close(index)
 
     @info "[QUBOLib] Display Path Info"
@@ -8,6 +12,8 @@ function deploy_qubolib!(index::QUBOLib.LibraryIndex)
     @show "library_path = $(abspath(QUBOLib.library_path(index)))"
     @show "dist_path    = $(abspath(QUBOLib.dist_path(index)))"
     @show "build_path   = $(abspath(QUBOLib.build_path(index)))"
+
+    mkpath(QUBOLib.build_path(index))
 
     # Calculate tree hash
     @info "[QUBOLib] Compute Tree Hash"
@@ -22,7 +28,7 @@ function deploy_qubolib!(index::QUBOLib.LibraryIndex)
     temp_path = abspath(Tar.create(QUBOLib.library_path(index)))
 
     # Compress tarball
-    run(`gzip -9 $temp_path`)
+    run(`gzip -9 -n $temp_path`)
 
     # Move tarball
     @info "[QUBOLib] Move Tar ball"
@@ -59,15 +65,7 @@ function deploy_qubolib!(index::QUBOLib.LibraryIndex)
     # Write Artifacts.toml entry
     @info "[QUBOLib] Generate Artifacts.toml"
 
-    artifact_entry = """
-    [qubolib]
-    git-tree-sha1 = "$(git_tree_hash)"
-    lazy          = true
-
-        [[qubolib.download]]
-        url    = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/$(next_tag)/qubolib.tar.gz"
-        sha256 = "$(tar_ball_hash)"
-    """
+    artifact_entry = qubolib_artifact_entry(git_tree_hash, tar_ball_hash, next_tag)
 
     write(joinpath(QUBOLib.build_path(index), "Artifacts.toml"), artifact_entry)
 
@@ -80,47 +78,140 @@ function deploy_qubolib!(index::QUBOLib.LibraryIndex)
 
     @info "[QUBOLib] Generate release notes"
 
-    release_notes = """
-    # $(release_title) Release Notes
-
-    ## `Artifact.toml`
-
-    To be able to access the `qubolib` artifact in your project, add the following entry to `Artifacts.toml`.
-
-    ```toml
-    $(artifact_entry)
-    ```
-    """
+    release_notes = qubolib_release_notes(release_title, artifact_entry)
 
     write(joinpath(QUBOLib.build_path(index), "NOTES.md"), release_notes)
 
     @info "[QUBOLib] Generate Mirror release notes"
     mirror_path  = mkpath(joinpath(QUBOLib.build_path(index), "mirror"))
-    mirror_notes = """
-    # QUBOLib Data Mirror Release Notes
-
-    This release provides access to mirrored and preprocessed instances from other libraries.
-    """
+    mirror_notes = qubolib_mirror_release_notes()
 
     write(joinpath(mirror_path, "NOTES.md"), mirror_notes)
 
     @info "[QUBOLib] Deployment done!"
-    
+
     return nothing
 end
 
+function qubolib_artifact_entry(
+    git_tree_hash::AbstractString,
+    tar_ball_hash::AbstractString,
+    tag::AbstractString,
+)
+    return """
+    [qubolib]
+    git-tree-sha1 = "$(git_tree_hash)"
+    lazy          = true
+
+        [[qubolib.download]]
+        url    = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/$(tag)/qubolib.tar.gz"
+        sha256 = "$(tar_ball_hash)"
+    """
+end
+
+function _qoblib_release_counts(groups = QOBLIB_GROUPS)
+    instance_count = sum(group.expected_count for group in groups)
+    incumbent_count = sum(group.expected_incumbents for group in groups)
+
+    return (
+        instances = instance_count,
+        incumbents = incumbent_count,
+        missing_incumbents = instance_count - incumbent_count,
+    )
+end
+
+function qubolib_release_notes(
+    release_title::AbstractString,
+    artifact_entry::AbstractString,
+)
+    counts = _qoblib_release_counts()
+
+    return """
+    # $(release_title) Release Notes
+
+    ## Summary
+
+    This release rebuilds the QUBOLib data artifact with QOBLIB QUBO benchmark models, incumbent bitstrings, and submission metadata from source commit `$(QOBLIB_SOURCE_COMMIT)`.
+
+    QOBLIB contributes $(counts.instances) imported QUBO instances and $(counts.incumbents) validated incumbent records. The remaining $(counts.missing_incumbents) missing-incumbent cases are represented as `SolutionRecords` metadata instead of build failures.
+
+    QUBOLib remains QUBO-focused. Benchmark comparisons should use canonical QUBO-space `qubo_value`, which is evaluated from the stored model and mapped bitstring. Source objective values are preserved as provenance and may differ because of source formulation conventions, offsets, signs, penalties, or auxiliary variables.
+
+    ## Licensing and Citation
+
+    QOBLIB source code and scripts are Apache-2.0 licensed. QOBLIB data is CC-BY-4.0 licensed. Cite QOBLIB with the collection citation stored in the artifact metadata.
+
+    ## `Artifacts.toml`
+
+    To access the `qubolib` artifact in your project, add the following entry to `Artifacts.toml`.
+
+    ```toml
+    $(artifact_entry)
+    ```
+    """
+end
+
+function qubolib_mirror_release_notes()
+    return """
+    # QUBOLib Data Mirror Release Notes
+
+    This release provides access to mirrored and preprocessed instances from other libraries, including the pinned QOBLIB source archive used to build the packaged QUBOLib data artifact.
+    """
+end
+
 function last_data_tag(index::QUBOLib.LibraryIndex)::Union{String,Nothing}
-    last_tag_path = joinpath(QUBOLib.build_path(index), "last.tag")
+    return last_data_tag(QUBOLib.root_path(index))
+end
 
-    if isdir(last_tag_path)
-        return strip(read(last_tag_path, String))
-    else
-        @warn """
-        No last tag information found @ '$last_tag_path'.
-        """
+function last_data_tag(path::AbstractString)::Union{String,Nothing}
+    last_tag_path = joinpath(QUBOLib.build_path(path), "last.tag")
+    artifacts_path = joinpath(path, "Artifacts.toml")
 
-        return nothing
+    if isfile(last_tag_path)
+        tag = strip(read(last_tag_path, String))
+
+        return isempty(tag) ? nothing : tag
     end
+
+    tag = artifact_data_tag(path)
+
+    if !isnothing(tag)
+        return tag
+    end
+
+    @warn """
+    No last tag information found @ '$last_tag_path' or '$artifacts_path'.
+    """
+
+    return nothing
+end
+
+function artifact_data_tag(path::AbstractString)::Union{String,Nothing}
+    artifacts_path = joinpath(path, "Artifacts.toml")
+
+    isfile(artifacts_path) || return nothing
+
+    data = TOML.parsefile(artifacts_path)
+    artifact = get(data, "qubolib", nothing)
+
+    isnothing(artifact) && return nothing
+
+    downloads = get(artifact, "download", Any[])
+
+    downloads isa AbstractVector || return nothing
+
+    for download in downloads
+        download isa AbstractDict || continue
+
+        url = get(download, "url", "")
+        m = match(r"/releases/download/([^/]+)/qubolib\.tar\.gz$", String(url))
+
+        if !isnothing(m)
+            return only(m.captures)
+        end
+    end
+
+    return nothing
 end
 
 function next_data_tag(::Nothing)::String

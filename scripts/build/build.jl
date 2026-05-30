@@ -1,6 +1,7 @@
 import Pkg
 import Tar
 import Downloads
+import TOML
 
 import QUBOLib
 import QUBOTools

@@ -31,6 +31,14 @@ const HEN_DATA = Dict(
     ),
 )
 
+function _hen_qubist_format()
+    if isdefined(QUBOTools, :Qubist)
+        return getfield(QUBOTools, :Qubist)()
+    else
+        return QUBOTools.Format{:qubist}()
+    end
+end
+
 function load_hen!(index::QUBOLib.LibraryIndex, code::AbstractString)
     @info "[$code] Downloading instances"
 
@@ -87,7 +95,7 @@ function build_hen!(index::QUBOLib.LibraryIndex, code::AbstractString; cache::Bo
 
     for path in readdir(data_path; join = true)
         model = try
-            QUBOTools.read_model(path, QUBOTools.Qubist())
+            QUBOTools.read_model(path, _hen_qubist_format())
         catch e
             if e isa QUBOTools.SyntaxError
                 @warn """
