@@ -33,6 +33,7 @@ function test_docs()
         @test occursin("canonical benchmark comparator is `qubo_value`", intro)
         @test occursin("`source_value` is provenance", intro)
         @test occursin("solver stacks such as QUBODrivers", intro)
+        @test occursin("```@example benchmarking-workflow", intro)
 
         @test occursin("Opening the library index", basic)
         @test occursin("Loading an instance", basic)
