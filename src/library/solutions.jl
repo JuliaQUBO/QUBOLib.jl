@@ -357,16 +357,34 @@ function load_best_solution(index::LibraryIndex, instance::Integer)
     end
 end
 
-function add_solution!(index::LibraryIndex, instance::Integer, sol::QUBOTools.SampleSet{Float64,Int})::Integer
+function add_solution!(
+    index::LibraryIndex,
+    instance::Integer,
+    sol::QUBOTools.SampleSet{Float64,Int};
+    qubo_value = nothing,
+    source_value = nothing,
+    objective_bound = nothing,
+    proven_optimal = nothing,
+    feasibility_status = "feasible",
+    validation_status = nothing,
+    incumbent_candidate::Bool = true,
+    source_path = nothing,
+)::Integer
     @assert isopen(index)
     @assert !isempty(sol)
 
     data = QUBOTools.metadata(sol)
 
-    solver  = get(data, "solver", nothing)
-    value   = QUBOTools.value(sol, 1)
+    solver = get(data, "solver", nothing)
+    value  = QUBOTools.value(sol, 1)
 
-    optimal = get(data, "status", nothing) == "optimal"
+    optimal = if isnothing(proven_optimal)
+        get(data, "status", nothing) == "optimal"
+    else
+        proven_optimal
+    end
+
+    provenance_value = isnothing(source_value) ? value : source_value
 
     db = QUBOLib.database(index)
     h5 = QUBOLib.archive(index)
@@ -379,7 +397,7 @@ function add_solution!(index::LibraryIndex, instance::Integer, sol::QUBOTools.Sa
         VALUES
             (?, ?, ?, ?)   
         """,
-        (instance, solver, value, optimal)
+        (instance, solver, value, optimal),
     )
 
     i = DBInterface.lastrowid(query)::Integer
@@ -393,10 +411,14 @@ function add_solution!(index::LibraryIndex, instance::Integer, sol::QUBOTools.Sa
         instance;
         solution = i,
         bitstring = _solution_bitstring(sol),
-        source_value = value,
+        qubo_value,
+        source_value = provenance_value,
+        objective_bound,
         proven_optimal = optimal,
-        feasibility_status = "feasible",
-        incumbent_candidate = true,
+        feasibility_status,
+        validation_status,
+        incumbent_candidate,
+        source_path,
         metadata = data,
     )
 

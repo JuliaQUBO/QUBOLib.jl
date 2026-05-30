@@ -70,24 +70,68 @@ function test_qoblib_qs_parser()
     return nothing
 end
 
-function _write_qoblib_fixture_group(root::AbstractString, group, filename::AbstractString)
+function _write_qoblib_fixture_group(root::AbstractString, group, filenames)
     group_path = mkpath(joinpath(root, group.path))
-    model_path = if group.nested
-        mkpath(joinpath(group_path, "fixture"))
-        joinpath(group_path, "fixture", filename)
-    else
-        joinpath(group_path, filename)
-    end
 
     write(joinpath(group_path, "README.md"), "# Fixture\n")
     write(
         joinpath(group_path, "metrics.csv"),
+        join(
+            vcat(
+                ["file,num_variables,density,min_coeff,max_coeff"],
+                ["$(basename(filename)),3,$(4 / 6),-4.0,3.0" for filename in filenames],
+            ),
+            "\n",
+        ) * "\n",
+    )
+
+    for filename in filenames
+        model_path = joinpath(group_path, filename)
+
+        mkpath(dirname(model_path))
+        write(model_path, _qoblib_fixture())
+    end
+
+    return nothing
+end
+
+function _write_qoblib_solution_dir(
+    root::AbstractString,
+    group,
+    readme::AbstractString = "# Fixture\n",
+)
+    solution_path = mkpath(joinpath(root, group.solution_path))
+
+    write(joinpath(solution_path, "README.md"), readme)
+
+    return solution_path
+end
+
+function _write_qoblib_portfolio_solution(root::AbstractString, group)
+    solution_path = _write_qoblib_solution_dir(
+        root,
+        group,
         """
-        file,num_variables,density,min_coeff,max_coeff
-        $(filename),3,$(4 / 6),-4.0,3.0
+        |   a |   t | s    |   b |   l | Best |
+        |-----|-----|------|-----|-----|------|
+        |  10 |  10 | orig |   4 |   0 |  999 |
         """,
     )
-    write(model_path, _qoblib_fixture())
+    archive_path = joinpath(solution_path, "a010_t10_orig_b004.tar.gz")
+
+    mktempdir() do path
+        member_dir = mkpath(joinpath(path, "a010_t10_orig_b004"))
+
+        write(
+            joinpath(member_dir, "a010_t10_orig_b004_l0.0.sol"),
+            """
+            x#1 0
+            x#2 1
+            x#3 0
+            """,
+        )
+        run(Cmd(["tar", "-czf", archive_path, "-C", path, "a010_t10_orig_b004"]))
+    end
 
     return nothing
 end
@@ -96,36 +140,48 @@ function test_qoblib_build_fixture()
     @testset "▶ QOBLIB build fixture" begin
         groups = (
             (
-                code           = "marketsplit",
-                problem_class  = "Market Split",
-                formulation    = "binary_unconstrained",
-                path           = "01-marketsplit/models/binary_unconstrained/qs_files",
-                expected_count = 1,
-                nested         = false,
+                code = "marketsplit",
+                problem_class = "Market Split",
+                formulation = "binary_unconstrained",
+                path = "01-marketsplit/models/binary_unconstrained/qs_files",
+                solution_path = "01-marketsplit/solutions",
+                solution_format = :bit_tokens,
+                expected_count = 2,
+                expected_incumbents = 1,
+                nested = false,
             ),
             (
-                code           = "labs",
-                problem_class  = "LABS",
-                formulation    = "quadratic_unconstrained",
-                path           = "02-labs/models/quadratic_unconstrained/qs_files",
+                code = "labs",
+                problem_class = "LABS",
+                formulation = "quadratic_unconstrained",
+                path = "02-labs/models/quadratic_unconstrained/qs_files",
+                solution_path = "02-labs/solutions",
+                solution_format = :labs_bits,
                 expected_count = 1,
-                nested         = false,
+                expected_incumbents = 1,
+                nested = false,
             ),
             (
-                code           = "portfolio",
-                problem_class  = "Portfolio Optimization",
-                formulation    = "unconstrained_quadratic_optimization",
-                path           = "06-portfolio/models/unconstrained_quadratic_optimization/qs_files",
+                code = "portfolio",
+                problem_class = "Portfolio Optimization",
+                formulation = "unconstrained_quadratic_optimization",
+                path = "06-portfolio/models/unconstrained_quadratic_optimization/qs_files",
+                solution_path = "06-portfolio/solutions/uqo",
+                solution_format = :assignments,
                 expected_count = 1,
-                nested         = true,
+                expected_incumbents = 1,
+                nested = true,
             ),
             (
-                code           = "independentset",
-                problem_class  = "Maximum Independent Set",
-                formulation    = "binary_unconstrained",
-                path           = "07-independentset/models/binary_unconstrained/qs_files",
+                code = "independentset",
+                problem_class = "Maximum Independent Set",
+                formulation = "binary_unconstrained",
+                path = "07-independentset/models/binary_unconstrained/qs_files",
+                solution_path = "07-independentset/solutions",
+                solution_format = :active_indices,
                 expected_count = 1,
-                nested         = false,
+                expected_incumbents = 1,
+                nested = false,
             ),
         )
 
@@ -134,9 +190,31 @@ function test_qoblib_build_fixture()
             write(joinpath(root, "LICENSE"), "Apache-2.0\n")
             write(joinpath(root, "LICENSE.data"), "CC-BY-4.0\n")
 
-            for group in groups
-                _write_qoblib_fixture_group(root, group, "$(group.code).qs")
-            end
+            _write_qoblib_fixture_group(
+                root,
+                groups[1],
+                ["marketsplit.qs", "marketsplit-missing.qs"],
+            )
+            solution_path = _write_qoblib_solution_dir(root, groups[1])
+            write(joinpath(solution_path, "marketsplit.opt.sol"), "1 0 1\n")
+
+            _write_qoblib_fixture_group(root, groups[2], ["labs001.qs"])
+            solution_path = _write_qoblib_solution_dir(root, groups[2])
+            write(joinpath(solution_path, "labs001.bst.sol"), "# Energy: 26\n1\n0\n")
+
+            _write_qoblib_fixture_group(
+                root,
+                groups[3],
+                ["a010_t10_orig_b004/uqo_a010_t10_orig_b004_l0.qs"],
+            )
+            _write_qoblib_portfolio_solution(root, groups[3])
+
+            _write_qoblib_fixture_group(root, groups[4], ["independentset.qs"])
+            solution_path = _write_qoblib_solution_dir(root, groups[4])
+            write(
+                joinpath(solution_path, "independentset.opt.sol"),
+                "# Objective value = 2\n1\n3\n",
+            )
 
             mktempdir() do path
                 QUBOLib.access(; path, clear = true) do index
@@ -154,13 +232,86 @@ function test_qoblib_build_fixture()
                             """,
                             (QOBLIB_COLLECTION,),
                         ) |> QUBOLib.DataFrame
+                    records =
+                        QUBOLib.DBInterface.execute(
+                            QUBOLib.database(index),
+                            """
+                            SELECT i.instance, i.name, r.bitstring, r.qubo_value,
+                                   r.source_value, r.proven_optimal,
+                                   r.feasibility_status, r.validation_status,
+                                   r.incumbent_candidate, r.source_path, r.solution
+                            FROM SolutionRecords AS r
+                            JOIN Instances AS i
+                              ON i.instance = r.instance
+                            ORDER BY i.name;
+                            """,
+                        ) |> QUBOLib.DataFrame
+                    best =
+                        QUBOLib.DBInterface.execute(
+                            QUBOLib.database(index),
+                            """
+                            SELECT i.instance, i.name, b.bitstring, b.qubo_value,
+                                   b.source_value, b.solution
+                            FROM BestSolutions AS b
+                            JOIN Instances AS i
+                              ON i.instance = b.instance
+                            ORDER BY i.name;
+                            """,
+                        ) |> QUBOLib.DataFrame
 
-                    @test count == 4
+                    @test count == 5
                     @test Set(data[!, :source_name]) == Set(["QOBLIB"])
                     @test Set(data[!, :problem_class]) ==
                           Set(getfield.(groups, :problem_class))
                     @test Set(data[!, :formulation]) == Set(getfield.(groups, :formulation))
                     @test all(endswith(path, ".qs") for path in data[!, :source_path])
+                    @test size(records, 1) == 5
+                    @test size(best, 1) == 4
+
+                    missing = only(
+                        eachrow(
+                            filter(row -> row[:name] == "marketsplit-missing.qs", records),
+                        ),
+                    )
+
+                    @test ismissing(missing[:bitstring])
+                    @test missing[:feasibility_status] == "missing"
+                    @test missing[:validation_status] == "missing"
+                    @test !Bool(missing[:incumbent_candidate])
+                    @test QUBOLib.load_best_solution(index, missing[:instance]) === nothing
+
+                    labs = only(eachrow(filter(row -> row[:name] == "labs001.qs", records)))
+                    portfolio = only(
+                        eachrow(
+                            filter(
+                                row ->
+                                    row[:name] ==
+                                    "a010_t10_orig_b004/uqo_a010_t10_orig_b004_l0.qs",
+                                records,
+                            ),
+                        ),
+                    )
+                    independent = only(
+                        eachrow(filter(row -> row[:name] == "independentset.qs", records)),
+                    )
+
+                    @test labs[:source_value] == 26
+                    @test labs[:qubo_value] != labs[:source_value]
+                    @test !Bool(labs[:proven_optimal])
+                    @test portfolio[:source_value] == 999
+                    @test Bool(independent[:proven_optimal])
+
+                    for row in eachrow(best)
+                        model = QUBOLib.load_instance(index, row[:instance])
+                        state = QUBOLib._bitstring_state(row[:bitstring])
+                        loaded = QUBOLib.load_best_solution(index, row[:instance])
+
+                        @test QUBOTools.value(model, state) ≈ row[:qubo_value]
+                        @test !isnothing(loaded)
+                        @test QUBOLib._normalize_bitstring(QUBOTools.state(loaded[1])) ==
+                              row[:bitstring]
+                        @test QUBOTools.value(loaded, 1) ≈ row[:qubo_value]
+                    end
                 end
             end
         end

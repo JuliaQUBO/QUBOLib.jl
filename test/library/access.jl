@@ -97,6 +97,7 @@ function test_library_access()
                 @test best[:solution] == solution
                 @test QUBOTools.state(loaded_best[1]) == [0, 0, 0]
                 @test QUBOTools.value(loaded_best, 1) ≈ QUBOTools.value(sol, 1)
+                @test QUBOLib.JSON.parse(best[:metadata]) == QUBOTools.metadata(loaded_best)
             end
         end
     end

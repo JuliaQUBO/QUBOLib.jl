@@ -7,36 +7,48 @@ const QOBLIB_ARCHIVE_URL = "https://github.com/$(QOBLIB_REPOSITORY)/archive/$(QO
 
 const QOBLIB_GROUPS = (
     (
-        code           = "marketsplit",
-        problem_class  = "Market Split",
-        formulation    = "binary_unconstrained",
-        path           = "01-marketsplit/models/binary_unconstrained/qs_files",
-        expected_count = 156,
-        nested         = false,
+        code                = "marketsplit",
+        problem_class       = "Market Split",
+        formulation         = "binary_unconstrained",
+        path                = "01-marketsplit/models/binary_unconstrained/qs_files",
+        solution_path       = "01-marketsplit/solutions",
+        solution_format     = :bit_tokens,
+        expected_count      = 156,
+        expected_incumbents = 115,
+        nested              = false,
     ),
     (
-        code           = "labs",
-        problem_class  = "LABS",
-        formulation    = "quadratic_unconstrained",
-        path           = "02-labs/models/quadratic_unconstrained/qs_files",
-        expected_count = 99,
-        nested         = false,
+        code                = "labs",
+        problem_class       = "LABS",
+        formulation         = "quadratic_unconstrained",
+        path                = "02-labs/models/quadratic_unconstrained/qs_files",
+        solution_path       = "02-labs/solutions",
+        solution_format     = :labs_bits,
+        expected_count      = 99,
+        expected_incumbents = 99,
+        nested              = false,
     ),
     (
-        code           = "portfolio",
-        problem_class  = "Portfolio Optimization",
-        formulation    = "unconstrained_quadratic_optimization",
-        path           = "06-portfolio/models/unconstrained_quadratic_optimization/qs_files",
-        expected_count = 128,
-        nested         = true,
+        code                = "portfolio",
+        problem_class       = "Portfolio Optimization",
+        formulation         = "unconstrained_quadratic_optimization",
+        path                = "06-portfolio/models/unconstrained_quadratic_optimization/qs_files",
+        solution_path       = "06-portfolio/solutions/uqo",
+        solution_format     = :assignments,
+        expected_count      = 128,
+        expected_incumbents = 128,
+        nested              = true,
     ),
     (
-        code           = "independentset",
-        problem_class  = "Maximum Independent Set",
-        formulation    = "binary_unconstrained",
-        path           = "07-independentset/models/binary_unconstrained/qs_files",
-        expected_count = 50,
-        nested         = false,
+        code                = "independentset",
+        problem_class       = "Maximum Independent Set",
+        formulation         = "binary_unconstrained",
+        path                = "07-independentset/models/binary_unconstrained/qs_files",
+        solution_path       = "07-independentset/solutions",
+        solution_format     = :active_indices,
+        expected_count      = 50,
+        expected_incumbents = 50,
+        nested              = false,
     ),
 )
 
@@ -258,6 +270,535 @@ function QUBOTools.read_model(path::AbstractString, fmt::QOBLIBQS)
     end
 end
 
+function _qoblib_qs_stem(path::AbstractString)
+    name = basename(path)
+
+    if endswith(name, ".xz")
+        name = first(splitext(name))
+    end
+
+    if endswith(name, ".qs")
+        name = first(splitext(name))
+    end
+
+    return name
+end
+
+function _qoblib_solution_status(file::AbstractString)
+    stem = first(splitext(file))
+
+    if endswith(stem, ".opt")
+        return (stem = chop(stem; tail = 4), status = "optimal", proven_optimal = true)
+    elseif endswith(stem, ".bst")
+        return (stem = chop(stem; tail = 4), status = "best_known", proven_optimal = false)
+    else
+        return (stem = stem, status = "reference", proven_optimal = false)
+    end
+end
+
+function _qoblib_portfolio_key(stem::AbstractString)
+    name = startswith(stem, "uqo_") ? stem[5:end] : String(stem)
+    m = match(r"^(.*)_l([^_]+)$", name)
+
+    if isnothing(m)
+        return name
+    else
+        return "$(m.captures[1])|$(repr(parse(Float64, m.captures[2])))"
+    end
+end
+
+function _qoblib_solution_key(group, path::AbstractString)
+    stem = _qoblib_qs_stem(path)
+
+    if hasproperty(group, :solution_format) && group.solution_format == :assignments
+        return _qoblib_portfolio_key(stem)
+    else
+        return stem
+    end
+end
+
+function _qoblib_portfolio_variant(value::AbstractString)
+    variant = strip(value)
+
+    if variant == "orig"
+        return "orig"
+    else
+        return "s$(lpad(string(round(Int, parse(Float64, variant))), 2, '0'))"
+    end
+end
+
+function _qoblib_parse_markdown_number(value::AbstractString)
+    text = replace(strip(value), "\\" => "")
+    text = replace(text, "*" => "")
+    text = replace(text, "," => "")
+
+    if isempty(text) || text == "[TO FILL]"
+        return missing
+    end
+
+    return parse(Float64, text)
+end
+
+function _qoblib_portfolio_source_values(path::AbstractString)
+    values = Dict{String,Float64}()
+
+    if !isfile(path)
+        return values
+    end
+
+    for line in eachline(path)
+        text = strip(line)
+
+        if !startswith(text, "|") || occursin("---", text)
+            continue
+        end
+
+        cells = strip.(split(strip(text, ['|']), '|'))
+
+        if length(cells) < 6 || lowercase(cells[1]) == "a"
+            continue
+        end
+
+        source_value = _qoblib_parse_markdown_number(cells[6])
+
+        if ismissing(source_value)
+            continue
+        end
+
+        a = round(Int, parse(Float64, cells[1]))
+        t = round(Int, parse(Float64, cells[2]))
+        s = _qoblib_portfolio_variant(cells[3])
+        b = round(Int, parse(Float64, cells[4]))
+        lambda = parse(Float64, cells[5])
+        base = "a$(lpad(string(a), 3, '0'))_t$(t)_$(s)_b$(lpad(string(b), 3, '0'))"
+
+        values["$base|$(repr(lambda))"] = source_value
+    end
+
+    return values
+end
+
+function _qoblib_direct_solution_index(root_path::AbstractString, group)
+    index = Dict{String,Any}()
+    solution_path = joinpath(root_path, group.solution_path)
+
+    if !isdir(solution_path)
+        return index
+    end
+
+    for (root, _, files) in walkdir(solution_path)
+        for file in files
+            endswith(file, ".sol") || continue
+
+            status = _qoblib_solution_status(file)
+            path = joinpath(root, file)
+
+            index[status.stem] = (
+                kind = :file,
+                path = path,
+                member = nothing,
+                status = status.status,
+                proven_optimal = status.proven_optimal,
+                source_value = missing,
+            )
+        end
+    end
+
+    return index
+end
+
+function _qoblib_tar_solution_index(root_path::AbstractString, group)
+    @assert run(`which tar`, devnull, devnull).exitcode == 0 "'tar' is required to read QOBLIB solution archives"
+
+    index = Dict{String,Any}()
+    solution_path = joinpath(root_path, group.solution_path)
+    source_values = _qoblib_portfolio_source_values(joinpath(solution_path, "README.md"))
+
+    if !isdir(solution_path)
+        return index
+    end
+
+    for archive_path in
+        sort(filter(endswith(".tar.gz"), readdir(solution_path; join = true)))
+        listing = read(Cmd(["tar", "-tzf", archive_path]), String)
+
+        for member in eachsplit(listing, '\n')
+            member = strip(member)
+
+            if !endswith(member, ".sol")
+                continue
+            end
+
+            key = _qoblib_portfolio_key(first(splitext(basename(member))))
+
+            index[key] = (
+                kind = :tar,
+                path = archive_path,
+                member = member,
+                status = "best_known",
+                proven_optimal = false,
+                source_value = get(source_values, key, missing),
+            )
+        end
+    end
+
+    return index
+end
+
+function _qoblib_solution_index(root_path::AbstractString, group)
+    if !hasproperty(group, :solution_path)
+        return Dict{String,Any}()
+    elseif hasproperty(group, :solution_format) && group.solution_format == :assignments
+        return _qoblib_tar_solution_index(root_path, group)
+    else
+        return _qoblib_direct_solution_index(root_path, group)
+    end
+end
+
+function _qoblib_source_value(line::AbstractString)
+    m = match(
+        r"(?i)(?:energy|objective\s+value)\s*[:=]\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)",
+        line,
+    )
+
+    return isnothing(m) ? missing : parse(Float64, m.captures[1])
+end
+
+function _qoblib_parse_bit_tokens(lines::Vector{String})
+    tokens = String[]
+
+    for line in lines
+        append!(tokens, split(line))
+    end
+
+    return map(tokens) do token
+        if token == "0"
+            return 0
+        elseif token == "1"
+            return 1
+        else
+            QUBOTools.syntax_error("Invalid QOBLIB incumbent bit '$token'")
+        end
+    end
+end
+
+function _qoblib_read_bit_tokens(lines::Vector{String}, dimension::Integer)
+    state = _qoblib_parse_bit_tokens(lines)
+
+    if length(state) != dimension
+        QUBOTools.syntax_error(
+            "QOBLIB incumbent bitstring length mismatch: expected $dimension, got $(length(state))",
+        )
+    end
+
+    return state
+end
+
+function _qoblib_read_labs_bits(lines::Vector{String}, dimension::Integer)
+    state = _qoblib_parse_bit_tokens(lines)
+    n = length(state)
+    expected_dimension = n + div(n * (n - 1), 2)
+
+    if dimension != expected_dimension
+        QUBOTools.syntax_error(
+            "QOBLIB LABS incumbent dimension mismatch: expected $dimension, reconstructed $expected_dimension",
+        )
+    end
+
+    for i = 1:(n - 1)
+        for j = (i + 1):n
+            push!(state, state[i] * state[j])
+        end
+    end
+
+    return state
+end
+
+function _qoblib_read_active_indices(lines::Vector{String}, dimension::Integer)
+    state = zeros(Int, dimension)
+
+    for line in lines
+        for token in split(line)
+            index = _qoblib_parse_int(token)
+
+            if !(1 <= index <= dimension)
+                QUBOTools.syntax_error(
+                    "QOBLIB incumbent active index out of bounds: $index",
+                )
+            elseif state[index] == 1
+                QUBOTools.syntax_error("Duplicate QOBLIB incumbent active index: $index")
+            end
+
+            state[index] = 1
+        end
+    end
+
+    return state
+end
+
+function _qoblib_read_assignments(lines::Vector{String}, dimension::Integer)
+    state = fill(-1, dimension)
+
+    for line in lines
+        m = match(
+            r"^x#([0-9]+)\s+([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)$",
+            strip(line),
+        )
+
+        if isnothing(m)
+            QUBOTools.syntax_error("Invalid QOBLIB incumbent assignment: $line")
+        end
+
+        index = _qoblib_parse_int(m.captures[1])
+        value = parse(Float64, m.captures[2])
+
+        if !(1 <= index <= dimension)
+            QUBOTools.syntax_error(
+                "QOBLIB incumbent assignment index out of bounds: $index",
+            )
+        end
+
+        bit = round(Int, value)
+
+        if !isapprox(value, bit; atol = 1e-9) || !(bit == 0 || bit == 1)
+            QUBOTools.syntax_error("Invalid QOBLIB incumbent assignment value: $value")
+        elseif state[index] != -1
+            QUBOTools.syntax_error("Duplicate QOBLIB incumbent assignment: x#$index")
+        end
+
+        state[index] = bit
+    end
+
+    missing = findfirst(==(-1), state)
+
+    if !isnothing(missing)
+        QUBOTools.syntax_error("Missing QOBLIB incumbent assignment: x#$missing")
+    end
+
+    return state
+end
+
+function _qoblib_read_solution(io::IO, format::Symbol, dimension::Integer)
+    lines = String[]
+    source_value = missing
+
+    for raw_line in eachline(io)
+        line = strip(raw_line)
+
+        isempty(line) && continue
+
+        if startswith(line, "#")
+            value = _qoblib_source_value(line)
+
+            if !ismissing(value)
+                source_value = value
+            end
+        else
+            push!(lines, line)
+        end
+    end
+
+    state = if format == :bit_tokens
+        _qoblib_read_bit_tokens(lines, dimension)
+    elseif format == :labs_bits
+        _qoblib_read_labs_bits(lines, dimension)
+    elseif format == :active_indices
+        _qoblib_read_active_indices(lines, dimension)
+    elseif format == :assignments
+        _qoblib_read_assignments(lines, dimension)
+    else
+        error("[qoblib] Unsupported incumbent solution format '$format'")
+    end
+
+    return (state = state, source_value = source_value)
+end
+
+function _qoblib_read_solution(info, format::Symbol, dimension::Integer)
+    if info.kind == :file
+        return open(info.path, "r") do io
+            _qoblib_read_solution(io, format, dimension)
+        end
+    elseif info.kind == :tar
+        return open(Cmd(["tar", "-xOzf", info.path, String(info.member)]), "r") do io
+            _qoblib_read_solution(io, format, dimension)
+        end
+    else
+        error("[qoblib] Unsupported incumbent source kind '$(info.kind)'")
+    end
+end
+
+function _qoblib_source_path(root_path::AbstractString, info)
+    source_path = replace(relpath(info.path, root_path), '\\' => '/')
+
+    if isnothing(info.member)
+        return source_path
+    else
+        return "$(source_path)!$(info.member)"
+    end
+end
+
+function _qoblib_source_url(root_path::AbstractString, info)
+    source_path = replace(relpath(info.path, root_path), '\\' => '/')
+
+    return "https://github.com/$(QOBLIB_REPOSITORY)/blob/$(QOBLIB_SOURCE_COMMIT)/$(source_path)"
+end
+
+function _qoblib_incumbent_metadata(
+    root_path::AbstractString,
+    group,
+    info;
+    source_value = missing,
+)
+    metadata = Dict{String,Any}(
+        "source_name"       => "QOBLIB",
+        "source_commit"     => QOBLIB_SOURCE_COMMIT,
+        "source_path"       => _qoblib_source_path(root_path, info),
+        "source_url"        => _qoblib_source_url(root_path, info),
+        "source_status"     => info.status,
+        "source_format"     => String(group.solution_format),
+        "validation_status" => "validated",
+        "qubo_value_source" => "QUBOTools.value(model, bitstring)",
+    )
+
+    if !ismissing(source_value)
+        metadata["source_value"] = source_value
+    end
+
+    if !isnothing(info.member)
+        metadata["source_member"] = info.member
+    end
+
+    return metadata
+end
+
+function _qoblib_missing_incumbent_metadata(
+    root_path::AbstractString,
+    group,
+    model_path::AbstractString,
+    key::AbstractString,
+)
+    return Dict{String,Any}(
+        "source_name"           => "QOBLIB",
+        "source_commit"         => QOBLIB_SOURCE_COMMIT,
+        "source_status"         => "missing",
+        "validation_status"     => "missing",
+        "reason"                => "missing_source_solution",
+        "expected_solution_key" => key,
+        "model_source_path"     => replace(relpath(model_path, root_path), '\\' => '/'),
+        "solution_path"         => hasproperty(group, :solution_path) ? group.solution_path : missing,
+        "source_format"         => hasproperty(group, :solution_format) ? String(group.solution_format) : missing,
+    )
+end
+
+function _add_qoblib_missing_incumbent!(
+    index::QUBOLib.LibraryIndex,
+    instance::Integer,
+    root_path::AbstractString,
+    group,
+    model_path::AbstractString,
+    key::AbstractString,
+)
+    QUBOLib.add_solution_record!(
+        index,
+        instance;
+        feasibility_status = "missing",
+        validation_status = "missing",
+        incumbent_candidate = false,
+        metadata = _qoblib_missing_incumbent_metadata(root_path, group, model_path, key),
+    )
+
+    return :missing
+end
+
+function _add_qoblib_incumbent!(
+    index::QUBOLib.LibraryIndex,
+    instance::Integer,
+    model::QUBOTools.Model{Int,Float64,Int},
+    root_path::AbstractString,
+    group,
+    model_path::AbstractString,
+    solution_index::Dict{String,Any},
+)
+    if !hasproperty(group, :solution_path)
+        return :skipped
+    end
+
+    key = _qoblib_solution_key(group, model_path)
+
+    if !haskey(solution_index, key)
+        return _add_qoblib_missing_incumbent!(
+            index,
+            instance,
+            root_path,
+            group,
+            model_path,
+            key,
+        )
+    end
+
+    info = solution_index[key]
+    dimension = QUBOTools.dimension(model)
+    solution = _qoblib_read_solution(info, group.solution_format, dimension)
+    source_value = ismissing(info.source_value) ? solution.source_value : info.source_value
+
+    if length(solution.state) != dimension
+        error(
+            "[qoblib] Incumbent dimension mismatch for '$model_path': " *
+            "expected $dimension, got $(length(solution.state))",
+        )
+    end
+
+    qubo_value = QUBOTools.value(model, solution.state)
+    metadata = _qoblib_incumbent_metadata(root_path, group, info; source_value)
+    sol = QUBOTools.SampleSet{Float64,Int}(model, [solution.state]; metadata)
+
+    if !isapprox(QUBOTools.value(sol, 1), qubo_value; rtol = 1e-8, atol = 1e-8)
+        error("[qoblib] HDF5 incumbent sample value does not match QUBO value")
+    end
+
+    QUBOLib.add_solution!(
+        index,
+        instance,
+        sol;
+        qubo_value,
+        source_value = ismissing(source_value) ? missing : source_value,
+        proven_optimal = info.proven_optimal,
+        feasibility_status = "feasible",
+        validation_status = "validated",
+        incumbent_candidate = true,
+        source_path = _qoblib_source_path(root_path, info),
+    )
+
+    return :imported
+end
+
+function _validate_qoblib_incumbent_counts!(
+    group,
+    incumbent_count::Integer,
+    missing_incumbent_count::Integer,
+)
+    if !hasproperty(group, :expected_incumbents)
+        return nothing
+    end
+
+    expected_incumbents = group.expected_incumbents
+    expected_missing = group.expected_count - expected_incumbents
+
+    if incumbent_count != expected_incumbents
+        error(
+            "[qoblib] Expected $(expected_incumbents) incumbents for $(group.code), " *
+            "imported $incumbent_count",
+        )
+    elseif missing_incumbent_count != expected_missing
+        error(
+            "[qoblib] Expected $(expected_missing) missing incumbents for $(group.code), " *
+            "marked $missing_incumbent_count",
+        )
+    end
+
+    return nothing
+end
+
 function build_qoblib!(
     index::QUBOLib.LibraryIndex;
     cache::Bool = true,
@@ -281,11 +822,16 @@ function build_qoblib!(
     QUBOLib.add_collection!(index, QOBLIB_COLLECTION, QOBLIB_DATA)
 
     count = 0
+    incumbent_count = 0
+    missing_incumbent_count = 0
 
     for group in groups
         group_path = joinpath(root_path, group.path)
         metrics = _read_qoblib_metrics(joinpath(group_path, "metrics.csv"))
         model_paths = _qoblib_model_paths(group_path)
+        solution_index = _qoblib_solution_index(root_path, group)
+        group_incumbent_count = 0
+        group_missing_incumbent_count = 0
 
         if length(model_paths) != group.expected_count
             error(
@@ -301,7 +847,7 @@ function build_qoblib!(
             merge!(QUBOTools.metadata(model), metadata)
             _validate_qoblib_metrics!(model, metrics, model_path)
 
-            QUBOLib.add_instance!(
+            instance = QUBOLib.add_instance!(
                 index,
                 model,
                 QOBLIB_COLLECTION;
@@ -316,8 +862,32 @@ function build_qoblib!(
                 metadata          = metadata,
             )
 
+            incumbent_status = _add_qoblib_incumbent!(
+                index,
+                instance,
+                model,
+                root_path,
+                group,
+                model_path,
+                solution_index,
+            )
+
+            if incumbent_status == :imported
+                group_incumbent_count += 1
+                incumbent_count += 1
+            elseif incumbent_status == :missing
+                group_missing_incumbent_count += 1
+                missing_incumbent_count += 1
+            end
+
             count += 1
         end
+
+        _validate_qoblib_incumbent_counts!(
+            group,
+            group_incumbent_count,
+            group_missing_incumbent_count,
+        )
     end
 
     expected_count = sum(group.expected_count for group in groups)
@@ -325,6 +895,8 @@ function build_qoblib!(
     if count != expected_count
         error("[qoblib] Expected to import $expected_count QS models, imported $count")
     end
+
+    @info "[qoblib] Imported $incumbent_count incumbents; marked $missing_incumbent_count missing"
 
     return nothing
 end
@@ -428,6 +1000,16 @@ function _qoblib_archive_patterns(root::AbstractString, groups)
         else
             push!(patterns, "$root/$(group.path)/*.qs.xz")
         end
+
+        if hasproperty(group, :solution_path)
+            push!(patterns, "$root/$(group.solution_path)/README.md")
+
+            if hasproperty(group, :solution_format) && group.solution_format == :assignments
+                push!(patterns, "$root/$(group.solution_path)/*.tar.gz")
+            else
+                push!(patterns, "$root/$(group.solution_path)/*.sol")
+            end
+        end
     end
 
     return patterns
@@ -451,6 +1033,18 @@ function _validate_qoblib_source!(root_path::AbstractString, groups)
 
         for file in ("README.md", "metrics.csv")
             path = joinpath(group.path, file)
+
+            if !isfile(joinpath(root_path, path))
+                push!(missing, path)
+            end
+        end
+
+        if hasproperty(group, :solution_path)
+            if !isdir(joinpath(root_path, group.solution_path))
+                push!(missing, group.solution_path)
+            end
+
+            path = joinpath(group.solution_path, "README.md")
 
             if !isfile(joinpath(root_path, path))
                 push!(missing, path)

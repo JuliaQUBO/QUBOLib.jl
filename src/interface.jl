@@ -116,7 +116,7 @@ Removes an instance from the library index.
 function remove_instance! end
 
 @doc raw"""
-    add_solution!(index::LibraryIndex, instance::Integer, solution::SampleSet{Float64,Int})
+    add_solution!(index::LibraryIndex, instance::Integer, solution::SampleSet{Float64,Int}; kwargs...)
 
 Registers a new solution for a given instance.
 
