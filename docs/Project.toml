@@ -1,7 +1,13 @@
 [deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterInterLinks = "d12716ef-a0f6-4df4-a9f1-a5a34e75c656"
 QUBOLib = "c2d3eca2-2309-4628-88a9-9d4a554e7c47"
+QUBOTools = "60eb5b62-0a39-4ddc-84c5-97d2adff9319"
+SQLite = "0aa819cd-b072-5ff4-a722-6bc24af294d9"
 
 [compat]
+DataFrames = "1"
 Documenter = "1"
+QUBOTools = "0.10, 0.12"
+SQLite = "1"
