@@ -1120,37 +1120,8 @@ function _add_qoblib_submission!(
         solution_metadata["solution_source_path"] = solution_source_path
         solution_metadata["solution_source_url"] = _qoblib_source_url(root_path, solution_path)
 
-        try
-            solution = _qoblib_read_submission_solution(solution_path, group, dimension)
-            record_source_value =
-                ismissing(source_value) ? solution.source_value : source_value
-            qubo_value = QUBOTools.value(model, solution.state)
-            sol = QUBOTools.SampleSet{Float64,Int}(
-                model,
-                [solution.state];
-                metadata = solution_metadata,
-            )
-
-            if !isapprox(QUBOTools.value(sol, 1), qubo_value; rtol = 1e-8, atol = 1e-8)
-                error("[qoblib] Submission sample value does not match QUBO value")
-            end
-
-            QUBOLib.add_solution!(
-                index,
-                instance,
-                sol;
-                submission,
-                qubo_value,
-                source_value = record_source_value,
-                objective_bound,
-                proven_optimal,
-                feasibility_status,
-                validation_status = "validated",
-                incumbent_candidate = feasibility_status == "feasible",
-                source_path = solution_source_path,
-            )
-
-            count += 1
+        solution = try
+            _qoblib_read_submission_solution(solution_path, group, dimension)
         catch err
             _qoblib_add_unmapped_submission_record!(
                 index,
@@ -1166,7 +1137,37 @@ function _add_qoblib_submission!(
             )
 
             count += 1
+            continue
         end
+
+        record_source_value = ismissing(source_value) ? solution.source_value : source_value
+        qubo_value = QUBOTools.value(model, solution.state)
+        sol = QUBOTools.SampleSet{Float64,Int}(
+            model,
+            [solution.state];
+            metadata = solution_metadata,
+        )
+
+        if !isapprox(QUBOTools.value(sol, 1), qubo_value; rtol = 1e-8, atol = 1e-8)
+            error("[qoblib] Submission sample value does not match QUBO value")
+        end
+
+        QUBOLib.add_solution!(
+            index,
+            instance,
+            sol;
+            submission,
+            qubo_value,
+            source_value = record_source_value,
+            objective_bound,
+            proven_optimal,
+            feasibility_status,
+            validation_status = "validated",
+            incumbent_candidate = feasibility_status == "feasible",
+            source_path = solution_source_path,
+        )
+
+        count += 1
     end
 
     return count

@@ -540,11 +540,113 @@ function test_qoblib_build_fixture()
     return nothing
 end
 
+function test_qoblib_submission_failure_handling()
+    @testset "▶ QOBLIB submission failure handling" begin
+        group = (
+            code = "marketsplit",
+            problem_class = "Market Split",
+            formulation = "binary_unconstrained",
+            path = "01-marketsplit/models/binary_unconstrained/qs_files",
+            solution_path = "01-marketsplit/solutions",
+            solution_format = :bit_tokens,
+            expected_count = 1,
+            expected_incumbents = 1,
+            nested = false,
+        )
+        model = QUBOTools.read_model(IOBuffer(_qoblib_fixture()), QOBLIBQS())
+
+        mktempdir() do root
+            submission_path = _write_qoblib_submission_summary(
+                root,
+                "01-marketsplit/submissions/20250104_Unmapped",
+                "marketsplit";
+                submitter = "Malformed Solver",
+                date = "2025-01-04",
+            )
+            summary_path = joinpath(submission_path, "marketsplit_summary.csv")
+            summary = (path = summary_path, row = only(_qoblib_csv_rows(summary_path)))
+
+            write(joinpath(submission_path, "marketsplit_solution.sol"), "not-a-bit\n")
+
+            mktempdir() do path
+                QUBOLib.access(; path, clear = true) do index
+                    instance = QUBOLib.add_instance!(index, model; name = "marketsplit.qs")
+
+                    @test _add_qoblib_submission!(
+                        index,
+                        instance,
+                        model,
+                        root,
+                        group,
+                        summary,
+                    ) == 1
+
+                    records =
+                        QUBOLib.DBInterface.execute(
+                            QUBOLib.database(index),
+                            """
+                            SELECT solution, feasibility_status, validation_status,
+                                   incumbent_candidate, metadata
+                            FROM SolutionRecords
+                            WHERE instance = ?;
+                            """,
+                            (instance,),
+                        ) |> QUBOLib.DataFrame
+                    record = only(eachrow(records))
+                    metadata = QUBOLib.JSON.parse(record[:metadata])
+
+                    @test ismissing(record[:solution])
+                    @test record[:feasibility_status] == "unmapped"
+                    @test record[:validation_status] == "unmapped"
+                    @test !Bool(record[:incumbent_candidate])
+                    @test metadata["reason"] == "unmapped_solution"
+                    @test occursin("Invalid QOBLIB incumbent bit", metadata["unmapped_error"])
+                    @test QUBOLib.load_best_solution(index, instance) === nothing
+                end
+            end
+        end
+
+        mktempdir() do root
+            submission_path = _write_qoblib_submission_summary(
+                root,
+                "01-marketsplit/submissions/20250105_StorageFailure",
+                "marketsplit";
+                submitter = "Valid Solver",
+                date = "2025-01-05",
+            )
+            summary_path = joinpath(submission_path, "marketsplit_summary.csv")
+            summary = (path = summary_path, row = only(_qoblib_csv_rows(summary_path)))
+
+            write(joinpath(submission_path, "marketsplit_solution.sol"), "1 0 1\n")
+
+            mktempdir() do path
+                QUBOLib.access(; path, clear = true) do index
+                    instance = QUBOLib.add_instance!(index, model; name = "marketsplit.qs")
+
+                    QUBOLib.HDF5.delete_object(QUBOLib.archive(index), "solutions")
+
+                    @test_throws Exception _add_qoblib_submission!(
+                        index,
+                        instance,
+                        model,
+                        root,
+                        group,
+                        summary,
+                    )
+                end
+            end
+        end
+    end
+
+    return nothing
+end
+
 function test_main()
     @testset "♦ QUBOLib.jl/scripts/build test suite ♦" verbose = true begin
         test_tags()
         test_qoblib_qs_parser()
         test_qoblib_build_fixture()
+        test_qoblib_submission_failure_handling()
     end
 
     return nothing
