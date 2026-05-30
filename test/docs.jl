@@ -13,6 +13,13 @@ function test_docs()
         @test occursin("Pkg.add([\"SQLite\", \"DataFrames\"])", docs_home)
         @test occursin("donate challenging QUBOs", docs_home)
 
+        math_heading = findfirst("## Mathematical Definitions", intro)
+        benchmark_heading =
+            findfirst("## Benchmarking Physics-Inspired Optimization Solvers", intro)
+
+        @test !isnothing(math_heading)
+        @test !isnothing(benchmark_heading)
+        @test first(math_heading) < first(benchmark_heading)
         @test occursin("Benchmarking Physics-Inspired Optimization Solvers", intro)
         @test occursin("Instances", intro)
         @test occursin("Submissions", intro)
@@ -25,6 +32,7 @@ function test_docs()
         @test occursin("QUBOLib.list_solution_records", intro)
         @test occursin("canonical benchmark comparator is `qubo_value`", intro)
         @test occursin("`source_value` is provenance", intro)
+        @test occursin("solver stacks such as QUBODrivers", intro)
 
         @test occursin("Opening the library index", basic)
         @test occursin("Loading an instance", basic)

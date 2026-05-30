@@ -1,5 +1,19 @@
 # Introduction
 
+## Mathematical Definitions
+
+All instances have been recast into the binary, minimization form:
+
+```math
+\begin{array}{rll}
+    \displaystyle
+    \min_{\mathbf{x}} & \alpha \left[ \mathbf{x}' \mathbf{Q} \, \mathbf{x} + \mathbf{\ell}' \mathbf{x} + \beta \right] \\
+    \textrm{s.t.}     & \mathbf{x} \in \mathbb{B}^{n} \\
+\end{array}
+```
+
+where ``\mathbf{Q} \in \mathbb{R}^{n \times n}`` is an upper triangular matrix, ``\mathbf{\ell} \in \mathbb{R}^{n}`` is a vector, ``\alpha, \beta \in \mathbb{R}`` are scalars, and ``\mathbb{B}^{n}`` is the set of binary vectors of length ``n``.
+
 ## Benchmarking Physics-Inspired Optimization Solvers
 
 QUBOLib is meant to make QUBO solver comparisons reproducible at the
@@ -118,7 +132,19 @@ QUBOLib.access() do index
 end
 ```
 
-For the minimization QUBOs described below, smaller `qubo_value` values are
+For solver stacks such as QUBODrivers, or for any other package that returns a
+QUBO-space state, keep the solver-specific call separate from the QUBOLib
+comparison step. Once the solver output has been converted to a binary vector in
+the variable order of `model`, the comparison is the same:
+
+```julia
+# candidate_state should be a Vector{Int} in the variable order of `model`.
+candidate_value = QUBOTools.value(model, candidate_state)
+incumbent_record = QUBOLib.best_solution_record(index, instance)
+absolute_gap = candidate_value - incumbent_record[:qubo_value]
+```
+
+For the minimization QUBOs described above, smaller `qubo_value` values are
 better, so a positive absolute gap means the candidate is worse than the current
 incumbent. When writing generic reports, check the instance `sense` metadata and
 apply the matching sign convention consistently.
@@ -136,20 +162,6 @@ QOBLIB-derived records should be attributed through their collection,
 submission, source path, reference, and metadata fields. Their original
 `source_value` is preserved when available, but QUBOLib benchmarking uses the
 mapped bitstring and locally evaluated `qubo_value`.
-
-## Mathematical Definitions
-
-All instances have been recast into the binary, minimization form:
-
-```math
-\begin{array}{rll}
-    \displaystyle
-    \min_{\mathbf{x}} & \alpha \left[ \mathbf{x}' \mathbf{Q} \, \mathbf{x} + \mathbf{\ell}' \mathbf{x} + \beta \right] \\
-    \textrm{s.t.}     & \mathbf{x} \in \mathbb{B}^{n} \\
-\end{array}
-```
-
-where ``\mathbf{Q} \in \mathbb{R}^{n \times n}`` is an upper triangular matrix, ``\mathbf{\ell} \in \mathbb{R}^{n}`` is a vector, ``\alpha, \beta \in \mathbb{R}`` are scalars, and ``\mathbb{B}^{n}`` is the set of binary vectors of length ``n``.
 
 ## Table of Contents
 
