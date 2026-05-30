@@ -13,6 +13,7 @@ include("library/deploy.jl")
 
 include("sources/hen.jl")
 include("sources/qplib.jl")
+include("sources/qoblib.jl")
 
 function build_qubolib!(
     path::AbstractString = pwd();
@@ -42,6 +43,10 @@ function build_qubolib!(
         build_qplib!(index)
     end
 
+    QUBOLib.access(; path) do index
+        build_qoblib!(index)
+    end
+
     @info "[QUBOLib] Build done!"
 
     if deploy
@@ -51,6 +56,7 @@ function build_qubolib!(
             deploy_qubolib!(index)
             deploy_hen!(index)
             deploy_qplib!(index)
+            deploy_qoblib!(index)
         end
     end
 

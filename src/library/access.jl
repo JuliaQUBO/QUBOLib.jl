@@ -42,7 +42,7 @@ function install(path::AbstractString; clear::Bool = false)
         for src_name in readdir(library_path())
             src_path = abspath(library_path(), src_name)
             dst_path = abspath(lib_path, src_name)
-            
+
             cp(
                 src_path,
                 dst_path;
@@ -141,16 +141,40 @@ function _column_exists(db::SQLite.DB, table::AbstractString, column::AbstractSt
     return String(column) in string.(df[!, :name])
 end
 
+function _add_column_unless_exists!(
+    db::SQLite.DB,
+    table::AbstractString,
+    column::AbstractString,
+    definition::AbstractString,
+)
+    if _table_exists(db, table) && !_column_exists(db, table, column)
+        DBInterface.execute(
+            db,
+            "ALTER TABLE $(String(table)) ADD COLUMN $(String(column)) $(String(definition));",
+        )
+    end
+
+    return nothing
+end
+
 function migrate_database!(db::SQLite.DB)
     DBInterface.execute(db, "PRAGMA foreign_keys = ON;")
 
-    if _table_exists(db, "Instances") && !_column_exists(db, "Instances", "sense")
-        DBInterface.execute(db, "ALTER TABLE Instances ADD COLUMN sense TEXT NOT NULL DEFAULT 'min';")
-    end
+    _add_column_unless_exists!(db, "Collections", "license", "TEXT NULL")
+    _add_column_unless_exists!(db, "Collections", "data_license", "TEXT NULL")
+    _add_column_unless_exists!(db, "Collections", "citation", "TEXT NULL")
+    _add_column_unless_exists!(db, "Collections", "metadata", "TEXT NULL")
 
-    if _table_exists(db, "Instances") && !_column_exists(db, "Instances", "domain")
-        DBInterface.execute(db, "ALTER TABLE Instances ADD COLUMN domain TEXT NOT NULL DEFAULT 'bool';")
-    end
+    _add_column_unless_exists!(db, "Instances", "sense", "TEXT NOT NULL DEFAULT 'min'")
+    _add_column_unless_exists!(db, "Instances", "domain", "TEXT NOT NULL DEFAULT 'bool'")
+    _add_column_unless_exists!(db, "Instances", "source_name", "TEXT NULL")
+    _add_column_unless_exists!(db, "Instances", "problem_class", "TEXT NULL")
+    _add_column_unless_exists!(db, "Instances", "formulation", "TEXT NULL")
+    _add_column_unless_exists!(db, "Instances", "source_path", "TEXT NULL")
+    _add_column_unless_exists!(db, "Instances", "source_commit", "TEXT NULL")
+    _add_column_unless_exists!(db, "Instances", "original_filename", "TEXT NULL")
+    _add_column_unless_exists!(db, "Instances", "source_url", "TEXT NULL")
+    _add_column_unless_exists!(db, "Instances", "metadata", "TEXT NULL")
 
     DBInterface.execute(
         db,

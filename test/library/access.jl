@@ -101,6 +101,81 @@ function test_library_access()
         end
     end
 
+    @testset "Collection and instance metadata" begin
+        mktempdir() do path
+            model = QUBOTools.Model(
+                Dict(1 => 1.0, 2 => -2.0),
+                Dict{Tuple{Int,Int},Float64}((1, 2) => 0.5),
+            )
+
+            QUBOLib.access(; path, clear = true) do index
+                QUBOLib.add_collection!(
+                    index,
+                    "metadata-test",
+                    Dict{String,Any}(
+                        "name"         => "Metadata Test",
+                        "author"       => ["QUBOLib"],
+                        "license"      => "Apache-2.0",
+                        "data_license" => "CC-BY-4.0",
+                        "citation"     => "example citation",
+                        "metadata"     => Dict{String,Any}("source" => "fixture"),
+                    ),
+                )
+
+                instance = QUBOLib.add_instance!(
+                    index,
+                    model,
+                    "metadata-test";
+                    name              = "fixture.qs.xz",
+                    source_name       = "QOBLIB",
+                    problem_class     = "Fixture",
+                    formulation       = "binary_unconstrained",
+                    source_path       = "fixture/fixture.qs.xz",
+                    source_commit     = "abc123",
+                    original_filename = "fixture.qs.xz",
+                    source_url        = "https://example.test/fixture.qs.xz",
+                    metadata          = Dict{String,Any}("source_name" => "QOBLIB"),
+                )
+
+                collections =
+                    QUBOLib.DBInterface.execute(
+                        QUBOLib.database(index),
+                        "SELECT license, data_license, citation, metadata FROM Collections WHERE collection = ?;",
+                        ("metadata-test",),
+                    ) |> QUBOLib.DataFrame
+
+                instances =
+                    QUBOLib.DBInterface.execute(
+                        QUBOLib.database(index),
+                        """
+                        SELECT source_name, problem_class, formulation, source_path,
+                               source_commit, original_filename, source_url, metadata
+                        FROM Instances
+                        WHERE instance = ?;
+                        """,
+                        (instance,),
+                    ) |> QUBOLib.DataFrame
+
+                @test only(collections[!, :license]) == "Apache-2.0"
+                @test only(collections[!, :data_license]) == "CC-BY-4.0"
+                @test only(collections[!, :citation]) == "example citation"
+                @test QUBOLib.JSON.parse(only(collections[!, :metadata]))["source"] ==
+                      "fixture"
+
+                @test only(instances[!, :source_name]) == "QOBLIB"
+                @test only(instances[!, :problem_class]) == "Fixture"
+                @test only(instances[!, :formulation]) == "binary_unconstrained"
+                @test only(instances[!, :source_path]) == "fixture/fixture.qs.xz"
+                @test only(instances[!, :source_commit]) == "abc123"
+                @test only(instances[!, :original_filename]) == "fixture.qs.xz"
+                @test only(instances[!, :source_url]) ==
+                      "https://example.test/fixture.qs.xz"
+                @test QUBOLib.JSON.parse(only(instances[!, :metadata]))["source_name"] ==
+                      "QOBLIB"
+            end
+        end
+    end
+
     @testset "Best solution sense" begin
         mktempdir() do path
             model = QUBOTools.Model(
@@ -135,10 +210,34 @@ function test_library_access()
                 record = QUBOLib.add_solution_record!(index, instance; bitstring = "00")
                 records = QUBOLib.list_solution_records(index, instance)
                 best = QUBOLib.best_solution_record(index, instance)
+                collection_columns = QUBOLib.DBInterface.execute(
+                    QUBOLib.database(index),
+                    "PRAGMA table_info(Collections);",
+                ) |> QUBOLib.DataFrame
+                instance_columns = QUBOLib.DBInterface.execute(
+                    QUBOLib.database(index),
+                    "PRAGMA table_info(Instances);",
+                ) |> QUBOLib.DataFrame
 
                 @test size(records, 1) == 1
                 @test only(records[!, :record]) == record
                 @test best[:record] == record
+                @test all(
+                    column in string.(collection_columns[!, :name]) for
+                    column in ("license", "data_license", "citation", "metadata")
+                )
+                @test all(
+                    column in string.(instance_columns[!, :name]) for column in (
+                        "source_name",
+                        "problem_class",
+                        "formulation",
+                        "source_path",
+                        "source_commit",
+                        "original_filename",
+                        "source_url",
+                        "metadata",
+                    )
+                )
             end
         end
     end

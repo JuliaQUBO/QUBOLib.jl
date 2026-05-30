@@ -24,6 +24,18 @@
         },
         "url": {
             "type": "string"
+        },
+        "license": {
+            "type": "string"
+        },
+        "data_license": {
+            "type": "string"
+        },
+        "citation": {
+            "type": "string"
+        },
+        "metadata": {
+            "type": "object"
         }
     },
     "required": [
