@@ -34,6 +34,8 @@ function test_docs()
         @test occursin("`source_value` is provenance", intro)
         @test occursin("solver stacks such as QUBODrivers", intro)
         @test occursin("```@example benchmarking-workflow", intro)
+        @test occursin("zero-fill", intro)
+        @test occursin("one-fill", intro)
 
         @test occursin("Opening the library index", basic)
         @test occursin("Loading an instance", basic)

@@ -69,10 +69,11 @@ The usual workflow is:
 The self-contained example below creates a tiny local benchmark library so the
 workflow is exercised as part of the documentation build. In normal use, open
 the packaged artifact with `QUBOLib.access()` and start from the SQL query. The
-example selects one instance that has an incumbent, evaluates a candidate
-bitstring, compares it with the incumbent `qubo_value`, and inspects the related
-provenance. It uses SQLite.jl, DataFrames.jl, and QUBOTools.jl directly, so add
-them to the active Julia project before running similar scripts.
+example registers two benchmark instances with incumbents, evaluates two
+candidate methods on each instance, compares their values with the incumbent
+`qubo_value`, and inspects the related provenance. It uses SQLite.jl,
+DataFrames.jl, and QUBOTools.jl directly, so add them to the active Julia
+project before running similar scripts.
 
 ```@example benchmarking-workflow
 using QUBOLib
@@ -80,33 +81,55 @@ using SQLite, DataFrames
 import QUBOTools
 
 result = mktempdir() do root
-    model = QUBOTools.Model(
-        Dict(1 => 1.0, 2 => -2.0),
-        Dict{Tuple{Int,Int},Float64}((1, 2) => 0.5),
+    instances = (
+        (
+            name = "tiny-a",
+            model = QUBOTools.Model(
+                Dict(1 => 1.0, 2 => -2.0),
+                Dict{Tuple{Int,Int},Float64}((1, 2) => 0.5),
+            ),
+            incumbent_state = [0, 1],
+            source_value = 123.0,
+        ),
+        (
+            name = "tiny-b",
+            model = QUBOTools.Model(
+                Dict(1 => -1.0, 2 => 0.5, 3 => 2.0),
+                Dict{Tuple{Int,Int},Float64}((1, 2) => -0.25, (2, 3) => 1.0),
+            ),
+            incumbent_state = [1, 0, 0],
+            source_value = 456.0,
+        ),
+    )
+    methods = (
+        (name = "zero-fill", state = n -> fill(0, n)),
+        (name = "one-fill", state = n -> fill(1, n)),
     )
 
     QUBOLib.access(; path = root, clear = true) do index
-        instance_id = QUBOLib.add_instance!(index, model; name = "tiny-benchmark")
-        submission = QUBOLib.add_submission!(
-            index;
-            submitter = "example solver",
-            workflow = "QUBO-space heuristic",
-            hardware = "local CPU",
-        )
+        for data in instances
+            instance_id = QUBOLib.add_instance!(index, data.model; name = data.name)
+            submission = QUBOLib.add_submission!(
+                index;
+                submitter = "reference incumbent",
+                workflow = "curated QUBO-space reference",
+                hardware = "local CPU",
+            )
 
-        incumbent_solution = QUBOTools.SampleSet{Float64,Int}(
-            model,
-            [[0, 1]];
-            metadata = Dict{String,Any}("status" => "best_known"),
-        )
-        QUBOLib.add_solution!(
-            index,
-            instance_id,
-            incumbent_solution;
-            submission,
-            source_value = 123.0,
-            validation_status = "validated",
-        )
+            incumbent_solution = QUBOTools.SampleSet{Float64,Int}(
+                data.model,
+                [data.incumbent_state];
+                metadata = Dict{String,Any}("status" => "best_known"),
+            )
+            QUBOLib.add_solution!(
+                index,
+                instance_id,
+                incumbent_solution;
+                submission,
+                source_value = data.source_value,
+                validation_status = "validated",
+            )
+        end
 
         db = QUBOLib.database(index)
 
@@ -118,47 +141,52 @@ result = mktempdir() do root
             JOIN BestSolutions AS b
               ON b.instance = i.instance
             ORDER BY i.dimension, i.instance
-            LIMIT 1;
+            LIMIT 2;
             """,
         ) |> DataFrame
 
-        instance = only(selected[!, :instance])
-        model = QUBOLib.load_instance(index, instance)
+        rows = NamedTuple[]
 
-        incumbent_record = QUBOLib.best_solution_record(index, instance)
-        incumbent_sample = QUBOLib.load_best_solution(index, instance)
+        for instance_row in eachrow(selected), method in methods
+            instance = instance_row[:instance]
+            model = QUBOLib.load_instance(index, instance)
+            incumbent_record = QUBOLib.best_solution_record(index, instance)
+            incumbent_sample = QUBOLib.load_best_solution(index, instance)
 
-        candidate_state = fill(0, only(selected[!, :dimension]))
-        candidate_value = QUBOTools.value(model, candidate_state)
-
-        incumbent_value = incumbent_record[:qubo_value]
-        absolute_gap = candidate_value - incumbent_value
-        relative_gap = absolute_gap / max(1.0, abs(incumbent_value))
-
-        all_records = QUBOLib.list_solution_records(index, instance)
-        provenance = if ismissing(incumbent_record[:submission])
-            DataFrame()
-        else
-            DBInterface.execute(
+            candidate_state = method.state(instance_row[:dimension])
+            candidate_value = QUBOTools.value(model, candidate_state)
+            incumbent_value = incumbent_record[:qubo_value]
+            absolute_gap = candidate_value - incumbent_value
+            relative_gap = absolute_gap / max(1.0, abs(incumbent_value))
+            records = QUBOLib.list_solution_records(index, instance)
+            provenance = DBInterface.execute(
                 db,
                 """
-                SELECT submitter, date, reference, workflow, hardware, total_runtime
+                SELECT submitter, workflow
                 FROM Submissions
                 WHERE submission = ?;
                 """,
                 (incumbent_record[:submission],),
             ) |> DataFrame
+
+            push!(
+                rows,
+                (
+                    instance = instance_row[:name],
+                    method = method.name,
+                    candidate_value = candidate_value,
+                    incumbent_value = incumbent_value,
+                    incumbent_sample_value = QUBOTools.value(incumbent_sample, 1),
+                    source_value = incumbent_record[:source_value],
+                    absolute_gap = absolute_gap,
+                    relative_gap = relative_gap,
+                    solution_records = size(records, 1),
+                    incumbent_submitter = only(provenance[!, :submitter]),
+                ),
+            )
         end
 
-        return (
-            candidate_value = candidate_value,
-            incumbent_value = incumbent_value,
-            incumbent_sample_value = QUBOTools.value(incumbent_sample, 1),
-            absolute_gap = absolute_gap,
-            relative_gap = relative_gap,
-            records = size(all_records, 1),
-            submitter = only(provenance[!, :submitter]),
-        )
+        return DataFrame(rows)
     end
 end
 
