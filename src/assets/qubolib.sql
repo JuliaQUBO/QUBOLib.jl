@@ -7,7 +7,11 @@ CREATE TABLE Collections
   author      TEXT        NULL   ,
   year        INTEGER     NULL   ,
   description TEXT        NULL   ,
-  url         TEXT        NULL
+  url         TEXT        NULL   ,
+  license     TEXT        NULL   ,
+  data_license TEXT       NULL   ,
+  citation    TEXT        NULL   ,
+  metadata    TEXT        NULL
 );
 
 INSERT INTO Collections
@@ -42,6 +46,14 @@ CREATE TABLE Instances
   dimension         INTEGER NOT NULL   ,
   sense             TEXT    NOT NULL DEFAULT 'min',
   domain            TEXT    NOT NULL DEFAULT 'bool',
+  source_name       TEXT        NULL   ,
+  problem_class     TEXT        NULL   ,
+  formulation       TEXT        NULL   ,
+  source_path       TEXT        NULL   ,
+  source_commit     TEXT        NULL   ,
+  original_filename TEXT        NULL   ,
+  source_url        TEXT        NULL   ,
+  metadata          TEXT        NULL   ,
   min               REAL    NOT NULL   ,
   max               REAL    NOT NULL   ,
   abs_min           REAL    NOT NULL   ,

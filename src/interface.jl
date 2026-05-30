@@ -81,7 +81,7 @@ Creates a new collection in the library index.
 function add_collection! end
 
 @doc raw"""
-    remove_collection!(index::LibraryIndex, code::Symbol)
+    remove_collection!(index::LibraryIndex, collection)
 
 Removes a collection and its contents from the library index.
 """
@@ -102,9 +102,9 @@ Removes a solver from the library index.
 function remove_solver! end
 
 @doc raw"""
-    add_instance!(index::LibraryIndex, coll::Symbol, model::QUBOTools.Model{Int,Float64,Int})
+    add_instance!(index::LibraryIndex, model::QUBOTools.Model{Int,Float64,Int}, collection = "standalone"; kwargs...)
 
-Adds a new instance to the library index.
+Adds a new instance and optional provenance metadata to the library index.
 """
 function add_instance! end
 
