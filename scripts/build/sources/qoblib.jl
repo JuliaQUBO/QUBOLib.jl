@@ -643,6 +643,563 @@ function _qoblib_source_url(root_path::AbstractString, info)
     return "https://github.com/$(QOBLIB_REPOSITORY)/blob/$(QOBLIB_SOURCE_COMMIT)/$(source_path)"
 end
 
+function _qoblib_source_url(root_path::AbstractString, path::AbstractString)
+    source_path = replace(relpath(path, root_path), '\\' => '/')
+
+    return "https://github.com/$(QOBLIB_REPOSITORY)/blob/$(QOBLIB_SOURCE_COMMIT)/$(source_path)"
+end
+
+function _qoblib_source_path(root_path::AbstractString, path::AbstractString)
+    return replace(relpath(path, root_path), '\\' => '/')
+end
+
+function _qoblib_clean_csv_cell(value::AbstractString)
+    return replace(strip(value), Char(0xfeff) => "")
+end
+
+function _qoblib_parse_csv_line(line::AbstractString)
+    cells = String[]
+    cell = IOBuffer()
+    quoted = false
+    i = firstindex(line)
+
+    while i <= lastindex(line)
+        c = line[i]
+
+        if quoted
+            if c == '"'
+                j = nextind(line, i)
+
+                if j <= lastindex(line) && line[j] == '"'
+                    print(cell, '"')
+                    i = j
+                else
+                    quoted = false
+                end
+            else
+                print(cell, c)
+            end
+        elseif c == ','
+            push!(cells, String(take!(cell)))
+        elseif c == '"'
+            quoted = true
+        else
+            print(cell, c)
+        end
+
+        i = nextind(line, i)
+    end
+
+    push!(cells, String(take!(cell)))
+
+    return _qoblib_clean_csv_cell.(cells)
+end
+
+function _qoblib_csv_rows(path::AbstractString)
+    rows = Vector{Dict{String,String}}()
+    lines = filter(line -> !isempty(line), strip.(readlines(path)))
+
+    isempty(lines) && return rows
+
+    header = _qoblib_parse_csv_line(first(lines))
+
+    for line in lines[2:end]
+        cells = _qoblib_parse_csv_line(line)
+
+        if length(cells) != length(header)
+            error("[qoblib] Invalid QOBLIB submission CSV row in '$path'")
+        end
+
+        push!(rows, Dict(header .=> cells))
+    end
+
+    return rows
+end
+
+function _qoblib_missing_submission_value(value)
+    if ismissing(value) || isnothing(value)
+        return true
+    end
+
+    text = lowercase(strip(String(value)))
+
+    return text in ("", "n/a", "na", "[to fill]", "none", "null")
+end
+
+function _qoblib_submission_value(row::AbstractDict, field::AbstractString)
+    value = get(row, field, missing)
+
+    return _qoblib_missing_submission_value(value) ? missing : value
+end
+
+function _qoblib_submission_float(row::AbstractDict, field::AbstractString)
+    value = _qoblib_submission_value(row, field)
+
+    if ismissing(value)
+        return missing
+    end
+
+    text = replace(String(value), "," => "")
+
+    try
+        return parse(Float64, text)
+    catch
+        return missing
+    end
+end
+
+function _qoblib_submission_int(row::AbstractDict, field::AbstractString)
+    value = _qoblib_submission_float(row, field)
+
+    if ismissing(value)
+        return missing
+    end
+
+    rounded = round(Int, value)
+
+    return isapprox(value, rounded; atol = 1e-9) ? rounded : missing
+end
+
+function _qoblib_submission_key(group, problem)
+    stem = _qoblib_qs_stem(String(problem))
+
+    if hasproperty(group, :solution_format) && group.solution_format == :assignments
+        return _qoblib_portfolio_key(stem)
+    else
+        return stem
+    end
+end
+
+function _qoblib_submission_root(root_path::AbstractString, group)
+    collection_path = first(split(String(group.path), '/'))
+
+    return joinpath(root_path, collection_path, "submissions")
+end
+
+function _qoblib_submission_summary_paths(root_path::AbstractString, group)
+    root = _qoblib_submission_root(root_path, group)
+
+    if !isdir(root)
+        return String[]
+    end
+
+    paths = String[]
+
+    for (dir, _, files) in walkdir(root)
+        for file in files
+            endswith(file, "_summary.csv") || continue
+            push!(paths, joinpath(dir, file))
+        end
+    end
+
+    return sort(paths)
+end
+
+function _qoblib_submission_file_paths(summary_path::AbstractString)
+    paths = String[]
+
+    for (dir, _, files) in walkdir(dirname(summary_path))
+        for file in files
+            if endswith(file, ".sol") || endswith(file, ".mst")
+                push!(paths, joinpath(dir, file))
+            end
+        end
+    end
+
+    return sort(paths)
+end
+
+function _qoblib_objective_time_series_paths(summary_path::AbstractString)
+    paths = String[]
+
+    for (dir, _, files) in walkdir(dirname(summary_path))
+        for file in files
+            if occursin("objective_time_series", file) &&
+               (endswith(file, ".json") || endswith(file, ".json.gz"))
+                push!(paths, joinpath(dir, file))
+            end
+        end
+    end
+
+    return sort(paths)
+end
+
+function _qoblib_submission_index(root_path::AbstractString, group)
+    index = Dict{String,Vector{Any}}()
+
+    for path in _qoblib_submission_summary_paths(root_path, group)
+        for row in _qoblib_csv_rows(path)
+            problem = _qoblib_submission_value(row, "Problem")
+
+            ismissing(problem) && continue
+
+            key = _qoblib_submission_key(group, problem)
+
+            push!(get!(index, key, Any[]), (path = path, row = row))
+        end
+    end
+
+    return index
+end
+
+function _qoblib_submission_metadata(root_path::AbstractString, group, path::AbstractString, row)
+    metadata = Dict{String,Any}(
+        "source_name"   => "QOBLIB",
+        "source_commit" => QOBLIB_SOURCE_COMMIT,
+        "source_kind"   => "submission_summary",
+        "source_path"   => _qoblib_source_path(root_path, path),
+        "source_url"    => _qoblib_source_url(root_path, path),
+        "group_code"    => group.code,
+        "problem_class" => group.problem_class,
+        "formulation"   => group.formulation,
+        "raw_fields"    => Dict{String,Any}(String(k) => v for (k, v) in row),
+    )
+
+    text_fields = (
+        "problem"           => "Problem",
+        "submitter"         => "Submitter",
+        "date"              => "Date",
+        "reference"         => "Reference",
+        "modeling_approach" => "Modeling Approach",
+        "coefficients_type" => "Coefficients Type",
+        "coefficients_range" => "Coefficients Range",
+        "workflow"          => "Workflow",
+        "algorithm_type"    => "Algorithm Type",
+        "hardware"          => "Hardware Specifications",
+        "remarks"           => "Remarks",
+    )
+
+    for (key, field) in text_fields
+        value = _qoblib_submission_value(row, field)
+
+        if !ismissing(value)
+            metadata[key] = value
+        end
+    end
+
+    int_fields = (
+        "decision_variables"      => "# Decision Variables",
+        "binary_variables"        => "# Binary Variables",
+        "integer_variables"       => "# Integer Variables",
+        "continuous_variables"    => "# Continuous Variables",
+        "nonzero_coefficients"    => "# Non-Zero Coefficients",
+        "runs"                    => "# Runs",
+        "feasible_runs"           => "# Feasible Runs",
+        "successful_runs"         => "# Successful Runs",
+    )
+
+    for (key, field) in int_fields
+        value = _qoblib_submission_int(row, field)
+
+        if !ismissing(value)
+            metadata[key] = value
+        end
+    end
+
+    float_fields = (
+        "best_objective_value" => "Best Objective Value",
+        "optimality_bound"     => "Optimality Bound",
+        "success_threshold"    => "Success Threshold",
+        "total_runtime"        => "Total Runtime",
+        "cpu_runtime"          => "CPU Runtime",
+        "gpu_runtime"          => "GPU Runtime",
+        "qpu_runtime"          => "QPU Runtime",
+        "other_runtime"        => "Other HW Runtime",
+    )
+
+    for (key, field) in float_fields
+        value = _qoblib_submission_float(row, field)
+
+        if !ismissing(value)
+            metadata[key] = value
+        end
+    end
+
+    time_series = [
+        Dict{String,Any}(
+            "source_path" => _qoblib_source_path(root_path, series_path),
+            "source_url"  => _qoblib_source_url(root_path, series_path),
+        ) for series_path in _qoblib_objective_time_series_paths(path)
+    ]
+
+    if !isempty(time_series)
+        metadata["objective_time_series"] = time_series
+    end
+
+    return metadata
+end
+
+function _qoblib_submission_feasibility_status(row)
+    text = lowercase(join((string(value) for value in values(row)), " "))
+
+    if occursin("withdrawn", text)
+        return "withdrawn"
+    elseif occursin("infeasible", text)
+        return "infeasible"
+    end
+
+    feasible_runs = _qoblib_submission_int(row, "# Feasible Runs")
+
+    if !ismissing(feasible_runs) && feasible_runs == 0
+        return "infeasible"
+    else
+        return "feasible"
+    end
+end
+
+function _qoblib_submission_proven_optimal(row)
+    source_value = _qoblib_submission_float(row, "Best Objective Value")
+    bound = _qoblib_submission_float(row, "Optimality Bound")
+
+    if ismissing(source_value) || ismissing(bound)
+        return false
+    else
+        return isapprox(source_value, bound; rtol = 1e-8, atol = 1e-8)
+    end
+end
+
+function _qoblib_submission_solution_format(path::AbstractString, group)
+    for raw_line in eachline(path)
+        line = strip(raw_line)
+
+        if isempty(line) || startswith(line, "#")
+            continue
+        elseif occursin(r"^x#[0-9]+\s+", line)
+            return :assignments
+        else
+            break
+        end
+    end
+
+    if hasproperty(group, :solution_format)
+        return group.solution_format
+    else
+        return :bit_tokens
+    end
+end
+
+function _qoblib_read_submission_solution(path::AbstractString, group, dimension::Integer)
+    format = _qoblib_submission_solution_format(path, group)
+
+    return open(path, "r") do io
+        _qoblib_read_solution(io, format, dimension)
+    end
+end
+
+function _qoblib_add_unavailable_submission_record!(
+    index::QUBOLib.LibraryIndex,
+    instance::Integer,
+    submission::Integer,
+    source_value,
+    objective_bound,
+    proven_optimal::Bool,
+    feasibility_status::AbstractString,
+    source_path::AbstractString,
+    metadata::Dict{String,Any},
+)
+    record_metadata = copy(metadata)
+    record_metadata["reason"] = "missing_mappable_solution"
+
+    QUBOLib.add_solution_record!(
+        index,
+        instance;
+        submission,
+        source_value,
+        objective_bound,
+        proven_optimal,
+        feasibility_status = feasibility_status == "feasible" ? "unavailable" : feasibility_status,
+        validation_status = "unavailable",
+        incumbent_candidate = false,
+        source_path,
+        metadata = record_metadata,
+    )
+
+    return nothing
+end
+
+function _qoblib_add_unmapped_submission_record!(
+    index::QUBOLib.LibraryIndex,
+    instance::Integer,
+    submission::Integer,
+    source_value,
+    objective_bound,
+    proven_optimal::Bool,
+    solution_path::AbstractString,
+    root_path::AbstractString,
+    metadata::Dict{String,Any},
+    err,
+)
+    record_metadata = copy(metadata)
+    record_metadata["reason"] = "unmapped_solution"
+    record_metadata["solution_source_path"] = _qoblib_source_path(root_path, solution_path)
+    record_metadata["solution_source_url"] = _qoblib_source_url(root_path, solution_path)
+    record_metadata["unmapped_error"] = sprint(showerror, err)
+
+    QUBOLib.add_solution_record!(
+        index,
+        instance;
+        submission,
+        source_value,
+        objective_bound,
+        proven_optimal,
+        feasibility_status = "unmapped",
+        validation_status = "unmapped",
+        incumbent_candidate = false,
+        source_path = _qoblib_source_path(root_path, solution_path),
+        metadata = record_metadata,
+    )
+
+    return nothing
+end
+
+function _add_qoblib_submission!(
+    index::QUBOLib.LibraryIndex,
+    instance::Integer,
+    model::QUBOTools.Model{Int,Float64,Int},
+    root_path::AbstractString,
+    group,
+    summary,
+)
+    row = summary.row
+    summary_path = summary.path
+    metadata = _qoblib_submission_metadata(root_path, group, summary_path, row)
+    source_path = _qoblib_source_path(root_path, summary_path)
+    source_value = _qoblib_submission_float(row, "Best Objective Value")
+    objective_bound = _qoblib_submission_float(row, "Optimality Bound")
+    proven_optimal = _qoblib_submission_proven_optimal(row)
+    feasibility_status = _qoblib_submission_feasibility_status(row)
+
+    submission = QUBOLib.add_submission!(
+        index;
+        submitter = _qoblib_submission_value(row, "Submitter"),
+        date = _qoblib_submission_value(row, "Date"),
+        reference = _qoblib_submission_value(row, "Reference"),
+        modeling_approach = _qoblib_submission_value(row, "Modeling Approach"),
+        workflow = _qoblib_submission_value(row, "Workflow"),
+        algorithm_type = _qoblib_submission_value(row, "Algorithm Type"),
+        runs = _qoblib_submission_int(row, "# Runs"),
+        feasible_runs = _qoblib_submission_int(row, "# Feasible Runs"),
+        successful_runs = _qoblib_submission_int(row, "# Successful Runs"),
+        success_threshold = _qoblib_submission_float(row, "Success Threshold"),
+        hardware = _qoblib_submission_value(row, "Hardware Specifications"),
+        total_runtime = _qoblib_submission_float(row, "Total Runtime"),
+        cpu_runtime = _qoblib_submission_float(row, "CPU Runtime"),
+        gpu_runtime = _qoblib_submission_float(row, "GPU Runtime"),
+        qpu_runtime = _qoblib_submission_float(row, "QPU Runtime"),
+        other_runtime = _qoblib_submission_float(row, "Other HW Runtime"),
+        remarks = _qoblib_submission_value(row, "Remarks"),
+        source_path,
+        metadata,
+    )
+
+    solution_paths = _qoblib_submission_file_paths(summary_path)
+
+    if isempty(solution_paths)
+        _qoblib_add_unavailable_submission_record!(
+            index,
+            instance,
+            submission,
+            source_value,
+            objective_bound,
+            proven_optimal,
+            feasibility_status,
+            source_path,
+            metadata,
+        )
+
+        return 1
+    end
+
+    dimension = QUBOTools.dimension(model)
+    count = 0
+
+    for solution_path in solution_paths
+        solution_metadata = copy(metadata)
+        solution_source_path = _qoblib_source_path(root_path, solution_path)
+
+        solution_metadata["solution_source_path"] = solution_source_path
+        solution_metadata["solution_source_url"] = _qoblib_source_url(root_path, solution_path)
+
+        solution = try
+            _qoblib_read_submission_solution(solution_path, group, dimension)
+        catch err
+            _qoblib_add_unmapped_submission_record!(
+                index,
+                instance,
+                submission,
+                source_value,
+                objective_bound,
+                proven_optimal,
+                solution_path,
+                root_path,
+                metadata,
+                err,
+            )
+
+            count += 1
+            continue
+        end
+
+        record_source_value = ismissing(source_value) ? solution.source_value : source_value
+        qubo_value = QUBOTools.value(model, solution.state)
+        sol = QUBOTools.SampleSet{Float64,Int}(
+            model,
+            [solution.state];
+            metadata = solution_metadata,
+        )
+
+        if !isapprox(QUBOTools.value(sol, 1), qubo_value; rtol = 1e-8, atol = 1e-8)
+            error("[qoblib] Submission sample value does not match QUBO value")
+        end
+
+        QUBOLib.add_solution!(
+            index,
+            instance,
+            sol;
+            submission,
+            qubo_value,
+            source_value = record_source_value,
+            objective_bound,
+            proven_optimal,
+            feasibility_status,
+            validation_status = "validated",
+            incumbent_candidate = feasibility_status == "feasible",
+            source_path = solution_source_path,
+        )
+
+        count += 1
+    end
+
+    return count
+end
+
+function _add_qoblib_submissions!(
+    index::QUBOLib.LibraryIndex,
+    instance::Integer,
+    model::QUBOTools.Model{Int,Float64,Int},
+    root_path::AbstractString,
+    group,
+    model_path::AbstractString,
+    submission_index::Dict{String,Vector{Any}},
+)
+    key = _qoblib_solution_key(group, model_path)
+
+    if !haskey(submission_index, key)
+        return 0
+    end
+
+    return sum(submission_index[key]) do summary
+        _add_qoblib_submission!(
+            index,
+            instance,
+            model,
+            root_path,
+            group,
+            summary,
+        )
+    end
+end
+
 function _qoblib_incumbent_metadata(
     root_path::AbstractString,
     group,
@@ -830,6 +1387,7 @@ function build_qoblib!(
         metrics = _read_qoblib_metrics(joinpath(group_path, "metrics.csv"))
         model_paths = _qoblib_model_paths(group_path)
         solution_index = _qoblib_solution_index(root_path, group)
+        submission_index = _qoblib_submission_index(root_path, group)
         group_incumbent_count = 0
         group_missing_incumbent_count = 0
 
@@ -879,6 +1437,16 @@ function build_qoblib!(
                 group_missing_incumbent_count += 1
                 missing_incumbent_count += 1
             end
+
+            _add_qoblib_submissions!(
+                index,
+                instance,
+                model,
+                root_path,
+                group,
+                model_path,
+                submission_index,
+            )
 
             count += 1
         end
@@ -956,7 +1524,10 @@ function _extract_qoblib_archive!(
 
     data_path = QUBOLib.cache_data_path(index, QOBLIB_COLLECTION)
     root = _qoblib_archive_root(archive_path)
-    patterns = _qoblib_archive_patterns(root, groups)
+    patterns = vcat(
+        _qoblib_archive_patterns(root, groups),
+        _qoblib_archive_submission_paths(archive_path, root, groups),
+    )
 
     rm(data_path; recursive = true, force = true)
     mkpath(data_path)
@@ -1013,6 +1584,38 @@ function _qoblib_archive_patterns(root::AbstractString, groups)
     end
 
     return patterns
+end
+
+function _qoblib_archive_submission_paths(
+    archive_path::AbstractString,
+    root::AbstractString,
+    groups,
+)
+    prefixes = Set(
+        "$root/$(first(split(String(group.path), '/')))/submissions/" for
+        group in groups
+    )
+    paths = String[]
+    names = read(Cmd(["unzip", "-Z1", archive_path]), String)
+
+    for name in eachsplit(names, '\n')
+        path = strip(name)
+
+        isempty(path) && continue
+        any(prefix -> startswith(path, prefix), prefixes) || continue
+
+        if endswith(path, "_summary.csv") ||
+           endswith(path, ".sol") ||
+           endswith(path, ".mst") ||
+           (
+               occursin("objective_time_series", path) &&
+               (endswith(path, ".json") || endswith(path, ".json.gz"))
+           )
+            push!(paths, path)
+        end
+    end
+
+    return paths
 end
 
 function _validate_qoblib_source!(root_path::AbstractString, groups)
