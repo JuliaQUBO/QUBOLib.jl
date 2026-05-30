@@ -21,6 +21,8 @@ function add_instance!(
                 collection       ,
                 name             ,
                 dimension        ,
+                sense            ,
+                domain           ,
                 min              ,
                 max              ,
                 abs_min          ,
@@ -34,12 +36,14 @@ function add_instance!(
                 quadratic_density
             ) 
         VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """,
         (
             String(collection),
             isnothing(name) ? missing : String(name),
             QUBOTools.dimension(model),
+            String(QUBOTools.sense(model)),
+            String(QUBOTools.domain(model)),
             min(minimum(L), minimum(Q)),
             max(maximum(L), maximum(Q)),
             min(minimum(abs, L), minimum(abs, Q)),

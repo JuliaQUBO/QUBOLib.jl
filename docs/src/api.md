@@ -38,6 +38,9 @@ QUBOLib.access
 QUBOLib.load_collection
 QUBOLib.load_instance
 QUBOLib.load_solution
+QUBOLib.best_solution_record
+QUBOLib.load_best_solution
+QUBOLib.list_solution_records
 ```
 
 ## Data Management
@@ -46,6 +49,8 @@ QUBOLib.load_solution
 QUBOLib.add_collection!
 QUBOLib.add_instance!
 QUBOLib.add_solution!
+QUBOLib.add_submission!
+QUBOLib.add_solution_record!
 QUBOLib.add_solver!
 ```
 

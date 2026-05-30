@@ -125,6 +125,43 @@ The `solution` argument is a [`QUBOTools.SampleSet`](@extref), which is a collec
 function add_solution! end
 
 @doc raw"""
+    add_submission!(index::LibraryIndex; kwargs...)
+    add_submission!(index::LibraryIndex, data::Dict{String,Any})
+
+Registers benchmark-run provenance shared by one or more solution records.
+"""
+function add_submission! end
+
+@doc raw"""
+    add_solution_record!(index::LibraryIndex, instance::Integer; kwargs...)
+
+Registers a submitted or reference bitstring and its provenance for an instance.
+Records are preserved even when they are not incumbent candidates.
+"""
+function add_solution_record! end
+
+@doc raw"""
+    best_solution_record(index::LibraryIndex, instance::Integer)
+
+Returns the selected incumbent solution record for an instance, or `nothing`.
+"""
+function best_solution_record end
+
+@doc raw"""
+    load_best_solution(index::LibraryIndex, instance::Integer)
+
+Loads the HDF5 sample set associated with the selected incumbent, or `nothing`.
+"""
+function load_best_solution end
+
+@doc raw"""
+    list_solution_records(index::LibraryIndex, instance::Integer)
+
+Returns all solution records for an instance, including non-incumbents.
+"""
+function list_solution_records end
+
+@doc raw"""
     remove_solution!(index::LibraryIndex, instance::Integer, solution::Integer)
 
 Removes a solution from the library index.
