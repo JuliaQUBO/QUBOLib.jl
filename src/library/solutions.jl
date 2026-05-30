@@ -369,12 +369,11 @@ function add_solution!(
     validation_status = nothing,
     incumbent_candidate::Bool = true,
     source_path = nothing,
-    metadata = nothing,
 )::Integer
     @assert isopen(index)
     @assert !isempty(sol)
 
-    data = isnothing(metadata) ? QUBOTools.metadata(sol) : metadata
+    data = QUBOTools.metadata(sol)
 
     solver = get(data, "solver", nothing)
     value  = QUBOTools.value(sol, 1)

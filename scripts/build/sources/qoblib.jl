@@ -767,7 +767,6 @@ function _add_qoblib_incumbent!(
         validation_status = "validated",
         incumbent_candidate = true,
         source_path = _qoblib_source_path(root_path, info),
-        metadata,
     )
 
     return :imported
