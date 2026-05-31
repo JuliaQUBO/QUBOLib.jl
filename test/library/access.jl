@@ -50,29 +50,41 @@ function test_library_access()
                     bitstring = "000",
                     feasibility_status = "infeasible",
                 )
+                unknown = QUBOLib.add_solution_record!(
+                    index,
+                    instance;
+                    submission = early_submission,
+                    bitstring = "000",
+                )
                 worse = QUBOLib.add_solution_record!(
                     index,
                     instance;
                     submission = early_submission,
                     bitstring = "100",
+                    feasibility_status = "feasible",
                 )
                 late = QUBOLib.add_solution_record!(
                     index,
                     instance;
                     submission = late_submission,
                     bitstring = "000",
+                    feasibility_status = "feasible",
                 )
                 early = QUBOLib.add_solution_record!(
                     index,
                     instance;
                     submission = early_submission,
                     bitstring = "000",
+                    feasibility_status = "feasible",
                 )
 
                 records = QUBOLib.list_solution_records(index, instance)
 
-                @test size(records, 1) == 5
-                @test Set(records[!, :record]) == Set([invalid, infeasible, worse, late, early])
+                @test size(records, 1) == 6
+                @test Set(records[!, :record]) ==
+                      Set([invalid, infeasible, unknown, worse, late, early])
+                @test only(records[records.record .== unknown, :feasibility_status]) ==
+                      "unknown"
 
                 best = QUBOLib.best_solution_record(index, instance)
 
@@ -187,8 +199,18 @@ function test_library_access()
 
             QUBOLib.access(; path, clear = true) do index
                 instance = QUBOLib.add_instance!(index, model)
-                low = QUBOLib.add_solution_record!(index, instance; bitstring = "00")
-                high = QUBOLib.add_solution_record!(index, instance; bitstring = "10")
+                low = QUBOLib.add_solution_record!(
+                    index,
+                    instance;
+                    bitstring = "00",
+                    feasibility_status = "feasible",
+                )
+                high = QUBOLib.add_solution_record!(
+                    index,
+                    instance;
+                    bitstring = "10",
+                    feasibility_status = "feasible",
+                )
                 best = QUBOLib.best_solution_record(index, instance)
 
                 @test best[:record] == high
@@ -208,7 +230,13 @@ function test_library_access()
 
             QUBOLib.access(; path) do index
                 instance = QUBOLib.add_instance!(index, model)
-                record = QUBOLib.add_solution_record!(index, instance; bitstring = "00")
+                unknown = QUBOLib.add_solution_record!(index, instance; bitstring = "00")
+                record = QUBOLib.add_solution_record!(
+                    index,
+                    instance;
+                    bitstring = "00",
+                    feasibility_status = "feasible",
+                )
                 records = QUBOLib.list_solution_records(index, instance)
                 best = QUBOLib.best_solution_record(index, instance)
                 collection_columns = QUBOLib.DBInterface.execute(
@@ -220,8 +248,8 @@ function test_library_access()
                     "PRAGMA table_info(Instances);",
                 ) |> QUBOLib.DataFrame
 
-                @test size(records, 1) == 1
-                @test only(records[!, :record]) == record
+                @test size(records, 1) == 2
+                @test Set(records[!, :record]) == Set([unknown, record])
                 @test best[:record] == record
                 @test all(
                     column in string.(collection_columns[!, :name]) for

@@ -35,7 +35,7 @@ FROM (
     AND r.qubo_value <  1.7976931348623157e308
     AND lower(coalesce(r.validation_status, '')) IN ('evaluated', 'validated', 'verified')
     AND r.incumbent_candidate = TRUE
-    AND lower(coalesce(r.feasibility_status, '')) NOT IN ('invalid', 'infeasible', 'withdrawn', 'unmapped')
+    AND lower(coalesce(r.feasibility_status, '')) IN ('feasible', 'validated', 'verified')
 )
 WHERE incumbent_rank = 1
 """

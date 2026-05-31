@@ -556,8 +556,10 @@ function test_qoblib_build_fixture()
                     @test deterministic[:validation_status] == "validated"
                     @test Bool(deterministic[:incumbent_candidate])
                     @test !ismissing(deterministic[:solution])
-                    @test QUBOLib.JSON.parse(deterministic[:metadata])["algorithm_type"] ==
-                          "Deterministic"
+                    deterministic_record_metadata =
+                        QUBOLib.JSON.parse(deterministic[:metadata])
+                    @test deterministic_record_metadata["algorithm_type"] == "Deterministic"
+                    @test deterministic_record_metadata["source_value_agrees"] == false
 
                     stochastic = only(
                         eachrow(
@@ -618,8 +620,12 @@ function test_qoblib_build_fixture()
                     @test labs[:source_value] == 26
                     @test labs[:qubo_value] != labs[:source_value]
                     @test !Bool(labs[:proven_optimal])
+                    @test QUBOLib.JSON.parse(labs[:metadata])["source_value_agrees"] ==
+                          false
                     @test portfolio[:source_value] == 999
                     @test Bool(independent[:proven_optimal])
+                    @test QUBOLib.JSON.parse(independent[:metadata])["source_value_agrees"] ==
+                          true
 
                     for row in eachrow(best)
                         model = QUBOLib.load_instance(index, row[:instance])
