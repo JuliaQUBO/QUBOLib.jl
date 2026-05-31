@@ -1,31 +1,32 @@
 function deploy_qubolib!(index::QUBOLib.LibraryIndex)
     @assert Sys.islinux()
 
-    @info "[QUBOLib] Normalize Database"
-
-    QUBOLib.DBInterface.execute(QUBOLib.database(index), "VACUUM;")
+    root_path = abspath(QUBOLib.root_path(index))
+    library_path = abspath(QUBOLib.library_path(index))
+    dist_path = abspath(QUBOLib.dist_path(index))
+    build_path = abspath(QUBOLib.build_path(index))
 
     close(index)
 
     @info "[QUBOLib] Display Path Info"
-    @show "root_path    = $(abspath(QUBOLib.root_path(index)))"
-    @show "library_path = $(abspath(QUBOLib.library_path(index)))"
-    @show "dist_path    = $(abspath(QUBOLib.dist_path(index)))"
-    @show "build_path   = $(abspath(QUBOLib.build_path(index)))"
+    @show "root_path    = $(root_path)"
+    @show "library_path = $(library_path)"
+    @show "dist_path    = $(dist_path)"
+    @show "build_path   = $(build_path)"
 
-    mkpath(QUBOLib.build_path(index))
+    mkpath(build_path)
 
     # Calculate tree hash
     @info "[QUBOLib] Compute Tree Hash"
 
-    git_tree_hash = bytes2hex(Pkg.GitTools.tree_hash(QUBOLib.library_path(index)))
+    git_tree_hash = bytes2hex(Pkg.GitTools.tree_hash(library_path))
 
-    write(joinpath(QUBOLib.build_path(index), "git-tree.hash"), git_tree_hash)
+    write(joinpath(build_path, "git-tree.hash"), git_tree_hash)
 
     # Build tarball
     @info "[QUBOLib] Build Tar ball"
 
-    temp_path = abspath(Tar.create(QUBOLib.library_path(index)))
+    temp_path = abspath(Tar.create(library_path))
 
     # Compress tarball
     run(`gzip -9 -n $temp_path`)
@@ -33,7 +34,7 @@ function deploy_qubolib!(index::QUBOLib.LibraryIndex)
     # Move tarball
     @info "[QUBOLib] Move Tar ball"
 
-    tar_ball_path = joinpath(QUBOLib.build_path(index), "qubolib.tar.gz")
+    tar_ball_path = joinpath(build_path, "qubolib.tar.gz")
 
     rm(tar_ball_path; force = true)
 
@@ -52,38 +53,38 @@ function deploy_qubolib!(index::QUBOLib.LibraryIndex)
 
     tar_ball_hash = strip(read(pipeline(`sha256sum -z $tar_ball_path`, `cut -d ' ' -f 1`), String))
 
-    write(joinpath(QUBOLib.build_path(index), "tar-ball.hash"), tar_ball_hash)
+    write(joinpath(build_path, "tar-ball.hash"), tar_ball_hash)
 
     # Retrieve last QUBOLib tag
     @info "[QUBOLib] Generate release tag"
 
-    last_tag = last_data_tag(index)
+    last_tag = last_data_tag(root_path)
     next_tag = next_data_tag(last_tag)
 
-    write(joinpath(QUBOLib.build_path(index), "next.tag"), next_tag)
+    write(joinpath(build_path, "next.tag"), next_tag)
 
     # Write Artifacts.toml entry
     @info "[QUBOLib] Generate Artifacts.toml"
 
     artifact_entry = qubolib_artifact_entry(git_tree_hash, tar_ball_hash, next_tag)
 
-    write(joinpath(QUBOLib.build_path(index), "Artifacts.toml"), artifact_entry)
+    write(joinpath(build_path, "Artifacts.toml"), artifact_entry)
 
     # Write release information
     @info "[QUBOLib] Generate release title"
 
     release_title = "QUBOLib Library Data $(next_tag)"
 
-    write(joinpath(QUBOLib.build_path(index), "title.txt"), release_title)
+    write(joinpath(build_path, "title.txt"), release_title)
 
     @info "[QUBOLib] Generate release notes"
 
     release_notes = qubolib_release_notes(release_title, artifact_entry)
 
-    write(joinpath(QUBOLib.build_path(index), "NOTES.md"), release_notes)
+    write(joinpath(build_path, "NOTES.md"), release_notes)
 
     @info "[QUBOLib] Generate Mirror release notes"
-    mirror_path  = mkpath(joinpath(QUBOLib.build_path(index), "mirror"))
+    mirror_path  = mkpath(joinpath(build_path, "mirror"))
     mirror_notes = qubolib_mirror_release_notes()
 
     write(joinpath(mirror_path, "NOTES.md"), mirror_notes)

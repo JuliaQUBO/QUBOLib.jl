@@ -120,6 +120,13 @@ function test_hen_importer_compatibility()
     return nothing
 end
 
+function _deploy_hashes(build_path::AbstractString)
+    return (
+        tree = strip(read(joinpath(build_path, "git-tree.hash"), String)),
+        tar = strip(read(joinpath(build_path, "tar-ball.hash"), String)),
+    )
+end
+
 function test_deploy_qubolib_outputs()
     @testset "▶ Deploy outputs" begin
         if Sys.islinux()
@@ -148,6 +155,14 @@ function test_deploy_qubolib_outputs()
                 @test isfile(joinpath(build_path, "qubolib.tar.gz"))
                 @test isfile(joinpath(build_path, "Artifacts.toml"))
                 @test isfile(joinpath(build_path, "NOTES.md"))
+
+                hashes = _deploy_hashes(build_path)
+
+                QUBOLib.access(; path) do index
+                    deploy_qubolib!(index)
+                end
+
+                @test _deploy_hashes(build_path) == hashes
             end
         end
     end
