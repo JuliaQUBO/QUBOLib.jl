@@ -5,7 +5,49 @@ include("build.jl")
 function test_tags()
     @testset "▶ Tags" begin
         @test next_data_tag("v0.1.0") == "v0.1.0-data+1"
-        @test next_data_tag("v1.2.3-data+2") == "v1.2.3-data+3"
+        @test next_data_tag("v1.2.3-data+2") == "v0.1.0-data+3"
+
+        mktempdir() do path
+            mkpath(QUBOLib.build_path(path))
+            write(joinpath(QUBOLib.build_path(path), "last.tag"), "v0.1.0-data+7\n")
+
+            @test last_data_tag(path) == "v0.1.0-data+7"
+            @test next_data_tag(last_data_tag(path)) == "v0.1.0-data+8"
+        end
+
+        mktempdir() do path
+            write(
+                joinpath(path, "Artifacts.toml"),
+                """
+                [qubolib]
+                git-tree-sha1 = "abc"
+                lazy = true
+
+                    [[qubolib.download]]
+                    url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.1.0-data+5/qubolib.tar.gz"
+                    sha256 = "def"
+                """,
+            )
+
+            @test last_data_tag(path) == "v0.1.0-data+5"
+            @test next_data_tag(last_data_tag(path)) == "v0.1.0-data+6"
+        end
+    end
+
+    @testset "▶ Release notes" begin
+        entry = qubolib_artifact_entry("abc", "def", "v0.1.0-data+2")
+        notes = qubolib_release_notes("QUBOLib Library Data v0.1.0-data+2", entry)
+
+        @test occursin("v0.1.0-data+2", entry)
+        @test occursin("QOBLIB", notes)
+        @test occursin(QOBLIB_SOURCE_COMMIT, notes)
+        @test occursin("433 imported QUBO instances", notes)
+        @test occursin("392 validated incumbent records", notes)
+        @test occursin("41 missing-incumbent cases", notes)
+        @test occursin("Apache-2.0", notes)
+        @test occursin("CC-BY-4.0", notes)
+        @test occursin("canonical QUBO-space `qubo_value`", notes)
+        @test occursin("Artifacts.toml", notes)
     end
 
     return nothing
@@ -65,6 +107,64 @@ function test_qoblib_qs_parser()
         @test independent_set_quadratic_terms[(1, 2)] == 2.0
         @test QUBOTools.value(independent_set_model, [1, 0]) == -1.0
         @test QUBOTools.value(independent_set_model, [1, 1]) == 0.0
+    end
+
+    return nothing
+end
+
+function test_hen_importer_compatibility()
+    @testset "▶ HEN importer compatibility" begin
+        @test _hen_qubist_format() isa QUBOTools.AbstractFormat
+    end
+
+    return nothing
+end
+
+function _deploy_hashes(build_path::AbstractString)
+    return (
+        tree = strip(read(joinpath(build_path, "git-tree.hash"), String)),
+        tar = strip(read(joinpath(build_path, "tar-ball.hash"), String)),
+    )
+end
+
+function test_deploy_qubolib_outputs()
+    @testset "▶ Deploy outputs" begin
+        if Sys.islinux()
+            mktempdir() do path
+                write(
+                    joinpath(path, "Artifacts.toml"),
+                    """
+                    [qubolib]
+                    git-tree-sha1 = "abc"
+                    lazy = true
+
+                        [[qubolib.download]]
+                        url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.1.0-data+1/qubolib.tar.gz"
+                        sha256 = "def"
+                    """,
+                )
+
+                QUBOLib.access(; path, clear = true) do index
+                    deploy_qubolib!(index)
+                end
+
+                build_path = QUBOLib.build_path(path)
+
+                @test isfile(joinpath(build_path, "git-tree.hash"))
+                @test isfile(joinpath(build_path, "tar-ball.hash"))
+                @test isfile(joinpath(build_path, "qubolib.tar.gz"))
+                @test isfile(joinpath(build_path, "Artifacts.toml"))
+                @test isfile(joinpath(build_path, "NOTES.md"))
+
+                hashes = _deploy_hashes(build_path)
+
+                QUBOLib.access(; path) do index
+                    deploy_qubolib!(index)
+                end
+
+                @test _deploy_hashes(build_path) == hashes
+            end
+        end
     end
 
     return nothing
@@ -644,6 +744,8 @@ end
 function test_main()
     @testset "♦ QUBOLib.jl/scripts/build test suite ♦" verbose = true begin
         test_tags()
+        test_hen_importer_compatibility()
+        test_deploy_qubolib_outputs()
         test_qoblib_qs_parser()
         test_qoblib_build_fixture()
         test_qoblib_submission_failure_handling()

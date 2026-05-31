@@ -1,3 +1,45 @@
+const BEST_SOLUTIONS_VIEW_SQL = """
+CREATE VIEW BestSolutions AS
+SELECT *
+FROM (
+  SELECT
+    r.*,
+    ROW_NUMBER() OVER (
+      PARTITION BY r.instance
+      ORDER BY
+        CASE
+          WHEN lower(i.sense) = 'max' THEN -r.qubo_value
+          ELSE r.qubo_value
+        END ASC,
+        r.proven_optimal DESC,
+        CASE lower(r.validation_status)
+          WHEN 'verified' THEN 3
+          WHEN 'validated' THEN 2
+          WHEN 'evaluated' THEN 1
+          ELSE 0
+        END DESC,
+        CASE WHEN s.date IS NULL THEN 1 ELSE 0 END ASC,
+        s.date ASC,
+        r.record ASC
+    ) AS incumbent_rank
+  FROM SolutionRecords AS r
+  JOIN Instances AS i
+    ON i.instance = r.instance
+  LEFT JOIN Submissions AS s
+    ON s.submission = r.submission
+  WHERE r.bitstring IS NOT NULL
+    AND length(r.bitstring) = i.dimension
+    AND r.bitstring NOT GLOB '*[^01]*'
+    AND r.qubo_value IS NOT NULL
+    AND r.qubo_value > -1.7976931348623157e308
+    AND r.qubo_value <  1.7976931348623157e308
+    AND lower(coalesce(r.validation_status, '')) IN ('evaluated', 'validated', 'verified')
+    AND r.incumbent_candidate = TRUE
+    AND lower(coalesce(r.feasibility_status, '')) NOT IN ('invalid', 'infeasible', 'withdrawn', 'unmapped')
+)
+WHERE incumbent_rank = 1
+"""
+
 function access(callback::Any; path::AbstractString = pwd(), clear::Bool = false)
     index = access(; path, clear)
 
@@ -157,6 +199,45 @@ function _add_column_unless_exists!(
     return nothing
 end
 
+function _schema_sql(
+    db::SQLite.DB,
+    type::AbstractString,
+    name::AbstractString,
+)::Union{String,Nothing}
+    df = DBInterface.execute(
+        db,
+        """
+        SELECT sql
+        FROM sqlite_master
+        WHERE type = ? AND name = ?;
+        """,
+        (String(type), String(name)),
+    ) |> DataFrame
+
+    isempty(df) && return nothing
+
+    sql = only(df[!, :sql])
+
+    return ismissing(sql) ? nothing : String(sql)
+end
+
+function _normalize_schema_sql(sql::AbstractString)::String
+    return join(split(strip(replace(String(sql), r";\s*$" => ""))), " ")
+end
+
+function _ensure_best_solutions_view!(db::SQLite.DB)
+    current_sql = _schema_sql(db, "view", "BestSolutions")
+    expected_sql = BEST_SOLUTIONS_VIEW_SQL
+
+    if isnothing(current_sql) ||
+       _normalize_schema_sql(current_sql) != _normalize_schema_sql(expected_sql)
+        DBInterface.execute(db, "DROP VIEW IF EXISTS BestSolutions;")
+        DBInterface.execute(db, expected_sql)
+    end
+
+    return nothing
+end
+
 function migrate_database!(db::SQLite.DB)
     DBInterface.execute(db, "PRAGMA foreign_keys = ON;")
 
@@ -231,51 +312,7 @@ function migrate_database!(db::SQLite.DB)
         """,
     )
 
-    DBInterface.execute(db, "DROP VIEW IF EXISTS BestSolutions;")
-    DBInterface.execute(
-        db,
-        """
-        CREATE VIEW BestSolutions AS
-        SELECT *
-        FROM (
-          SELECT
-            r.*,
-            ROW_NUMBER() OVER (
-              PARTITION BY r.instance
-              ORDER BY
-                CASE
-                  WHEN lower(i.sense) = 'max' THEN -r.qubo_value
-                  ELSE r.qubo_value
-                END ASC,
-                r.proven_optimal DESC,
-                CASE lower(r.validation_status)
-                  WHEN 'verified' THEN 3
-                  WHEN 'validated' THEN 2
-                  WHEN 'evaluated' THEN 1
-                  ELSE 0
-                END DESC,
-                CASE WHEN s.date IS NULL THEN 1 ELSE 0 END ASC,
-                s.date ASC,
-                r.record ASC
-            ) AS incumbent_rank
-          FROM SolutionRecords AS r
-          JOIN Instances AS i
-            ON i.instance = r.instance
-          LEFT JOIN Submissions AS s
-            ON s.submission = r.submission
-          WHERE r.bitstring IS NOT NULL
-            AND length(r.bitstring) = i.dimension
-            AND r.bitstring NOT GLOB '*[^01]*'
-            AND r.qubo_value IS NOT NULL
-            AND r.qubo_value > -1.7976931348623157e308
-            AND r.qubo_value <  1.7976931348623157e308
-            AND lower(coalesce(r.validation_status, '')) IN ('evaluated', 'validated', 'verified')
-            AND r.incumbent_candidate = TRUE
-            AND lower(coalesce(r.feasibility_status, '')) NOT IN ('invalid', 'infeasible', 'withdrawn', 'unmapped')
-        )
-        WHERE incumbent_rank = 1;
-        """,
-    )
+    _ensure_best_solutions_view!(db)
 
     return nothing
 end
