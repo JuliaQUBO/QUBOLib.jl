@@ -4,15 +4,19 @@ include("build.jl")
 
 function test_tags()
     @testset "▶ Tags" begin
-        @test next_data_tag("v0.1.0") == "v0.1.0-data+1"
-        @test next_data_tag("v1.2.3-data+2") == "v0.1.0-data+3"
+        data_tag(n) = let version = QUBOLib.__version__()
+            "v$(VersionNumber(version.major, version.minor, version.patch, ("data",), (n,)))"
+        end
+
+        @test next_data_tag("v0.1.0") == data_tag(1)
+        @test next_data_tag("v1.2.3-data+2") == data_tag(3)
 
         mktempdir() do path
             mkpath(QUBOLib.build_path(path))
             write(joinpath(QUBOLib.build_path(path), "last.tag"), "v0.1.0-data+7\n")
 
             @test last_data_tag(path) == "v0.1.0-data+7"
-            @test next_data_tag(last_data_tag(path)) == "v0.1.0-data+8"
+            @test next_data_tag(last_data_tag(path)) == data_tag(8)
         end
 
         mktempdir() do path
@@ -30,7 +34,7 @@ function test_tags()
             )
 
             @test last_data_tag(path) == "v0.1.0-data+5"
-            @test next_data_tag(last_data_tag(path)) == "v0.1.0-data+6"
+            @test next_data_tag(last_data_tag(path)) == data_tag(6)
         end
     end
 
