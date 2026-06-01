@@ -1,9 +1,5 @@
 function _compat_allows(compat::AbstractString, version::VersionNumber)
-    specs = split(compat, ',')
-
-    return any(specs) do spec
-        version in QUBOLib.Pkg.Types.VersionSpec(strip(spec))
-    end
+    return version in QUBOLib.Pkg.Types.semver_spec(compat)
 end
 
 function test_project_metadata()
