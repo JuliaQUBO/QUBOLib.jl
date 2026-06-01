@@ -193,6 +193,37 @@ end
 result
 ```
 
+For a real packaged QOBLIB query, open the default artifact and filter the
+SQLite index by collection and problem class. Keep this form outside a
+documentation `@example` when you do not want the docs build to download the
+artifact:
+
+```julia
+using QUBOLib
+using SQLite, DataFrames
+
+QUBOLib.access() do index
+    DBInterface.execute(
+        QUBOLib.database(index),
+        """
+        SELECT i.name, b.qubo_value, b.source_value, b.proven_optimal,
+               b.validation_status, b.feasibility_status
+        FROM BestSolutions AS b
+        JOIN Instances AS i
+          ON i.instance = b.instance
+        WHERE i.collection = 'qoblib'
+          AND i.problem_class = 'LABS'
+        ORDER BY b.qubo_value ASC
+        LIMIT 10;
+        """,
+    ) |> DataFrame
+end
+```
+
+QOBLIB records may also carry metadata such as `source_value_agrees`, which
+records whether the source objective value matched the locally evaluated
+QUBO-space value for that record.
+
 For solver stacks such as QUBODrivers, or for any other package that returns a
 QUBO-space state, keep the solver-specific call separate from the QUBOLib
 comparison step. Once the solver output has been converted to a binary vector in

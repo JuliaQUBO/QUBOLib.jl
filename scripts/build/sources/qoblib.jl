@@ -129,6 +129,34 @@ function _qoblib_parse_int(value::AbstractString)
     end
 end
 
+function _qoblib_require_executable(name::AbstractString, purpose::AbstractString)
+    if Sys.which(name) === nothing
+        error("'$name' is required to $purpose")
+    end
+
+    return nothing
+end
+
+function _qoblib_tag_source_value_agreement!(
+    metadata::Dict{String,Any},
+    qubo_value,
+    source_value;
+    context::AbstractString,
+)
+    if ismissing(source_value)
+        return metadata
+    end
+
+    agrees = isapprox(qubo_value, source_value; rtol = 1e-8, atol = 1e-8)
+    metadata["source_value_agrees"] = agrees
+
+    if !agrees
+        @info "[qoblib] qubo_value and source_value differ" context qubo_value source_value
+    end
+
+    return metadata
+end
+
 function _qoblib_comment(line::AbstractString)
     return strip(line[2:end])
 end
@@ -258,7 +286,7 @@ end
 
 function QUBOTools.read_model(path::AbstractString, fmt::QOBLIBQS)
     if endswith(path, ".xz")
-        @assert run(`which xz`, devnull, devnull).exitcode == 0 "'xz' is required to read QOBLIB QS archives"
+        _qoblib_require_executable("xz", "read QOBLIB QS archives")
 
         return open(`xz -dc $path`, "r") do io
             QUBOTools.read_model(io, fmt)
@@ -408,7 +436,7 @@ function _qoblib_direct_solution_index(root_path::AbstractString, group)
 end
 
 function _qoblib_tar_solution_index(root_path::AbstractString, group)
-    @assert run(`which tar`, devnull, devnull).exitcode == 0 "'tar' is required to read QOBLIB solution archives"
+    _qoblib_require_executable("tar", "read QOBLIB solution archives")
 
     index = Dict{String,Any}()
     solution_path = joinpath(root_path, group.solution_path)
@@ -569,10 +597,10 @@ function _qoblib_read_assignments(lines::Vector{String}, dimension::Integer)
         state[index] = bit
     end
 
-    missing = findfirst(==(-1), state)
+    unset_index = findfirst(==(-1), state)
 
-    if !isnothing(missing)
-        QUBOTools.syntax_error("Missing QOBLIB incumbent assignment: x#$missing")
+    if !isnothing(unset_index)
+        QUBOTools.syntax_error("Missing QOBLIB incumbent assignment: x#$unset_index")
     end
 
     return state
@@ -1142,6 +1170,12 @@ function _add_qoblib_submission!(
 
         record_source_value = ismissing(source_value) ? solution.source_value : source_value
         qubo_value = QUBOTools.value(model, solution.state)
+        _qoblib_tag_source_value_agreement!(
+            solution_metadata,
+            qubo_value,
+            record_source_value;
+            context = solution_source_path,
+        )
         sol = QUBOTools.SampleSet{Float64,Int}(
             model,
             [solution.state];
@@ -1307,6 +1341,12 @@ function _add_qoblib_incumbent!(
 
     qubo_value = QUBOTools.value(model, solution.state)
     metadata = _qoblib_incumbent_metadata(root_path, group, info; source_value)
+    _qoblib_tag_source_value_agreement!(
+        metadata,
+        qubo_value,
+        source_value;
+        context = _qoblib_source_path(root_path, info),
+    )
     sol = QUBOTools.SampleSet{Float64,Int}(model, [solution.state]; metadata)
 
     if !isapprox(QUBOTools.value(sol, 1), qubo_value; rtol = 1e-8, atol = 1e-8)
@@ -1520,7 +1560,7 @@ function _extract_qoblib_archive!(
     archive_path::AbstractString,
     groups,
 )
-    @assert run(`which unzip`, devnull, devnull).exitcode == 0 "'unzip' is required to extract QOBLIB archive"
+    _qoblib_require_executable("unzip", "extract QOBLIB archive")
 
     data_path = QUBOLib.cache_data_path(index, QOBLIB_COLLECTION)
     root = _qoblib_archive_root(archive_path)
