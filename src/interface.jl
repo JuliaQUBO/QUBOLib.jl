@@ -137,6 +137,13 @@ function add_submission! end
 
 Registers a submitted or reference bitstring and its provenance for an instance.
 Records are preserved even when they are not incumbent candidates.
+
+Records are eligible for `BestSolutions` only when they have a full binary
+bitstring, finite `qubo_value`, `incumbent_candidate = true`, a
+`validation_status` of `evaluated`, `validated`, or `verified`, and a
+`feasibility_status` of `feasible`, `validated`, or `verified`. The default
+`feasibility_status` is `unknown`, so callers that intend to register an
+incumbent should either set it explicitly or use `add_solution!`.
 """
 function add_solution_record! end
 
