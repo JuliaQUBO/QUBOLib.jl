@@ -1,0 +1,17 @@
+name: TagBot
+
+on:
+  issue_comment:
+    types:
+      - created
+  workflow_dispatch:
+
+jobs:
+  TagBot:
+    if: github.event_name == 'workflow_dispatch' || github.actor == 'JuliaTagBot'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: JuliaRegistries/TagBot@6b7c22e7bc2b8f4d1c56b7199a63421cf2667ed1 # v1.25.7
+        with:
+          # GITHUB_TOKEN-created tags do not trigger docs.yml; add ssh if package tags should deploy docs.
+          token: ${{ secrets.GITHUB_TOKEN }}
