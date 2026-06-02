@@ -13,5 +13,5 @@ jobs:
     steps:
       - uses: JuliaRegistries/TagBot@6b7c22e7bc2b8f4d1c56b7199a63421cf2667ed1 # v1.25.7
         with:
-          # GITHUB_TOKEN-created tags do not trigger docs.yml; add ssh if package tags should deploy docs.
           token: ${{ secrets.GITHUB_TOKEN }}
+          ssh: ${{ secrets.SSH_KEY }}
