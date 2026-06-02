@@ -13,7 +13,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - uses: julia-actions/setup-julia@v1
       with:
         version: '1.10'
@@ -31,7 +31,14 @@ jobs:
     - name: Retrieve Last Release Tag
       run: |
         cd $GITHUB_WORKSPACE
-        LAST_TAG="$(gh release view | sed -nr 's/tag:\s*(v\S*)/\1/p')"
+        LAST_TAG="$(
+          gh release list \
+            --exclude-drafts \
+            --exclude-pre-releases \
+            --limit 1000 \
+            --json tagName,publishedAt \
+            --jq '[.[] | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+-data\\+[0-9]+$"))] | sort_by(.publishedAt) | last | .tagName // empty'
+        )"
         echo "$LAST_TAG" >> ./dist/build/last.tag
         ls -la ./dist/build/
 
