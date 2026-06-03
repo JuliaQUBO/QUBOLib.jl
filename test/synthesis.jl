@@ -19,6 +19,7 @@ function test_wishart()
             
             let sol = QUBOTools.solution(model)
                 @test length(sol) > 0
+                test_synthesis_solution_metadata(sol)
             end
         end
     end
@@ -41,6 +42,15 @@ function test_sherrington_kirkpatrick()
             @test mean(last, QUBOTools.quadratic_terms(model)) ≈ 4μ           atol = 10σ
         end
     end
+
+    return nothing
+end
+
+function test_synthesis_solution_metadata(sol)
+    metadata = QUBOTools.metadata(sol)
+
+    @test !haskey(metadata, "time")
+    @test QUBOLib.JSON.json(metadata) isa String
 
     return nothing
 end
