@@ -2,6 +2,12 @@
 
 ## Actions
 
+```@docs
+QUBOLib.clear!
+QUBOLib.build!
+QUBOLib.run!
+```
+
 ## Path Routing
 
 ```@docs
@@ -15,6 +21,7 @@ QUBOLib.root_path
 QUBOLib.dist_path
 QUBOLib.build_path
 QUBOLib.cache_path
+QUBOLib.cache_data_path
 ```
 
 ## Library Index

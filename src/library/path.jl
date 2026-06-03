@@ -89,9 +89,13 @@ end
 cache_path(index::LibraryIndex, paths...) = cache_path(root_path(index), paths...)
 
 @doc raw"""
-    cache_data_path(path::AbstractString, paths...)
+    cache_data_path(path::AbstractString = root_path(), paths...)
+    cache_data_path(index::LibraryIndex, paths...)
 
-Returns the absolute path to the data cache folder, given a reference _root path_ `path`.
+Returns the absolute path to a source-data cache folder.
+
+For a root path, the returned path is nested under `dist/cache`. For an open
+[`LibraryIndex`](@ref), the root path is inferred from the index location.
 """
 function cache_data_path(path::AbstractString = root_path(), paths...)::String
     return joinpath(cache_path(path, paths...), "data")

@@ -46,13 +46,29 @@ function access(callback::Any; path::AbstractString = pwd(), clear::Bool = false
     @assert isopen(index)
 
     try
-        # TODO: Start transaction here
-        return callback(index)
+        db = database(index)
+
+        DBInterface.execute(db, "SAVEPOINT qubolib_access;")
+
+        try
+            result = callback(index)
+
+            if isopen(db)
+                DBInterface.execute(db, "RELEASE SAVEPOINT qubolib_access;")
+            end
+
+            return result
+        catch err
+            if isopen(db)
+                DBInterface.execute(db, "ROLLBACK TO SAVEPOINT qubolib_access;")
+                DBInterface.execute(db, "RELEASE SAVEPOINT qubolib_access;")
+            end
+
+            rethrow(err)
+        end
     catch err
-        # TODO: Implement some transaction rollback functionality!
         rethrow(err)
     finally
-        # TODO: Close transaction here
         close(index)
     end
 end

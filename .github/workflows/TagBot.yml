@@ -14,4 +14,8 @@ jobs:
       - uses: JuliaRegistries/TagBot@6b7c22e7bc2b8f4d1c56b7199a63421cf2667ed1 # v1.25.7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Requires a repository secret named SSH_KEY whose public key is added
+          # as a write-enabled deploy key. Without it, TagBot may need manual
+          # intervention for tags that trigger other workflows or touch workflow
+          # files.
           ssh: ${{ secrets.SSH_KEY }}

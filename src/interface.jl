@@ -2,17 +2,36 @@
 
 @doc raw"""
     clear!(source::Symbol, cache::Bool = true)
+
+Clears generated build artifacts for a source collection.
+
+When `cache` is `true`, cached source data for the collection is removed as
+well. This is intended for maintainers rebuilding the packaged benchmark
+artifact.
 """
 function clear! end
 
 @doc raw"""
     build!(source::Symbol)
+
+Builds the packaged QUBOLib artifact data for a source collection.
+
+This maintainer-facing entry point is used by the scripts under
+`scripts/build/` to populate the SQLite/HDF5 library from source-specific
+builders.
 """
 function build! end
 
 @doc raw"""
     run!(index::LibraryIndex, instance::Integer, optimizer)
     run!(index::LibraryIndex, instances::Vector{U}, optimizer) where {U<:Integer}
+
+Runs an optimizer on one or more stored instances and records returned samples
+in the library index.
+
+The optimizer is wrapped in a JuMP model, each selected instance is loaded from
+`index`, and sampler output is stored with [`add_solution!`](@ref) when the
+backend exposes a `QUBOTools.SampleSet`.
 """
 function run! end
 
@@ -28,6 +47,8 @@ function run! end
 Loads the index for an instance library.
 
 If `path` is not provided, the latest QUBOLib artifact will be used.
+Callback-style access wraps SQLite writes in a savepoint and rolls them back if
+the callback throws before the index is closed.
 
 ## Example
 
