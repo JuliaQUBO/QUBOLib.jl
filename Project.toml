@@ -1,7 +1,7 @@
 name = "QUBOLib"
 uuid = "c2d3eca2-2309-4628-88a9-9d4a554e7c47"
 authors = ["pedromxavier <mail@pedro.ϵλ>", "David E. Bernal Neira <dbernaln@purdue.edu>"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
