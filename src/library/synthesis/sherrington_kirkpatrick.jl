@@ -50,10 +50,6 @@ function generate(rng, problem::SherringtonKirkpatrick{T}) where {T}
             metadata = Dict{String,Any}(
                 "origin" => "planted",
                 "status" => "optimal",
-                "time"   => Dict{String,Any}(
-                    "total"     => NaN,
-                    "effective" => NaN,
-                ),
             )
         )
 
