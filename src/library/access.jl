@@ -48,26 +48,23 @@ function access(callback::Any; path::AbstractString = pwd(), clear::Bool = false
     try
         db = database(index)
 
-        DBInterface.execute(db, "SAVEPOINT qubolib_access;")
+        _begin_access_savepoint!(db)
 
         try
             result = callback(index)
 
             if isopen(db)
-                DBInterface.execute(db, "RELEASE SAVEPOINT qubolib_access;")
+                _release_access_savepoint!(db)
             end
 
             return result
-        catch err
+        catch
             if isopen(db)
-                DBInterface.execute(db, "ROLLBACK TO SAVEPOINT qubolib_access;")
-                DBInterface.execute(db, "RELEASE SAVEPOINT qubolib_access;")
+                _rollback_access_savepoint!(db)
             end
 
-            rethrow(err)
+            rethrow()
         end
-    catch err
-        rethrow(err)
     finally
         close(index)
     end

@@ -23,15 +23,16 @@ builders.
 function build! end
 
 @doc raw"""
-    run!(index::LibraryIndex, instance::Integer, optimizer)
-    run!(index::LibraryIndex, instances::Vector{U}, optimizer) where {U<:Integer}
+    run!(index::LibraryIndex, optimizer, codes::AbstractVector{U}; kws...) where {U<:Integer}
+    run!(config!::Function, index::LibraryIndex, optimizer, codes::AbstractVector{U}; kws...) where {U<:Integer}
+    run!(index::LibraryIndex, model::JuMP.Model, code::Integer; solver::Union{Symbol,Nothing}=nothing)
 
 Runs an optimizer on one or more stored instances and records returned samples
 in the library index.
 
-The optimizer is wrapped in a JuMP model, each selected instance is loaded from
-`index`, and sampler output is stored with [`add_solution!`](@ref) when the
-backend exposes a `QUBOTools.SampleSet`.
+The vector methods wrap `optimizer` in a JuMP model, each selected instance is
+loaded from `index`, and sampler output is stored with [`add_solution!`](@ref)
+when the backend exposes a `QUBOTools.SampleSet`.
 """
 function run! end
 

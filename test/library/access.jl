@@ -215,6 +215,32 @@ function test_library_access()
                 @test isempty(collections)
             end
         end
+
+        mktempdir() do path
+            QUBOLib.access(; path, clear = true) do index
+                QUBOLib.add_collection!(
+                    index,
+                    "closed-savepoint",
+                    Dict{String,Any}(
+                        "name" => "Closed Savepoint",
+                        "author" => ["QUBOLib"],
+                    ),
+                )
+
+                close(index)
+            end
+
+            QUBOLib.access(; path) do index
+                collections =
+                    QUBOLib.DBInterface.execute(
+                        QUBOLib.database(index),
+                        "SELECT collection FROM Collections WHERE collection = ?;",
+                        ("closed-savepoint",),
+                    ) |> QUBOLib.DataFrame
+
+                @test size(collections, 1) == 1
+            end
+        end
     end
 
     @testset "Best solution sense" begin
