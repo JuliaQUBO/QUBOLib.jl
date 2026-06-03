@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.3 - 2026-06-03
+
+- Added package and data release maintenance documentation.
+- Documented the TagBot SSH deploy-key setup and safe manual recovery path for historical releases.
+- Updated README installation and maintenance links for the registered package.
+- Added public action/path API entries to the generated documentation.
+- Wrapped callback-style `QUBOLib.access` calls in a SQLite savepoint so callback errors roll back transient database changes.
+
 ## v0.1.2 - 2026-06-03
 
 - Registered QUBOLib `0.1.2` in General.
