@@ -23,7 +23,7 @@ jobs:
       - name: Develop QUBOLib.jl
         run: julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd())'
       - name: Build Package
-        uses: julia-actions/julia-buildpkg@latest
+        uses: julia-actions/julia-buildpkg@v1
         with: 
             project: "docs"
       - name: Build documentation
@@ -44,7 +44,7 @@ jobs:
       - name: Develop QUBOLib.jl
         run: julia --project=docs -e 'using Pkg; Pkg.develop(path=pwd())'
       - name: Build Package
-        uses: julia-actions/julia-buildpkg@latest
+        uses: julia-actions/julia-buildpkg@v1
         with:
             project: "docs"
       - name: Build and deploy

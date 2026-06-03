@@ -10,21 +10,30 @@ This repository has two release streams:
 1. Open a release PR that bumps `version` in `Project.toml`.
 2. Run the package tests and documentation build.
 3. Merge the release PR after CI is green.
-4. Tag the merge commit:
+4. Trigger Registrator on the merge commit, including release notes:
+
+   ```markdown
+   @JuliaRegistrator register
+
+   Release notes:
+
+   - ...
+   ```
+
+5. Confirm the General registry PR merges.
+6. Let TagBot create the package tag and GitHub release. If the package tag was
+   created manually before TagBot ran, create the GitHub release manually too:
 
    ```bash
-   git tag -a vX.Y.Z -m "QUBOLib vX.Y.Z" <merge-commit>
-   git push origin vX.Y.Z
+   gh release create vX.Y.Z --title "QUBOLib vX.Y.Z" --notes-file /path/to/notes.md --target <merge-commit>
    ```
 
-5. Trigger Registrator on the merge commit:
+7. Verify that `vX.Y.Z` points at the registered merge commit:
 
-   ```text
-   @JuliaRegistrator register
+   ```bash
+   git ls-remote --tags origin refs/tags/vX.Y.Z 'refs/tags/vX.Y.Z^{}'
+   gh release view vX.Y.Z --repo JuliaQUBO/QUBOLib.jl
    ```
-
-6. Confirm the General registry PR merges.
-7. Confirm TagBot creates the GitHub release, or create it manually if TagBot opens an intervention issue.
 
 ## TagBot Setup
 
@@ -32,6 +41,13 @@ TagBot uses `secrets.SSH_KEY` in `.github/workflows/TagBot.yml`. The matching
 public key must be installed as a write-enabled deploy key for this repository.
 This is needed when TagBot must create package tags that also trigger other
 workflows, such as documentation deployment.
+
+Verify the setup before relying on TagBot for a release:
+
+```bash
+gh api repos/JuliaQUBO/QUBOLib.jl/actions/secrets/SSH_KEY
+gh api repos/JuliaQUBO/QUBOLib.jl/keys
+```
 
 If TagBot reports manual intervention for an old registered version whose tag is
 missing, create the tag at the registered commit before creating the release.
