@@ -12,7 +12,7 @@
 ### Installation
 
 ```julia
-julia> import Pkg; Pkg.add(url="https://github.com/JuliaQUBO/QUBOLib.jl")
+julia> import Pkg; Pkg.add("QUBOLib")
 
 julia> using QUBOLib
 ```
@@ -94,3 +94,8 @@ julia> QUBOLib.access() do index
            ) |> DataFrame
        end
 ```
+
+## Project maintenance
+
+- See [`CHANGELOG.md`](CHANGELOG.md) for package release notes.
+- See [`RELEASE.md`](RELEASE.md) for the package and data-artifact release checklist.

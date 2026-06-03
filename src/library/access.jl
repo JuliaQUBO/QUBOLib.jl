@@ -46,13 +46,26 @@ function access(callback::Any; path::AbstractString = pwd(), clear::Bool = false
     @assert isopen(index)
 
     try
-        # TODO: Start transaction here
-        return callback(index)
-    catch err
-        # TODO: Implement some transaction rollback functionality!
-        rethrow(err)
+        db = database(index)
+
+        _begin_access_savepoint!(db)
+
+        try
+            result = callback(index)
+
+            if isopen(db)
+                _release_access_savepoint!(db)
+            end
+
+            return result
+        catch
+            if isopen(db)
+                _rollback_access_savepoint!(db)
+            end
+
+            rethrow()
+        end
     finally
-        # TODO: Close transaction here
         close(index)
     end
 end

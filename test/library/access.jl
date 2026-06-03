@@ -189,6 +189,60 @@ function test_library_access()
         end
     end
 
+    @testset "Callback transactions" begin
+        mktempdir() do path
+            @test_throws ErrorException QUBOLib.access(; path, clear = true) do index
+                QUBOLib.add_collection!(
+                    index,
+                    "rolled-back",
+                    Dict{String,Any}(
+                        "name" => "Rolled Back",
+                        "author" => ["QUBOLib"],
+                    ),
+                )
+
+                error("abort transaction")
+            end
+
+            QUBOLib.access(; path) do index
+                collections =
+                    QUBOLib.DBInterface.execute(
+                        QUBOLib.database(index),
+                        "SELECT collection FROM Collections WHERE collection = ?;",
+                        ("rolled-back",),
+                    ) |> QUBOLib.DataFrame
+
+                @test isempty(collections)
+            end
+        end
+
+        mktempdir() do path
+            QUBOLib.access(; path, clear = true) do index
+                QUBOLib.add_collection!(
+                    index,
+                    "closed-savepoint",
+                    Dict{String,Any}(
+                        "name" => "Closed Savepoint",
+                        "author" => ["QUBOLib"],
+                    ),
+                )
+
+                close(index)
+            end
+
+            QUBOLib.access(; path) do index
+                collections =
+                    QUBOLib.DBInterface.execute(
+                        QUBOLib.database(index),
+                        "SELECT collection FROM Collections WHERE collection = ?;",
+                        ("closed-savepoint",),
+                    ) |> QUBOLib.DataFrame
+
+                @test size(collections, 1) == 1
+            end
+        end
+    end
+
     @testset "Best solution sense" begin
         mktempdir() do path
             model = QUBOTools.Model(
