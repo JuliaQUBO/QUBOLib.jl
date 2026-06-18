@@ -116,6 +116,70 @@ function test_qoblib_qs_parser()
     return nothing
 end
 
+function test_qoblib_constrained_inventory()
+    @testset "▶ QOBLIB constrained class inventory" begin
+        metadata = QOBLIB_DATA["metadata"]
+        source = metadata["constrained_class_inventory_source"]
+        inventory = metadata["constrained_class_inventory"]
+
+        @test source["repository"] == QOBLIB_REPOSITORY
+        @test source["pinned_source_commit"] == QOBLIB_SOURCE_COMMIT
+        @test source["default_branch"] == "main"
+        @test source["github_release_status"] == "no_github_releases"
+        @test occursin("tree_scan_for_qs", source["artifact_probe"])
+        @test occursin("authoritative_qoblib_qs_or_qubo", source["canonical_policy"])
+        @test length(inventory) == 6
+        @test Set(get.(inventory, "code", "")) ==
+              Set(["birkhoff", "steiner", "sports", "network", "routing", "topology"])
+        @test all(row -> row["authoritative_qubo_artifact"] == false, inventory)
+        @test all(row -> row["qs_artifact_count"] == 0, inventory)
+        @test all(row -> row["source_model_status"] == "available", inventory)
+        @test all(row -> row["source_data_status"] == "available", inventory)
+        @test all(row -> row["metrics_status"] == "available", inventory)
+        @test all(row -> row["solution_status"] == "available", inventory)
+        @test all(
+            row -> row["metrics_qs_files_status"] ==
+                   "metadata_only_no_published_qs_artifacts",
+            inventory,
+        )
+        @test all(
+            row -> row["canonical_ingestion_status"] == "unavailable",
+            inventory,
+        )
+        @test all(
+            row -> row["generated_variant_status"] == "deferred_to_toqubo",
+            inventory,
+        )
+        @test all(row -> !haskey(row, "source_model_count"), inventory)
+        @test all(row -> !haskey(row, "source_data_blob_count"), inventory)
+        @test all(row -> !haskey(row, "solution_blob_count"), inventory)
+        @test all(row -> !haskey(row, "submission_blob_count"), inventory)
+        @test all(
+            row -> any(endswith(path, "metrics_qs_files.csv") for path in row["metrics_paths"]),
+            inventory,
+        )
+        @test QUBOLib.JSON.parse(QUBOLib.JSON.json(metadata))[
+            "constrained_class_inventory"
+        ][1]["code"] == "birkhoff"
+
+        docs = read(
+            joinpath(QUBOLib.root_path(), "docs", "src", "manual", "3-qoblib.md"),
+            String,
+        )
+
+        for row in inventory
+            @test occursin(row["problem_class"], docs)
+            @test occursin(row["upstream_path"], docs)
+            @test occursin("Unavailable for canonical ingestion", docs)
+        end
+
+        @test occursin("zero blobs ending in `.qs` or `.qs.xz`", docs)
+        @test occursin("metric metadata, not as retrievable QS artifacts", docs)
+    end
+
+    return nothing
+end
+
 function test_hen_importer_compatibility()
     @testset "▶ HEN importer compatibility" begin
         @test _hen_qubist_format() isa QUBOTools.AbstractFormat
@@ -757,6 +821,7 @@ function test_main()
         test_hen_importer_compatibility()
         test_deploy_qubolib_outputs()
         test_qoblib_qs_parser()
+        test_qoblib_constrained_inventory()
         test_qoblib_build_fixture()
         test_qoblib_submission_failure_handling()
     end
