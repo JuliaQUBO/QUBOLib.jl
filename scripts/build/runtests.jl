@@ -461,6 +461,33 @@ function test_qoblib_build_fixture()
                 expected_incumbents = 1,
                 nested = false,
             ),
+            (
+                code = "limitedsourcefixture",
+                problem_class = "Limited Source Fixture",
+                formulation = "binary_quadratic_with_source",
+                path = "12-limited/models/binary_quadratic/qs_files",
+                source_model_path = "12-limited/models/integer_linear/lp_files",
+                source_model_format = "lp",
+                source_text_max_bytes = 16,
+                source_encoding = Dict{String,Any}(
+                    "variables" => Dict{String,Any}(
+                        "x" => Dict{String,Any}(
+                            "terms" => [Dict{String,Any}("index" => 1)],
+                        ),
+                        "y" => Dict{String,Any}(
+                            "terms" => [Dict{String,Any}("index" => 2)],
+                        ),
+                        "z" => Dict{String,Any}(
+                            "terms" => [Dict{String,Any}("index" => 3)],
+                        ),
+                    ),
+                ),
+                solution_path = "12-limited/solutions",
+                solution_format = :bit_tokens,
+                expected_count = 1,
+                expected_incumbents = 1,
+                nested = false,
+            ),
         )
 
         mktempdir() do root
@@ -555,6 +582,28 @@ function test_qoblib_build_fixture()
             solution_path = _write_qoblib_solution_dir(root, groups[5])
             write(joinpath(solution_path, "constrained.opt.sol"), "1 0 0\n")
 
+            _write_qoblib_fixture_group(root, groups[6], ["limited.qs"])
+            limited_source_model_path = mkpath(joinpath(root, groups[6].source_model_path))
+            limited_source_lp_path = joinpath(limited_source_model_path, "limited.lp")
+            write(
+                limited_source_lp_path,
+                """
+                Minimize
+                 obj: x + 2 y - 4 z
+                Subject To
+                 c1: x + y <= 1
+                Bounds
+                 0 <= x <= 1
+                 0 <= y <= 1
+                 0 <= z <= 1
+                Binary
+                 x y z
+                End
+                """,
+            )
+            solution_path = _write_qoblib_solution_dir(root, groups[6])
+            write(joinpath(solution_path, "limited.opt.sol"), "1 0 0\n")
+
             mktempdir() do path
                 QUBOLib.access(; path, clear = true) do index
                     build_qoblib!(index; source_path = root, groups = groups)
@@ -609,15 +658,15 @@ function test_qoblib_build_fixture()
                             """,
                         ) |> QUBOLib.DataFrame
 
-                    @test count == 6
+                    @test count == 7
                     @test Set(data[!, :source_name]) == Set(["QOBLIB"])
                     @test Set(data[!, :problem_class]) ==
                           Set(getfield.(groups, :problem_class))
                     @test Set(data[!, :formulation]) == Set(getfield.(groups, :formulation))
                     @test all(endswith(path, ".qs") for path in data[!, :source_path])
-                    @test size(records, 1) == 9
+                    @test size(records, 1) == 10
                     @test size(submissions, 1) == 3
-                    @test size(best, 1) == 5
+                    @test size(best, 1) == 6
 
                     missing = only(
                         eachrow(
@@ -773,6 +822,28 @@ function test_qoblib_build_fixture()
                     @test source_evaluation.objective ≈ constrained[:source_objective]
                     @test source_evaluation.feasible
 
+                    limited = only(
+                        eachrow(filter(row -> row[:name] == "limited.qs", records)),
+                    )
+                    limited_source_group =
+                        QUBOLib.archive(index)["instances"][string(limited[:instance])]["source"]
+                    limited_source_attrs = QUBOLib.HDF5.attrs(limited_source_group)
+
+                    @test ismissing(limited[:source_objective])
+                    @test ismissing(limited[:source_feasible])
+                    @test limited_source_attrs["source_format"] == "lp"
+                    @test limited_source_attrs["source_path"] ==
+                          "12-limited/models/integer_linear/lp_files/limited.lp"
+                    @test limited_source_attrs["source_sha256"] ==
+                          bytes2hex(SHA.sha256(read(limited_source_lp_path)))
+                    @test limited_source_attrs["source_size_bytes"] ==
+                          sizeof(read(limited_source_lp_path, String))
+                    @test limited_source_attrs["source_text_max_bytes"] == 16
+                    @test limited_source_attrs["source_text_storage"] ==
+                          "omitted_size_limit"
+                    @test !haskey(limited_source_group, "content")
+                    @test haskey(limited_source_group, "encoding")
+
                     for row in eachrow(best)
                         model = QUBOLib.load_instance(index, row[:instance])
                         state = QUBOLib._bitstring_state(row[:bitstring])
@@ -886,6 +957,46 @@ function test_qoblib_submission_failure_handling()
                         summary,
                     )
                 end
+            end
+        end
+
+        mktempdir() do path
+            QUBOLib.access(; path, clear = true) do index
+                instance = QUBOLib.add_instance!(
+                    index,
+                    model;
+                    name = "bad-source.qs",
+                    source_format = "lp",
+                    source_text = """
+                    Minimize
+                     obj: x + y + z
+                    Subject To
+                     c1: x + y <= 1
+                    Bounds
+                     0 <= x <= 1
+                     0 <= y <= 1
+                     0 <= z <= 1
+                    Binary
+                     x y z
+                    End
+                    """,
+                    source_encoding = Dict{String,Any}(
+                        "variables" => Dict{String,Any}(
+                            "unmapped" => Dict{String,Any}(
+                                "terms" => [Dict{String,Any}("index" => 1)],
+                            ),
+                        ),
+                    ),
+                )
+                evaluator = _qoblib_source_evaluator(index, instance; context = "bad-source")
+                evaluation = _qoblib_source_evaluation(
+                    evaluator,
+                    [1, 0, 0];
+                    context = "bad-source",
+                )
+
+                @test ismissing(evaluation.source_objective)
+                @test ismissing(evaluation.source_feasible)
             end
         end
     end

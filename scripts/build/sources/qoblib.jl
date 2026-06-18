@@ -985,21 +985,101 @@ function _qoblib_instance_source(
     )
 end
 
-function _qoblib_source_evaluation(index::QUBOLib.LibraryIndex, instance::Integer, state)
+function _qoblib_source_evaluator(
+    index::QUBOLib.LibraryIndex,
+    instance::Integer;
+    context::AbstractString = string(instance),
+)
     group = QUBOLib.archive(index)["instances"][string(instance)]
 
     if !haskey(group, "source") ||
        !haskey(group["source"], "content") ||
        !haskey(group["source"], "encoding")
+        return nothing
+    end
+
+    try
+        source_group = group["source"]
+        encoding = QUBOLib._source_encoding(source_group)
+
+        return (
+            instance = instance,
+            dimension = QUBOLib._instance_dimension(index, instance),
+            model = QUBOLib.source_model(index, instance),
+            variables = QUBOLib._encoding_variables(encoding),
+            index_base = QUBOLib._encoding_index_base(encoding),
+        )
+    catch err
+        @warn "[qoblib] Source evaluator unavailable" context error = sprint(showerror, err)
+
+        return nothing
+    end
+end
+
+function _qoblib_project_source(evaluator, state)
+    if length(state) != evaluator.dimension
+        error(
+            "Source state length mismatch for instance '$(evaluator.instance)': " *
+            "expected $(evaluator.dimension), got $(length(state))",
+        )
+    end
+
+    binary_state = Float64.(state)
+    assignment = Dict{String,Float64}()
+
+    for (name, spec) in pairs(evaluator.variables)
+        key = String(name)
+
+        if key in ("index_base", "metadata")
+            continue
+        end
+
+        assignment[key] = QUBOLib._project_variable(
+            spec,
+            binary_state,
+            evaluator.index_base,
+        )
+    end
+
+    return assignment
+end
+
+function _qoblib_source_evaluation(
+    evaluator,
+    state;
+    context::AbstractString,
+    atol::Real = 1e-8,
+)
+    if isnothing(evaluator)
         return (source_objective = missing, source_feasible = missing)
     end
 
-    evaluated = QUBOLib.evaluate_source(index, instance, state)
+    try
+        assignment = _qoblib_project_source(evaluator, state)
+        variable_value = variable -> QUBOLib._source_variable_value(assignment, variable)
+        objective = QUBOLib.JuMP.value(
+            variable_value,
+            QUBOLib.JuMP.objective_function(evaluator.model),
+        )
 
-    return (
-        source_objective = Float64(evaluated.objective),
-        source_feasible = evaluated.feasible,
-    )
+        for (F, S) in QUBOLib.JuMP.list_of_constraint_types(evaluator.model)
+            for constraint in QUBOLib.JuMP.all_constraints(evaluator.model, F, S)
+                object = QUBOLib.JuMP.constraint_object(constraint)
+                value = QUBOLib.JuMP.value(variable_value, object.func)
+                violation = QUBOLib._constraint_violation(value, object.set; atol)
+
+                if violation > atol
+                    return (source_objective = Float64(objective), source_feasible = false)
+                end
+            end
+        end
+
+        return (source_objective = Float64(objective), source_feasible = true)
+    catch err
+        @warn "[qoblib] Source evaluation unavailable" context error = sprint(showerror, err)
+
+        return (source_objective = missing, source_feasible = missing)
+    end
 end
 
 function _qoblib_clean_csv_cell(value::AbstractString)
@@ -1410,6 +1490,7 @@ function _add_qoblib_submission!(
     root_path::AbstractString,
     group,
     summary,
+    source_evaluator = nothing,
 )
     row = summary.row
     summary_path = summary.path
@@ -1493,7 +1574,11 @@ function _add_qoblib_submission!(
 
         record_source_value = ismissing(source_value) ? solution.source_value : source_value
         qubo_value = QUBOTools.value(model, solution.state)
-        source_evaluation = _qoblib_source_evaluation(index, instance, solution.state)
+        source_evaluation = _qoblib_source_evaluation(
+            source_evaluator,
+            solution.state;
+            context = solution_source_path,
+        )
         _qoblib_tag_source_value_agreement!(
             solution_metadata,
             qubo_value,
@@ -1542,6 +1627,7 @@ function _add_qoblib_submissions!(
     group,
     model_path::AbstractString,
     submission_index::Dict{String,Vector{Any}},
+    source_evaluator = nothing,
 )
     key = _qoblib_solution_key(group, model_path)
 
@@ -1557,6 +1643,7 @@ function _add_qoblib_submissions!(
             root_path,
             group,
             summary,
+            source_evaluator,
         )
     end
 end
@@ -1636,6 +1723,7 @@ function _add_qoblib_incumbent!(
     group,
     model_path::AbstractString,
     solution_index::Dict{String,Any},
+    source_evaluator = nothing,
 )
     if !hasproperty(group, :solution_path)
         return :skipped
@@ -1667,7 +1755,11 @@ function _add_qoblib_incumbent!(
     end
 
     qubo_value = QUBOTools.value(model, solution.state)
-    source_evaluation = _qoblib_source_evaluation(index, instance, solution.state)
+    source_evaluation = _qoblib_source_evaluation(
+        source_evaluator,
+        solution.state;
+        context = _qoblib_source_path(root_path, info),
+    )
     metadata = _qoblib_incumbent_metadata(root_path, group, info; source_value)
     _qoblib_tag_source_value_agreement!(
         metadata,
@@ -1795,6 +1887,12 @@ function build_qoblib!(
                 metadata          = metadata,
             )
 
+            source_evaluator = _qoblib_source_evaluator(
+                index,
+                instance;
+                context = metadata["source_path"],
+            )
+
             incumbent_status = _add_qoblib_incumbent!(
                 index,
                 instance,
@@ -1803,6 +1901,7 @@ function build_qoblib!(
                 group,
                 model_path,
                 solution_index,
+                source_evaluator,
             )
 
             if incumbent_status == :imported
@@ -1821,6 +1920,7 @@ function build_qoblib!(
                 group,
                 model_path,
                 submission_index,
+                source_evaluator,
             )
 
             count += 1
