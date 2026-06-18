@@ -435,6 +435,32 @@ function test_qoblib_build_fixture()
                 expected_incumbents = 1,
                 nested = false,
             ),
+            (
+                code = "constrainedfixture",
+                problem_class = "Constrained Source Fixture",
+                formulation = "binary_quadratic_with_source",
+                path = "11-constrained/models/binary_quadratic/qs_files",
+                source_model_path = "11-constrained/models/integer_linear/lp_files",
+                source_model_format = "lp",
+                source_encoding = Dict{String,Any}(
+                    "variables" => Dict{String,Any}(
+                        "x" => Dict{String,Any}(
+                            "terms" => [Dict{String,Any}("index" => 1)],
+                        ),
+                        "y" => Dict{String,Any}(
+                            "terms" => [Dict{String,Any}("index" => 2)],
+                        ),
+                        "z" => Dict{String,Any}(
+                            "terms" => [Dict{String,Any}("index" => 3)],
+                        ),
+                    ),
+                ),
+                solution_path = "11-constrained/solutions",
+                solution_format = :bit_tokens,
+                expected_count = 1,
+                expected_incumbents = 1,
+                nested = false,
+            ),
         )
 
         mktempdir() do root
@@ -507,6 +533,28 @@ function test_qoblib_build_fixture()
                 "# Objective value = 2\n1\n3\n",
             )
 
+            _write_qoblib_fixture_group(root, groups[5], ["constrained.qs"])
+            source_model_path = mkpath(joinpath(root, groups[5].source_model_path))
+            source_lp_path = joinpath(source_model_path, "constrained.lp")
+            write(
+                source_lp_path,
+                """
+                Minimize
+                 obj: x + 2 y - 4 z
+                Subject To
+                 c1: x + y <= 1
+                Bounds
+                 0 <= x <= 1
+                 0 <= y <= 1
+                 0 <= z <= 1
+                Binary
+                 x y z
+                End
+                """,
+            )
+            solution_path = _write_qoblib_solution_dir(root, groups[5])
+            write(joinpath(solution_path, "constrained.opt.sol"), "1 0 0\n")
+
             mktempdir() do path
                 QUBOLib.access(; path, clear = true) do index
                     build_qoblib!(index; source_path = root, groups = groups)
@@ -528,7 +576,8 @@ function test_qoblib_build_fixture()
                             QUBOLib.database(index),
                             """
                             SELECT i.instance, i.name, r.submission, r.bitstring, r.qubo_value,
-                                   r.source_value, r.proven_optimal,
+                                   r.source_value, r.source_objective, r.dual_bound,
+                                   r.source_feasible, r.proven_optimal,
                                    r.feasibility_status, r.validation_status,
                                    r.incumbent_candidate, r.source_path, r.solution,
                                    r.metadata
@@ -560,15 +609,15 @@ function test_qoblib_build_fixture()
                             """,
                         ) |> QUBOLib.DataFrame
 
-                    @test count == 5
+                    @test count == 6
                     @test Set(data[!, :source_name]) == Set(["QOBLIB"])
                     @test Set(data[!, :problem_class]) ==
                           Set(getfield.(groups, :problem_class))
                     @test Set(data[!, :formulation]) == Set(getfield.(groups, :formulation))
                     @test all(endswith(path, ".qs") for path in data[!, :source_path])
-                    @test size(records, 1) == 8
+                    @test size(records, 1) == 9
                     @test size(submissions, 1) == 3
-                    @test size(best, 1) == 4
+                    @test size(best, 1) == 5
 
                     missing = only(
                         eachrow(
@@ -694,6 +743,35 @@ function test_qoblib_build_fixture()
                     @test Bool(independent[:proven_optimal])
                     @test QUBOLib.JSON.parse(independent[:metadata])["source_value_agrees"] ==
                           true
+
+                    constrained = only(
+                        eachrow(filter(row -> row[:name] == "constrained.qs", records)),
+                    )
+                    source_group =
+                        QUBOLib.archive(index)["instances"][string(constrained[:instance])]["source"]
+                    source_attrs = QUBOLib.HDF5.attrs(source_group)
+                    source_evaluation = QUBOLib.evaluate_source(
+                        index,
+                        constrained[:instance],
+                        constrained[:bitstring],
+                    )
+
+                    @test ismissing(constrained[:source_value])
+                    @test constrained[:source_objective] ≈ 1.0
+                    @test ismissing(constrained[:dual_bound])
+                    @test Bool(constrained[:source_feasible])
+                    @test source_attrs["source_format"] == "lp"
+                    @test source_attrs["source_repository"] == QOBLIB_REPOSITORY
+                    @test source_attrs["source_commit"] == QOBLIB_SOURCE_COMMIT
+                    @test source_attrs["source_path"] ==
+                          "11-constrained/models/integer_linear/lp_files/constrained.lp"
+                    @test source_attrs["source_hash_algorithm"] == "sha256"
+                    @test source_attrs["source_sha256"] ==
+                          bytes2hex(SHA.sha256(read(source_lp_path)))
+                    @test source_attrs["source_text_storage"] == "stored"
+                    @test read(source_group["content"]) == read(source_lp_path, String)
+                    @test source_evaluation.objective ≈ constrained[:source_objective]
+                    @test source_evaluation.feasible
 
                     for row in eachrow(best)
                         model = QUBOLib.load_instance(index, row[:instance])

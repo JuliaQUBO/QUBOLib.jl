@@ -149,6 +149,13 @@ function test_library_access()
                     ),
                 ),
             )
+            source_metadata = Dict{String,Any}(
+                "source_repository" => "example/source",
+                "source_commit" => "abc123",
+                "source_path" => "models/source.lp",
+                "source_sha256" => "fixture-sha",
+                "source_size_bytes" => sizeof(source_text),
+            )
 
             QUBOLib.access(; path, clear = true) do index
                 instance = QUBOLib.add_instance!(
@@ -158,12 +165,19 @@ function test_library_access()
                     source_format = "lp",
                     source_text,
                     source_encoding,
+                    source_metadata,
                 )
 
                 source_group =
                     QUBOLib.archive(index)["instances"][string(instance)]["source"]
+                attrs = QUBOLib.HDF5.attrs(source_group)
 
-                @test QUBOLib.HDF5.attrs(source_group)["source_format"] == "lp"
+                @test attrs["source_format"] == "lp"
+                @test attrs["source_repository"] == "example/source"
+                @test attrs["source_commit"] == "abc123"
+                @test attrs["source_path"] == "models/source.lp"
+                @test attrs["source_sha256"] == "fixture-sha"
+                @test attrs["source_size_bytes"] == sizeof(source_text)
                 @test read(source_group["content"]) == source_text
                 @test QUBOLib.JSON.parse(read(source_group["encoding"])) ==
                       source_encoding

@@ -70,4 +70,8 @@ missing; that can create the release tag at the wrong commit.
   migrated in place when opened through `QUBOLib.access`.
 - Instances may include an optional HDF5 source group at
   `/instances/{id}/source`. LP-backed source groups store `content`, an
-  `encoding` JSON blob, and a `source_format = "lp"` attribute.
+  `encoding` JSON blob, a `source_format = "lp"` attribute, and source
+  provenance attributes such as upstream repository, commit, path, URL,
+  SHA-256 hash, byte size, and storage policy. QOBLIB LP source text is stored
+  only when the blob is at most 1,000,000 bytes; larger blobs keep provenance
+  and hash metadata without a `content` dataset.

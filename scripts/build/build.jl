@@ -1,6 +1,7 @@
 import Pkg
 import Tar
 import Downloads
+import SHA
 import TOML
 
 import QUBOLib

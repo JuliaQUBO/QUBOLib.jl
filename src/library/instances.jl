@@ -33,20 +33,68 @@ function _instance_source_encoding_value(source_encoding)
     end
 end
 
+function _instance_source_metadata_value(value)
+    if isnothing(value) || ismissing(value)
+        return nothing
+    elseif value isa AbstractString
+        return String(value)
+    elseif value isa Symbol
+        return String(value)
+    elseif value isa Number || value isa Bool
+        return value
+    else
+        return JSON.json(value)
+    end
+end
+
+function _write_instance_source_metadata!(source_group::HDF5.Group, source_metadata)
+    if isnothing(source_metadata)
+        return nothing
+    elseif !(source_metadata isa AbstractDict)
+        error("source_metadata must be a dictionary")
+    end
+
+    attrs = HDF5.attrs(source_group)
+
+    for (key, value) in pairs(source_metadata)
+        key = String(key)
+
+        if key == "source_format"
+            continue
+        end
+
+        attr_value = _instance_source_metadata_value(value)
+
+        if !isnothing(attr_value)
+            attrs[key] = attr_value
+        end
+    end
+
+    return nothing
+end
+
 function _write_instance_source!(
     group::HDF5.Group;
     source_format = nothing,
     source_text = nothing,
     source_encoding = nothing,
+    source_metadata = nothing,
 )
-    if isnothing(source_format) && isnothing(source_text) && isnothing(source_encoding)
+    if isnothing(source_format) &&
+       isnothing(source_text) &&
+       isnothing(source_encoding) &&
+       isnothing(source_metadata)
         return nothing
     elseif isnothing(source_format)
-        error("source_format is required when source_text or source_encoding is provided")
+        error(
+            "source_format is required when source_text, source_encoding, or " *
+            "source_metadata is provided",
+        )
     end
 
     source_group = HDF5.create_group(group, "source")
     HDF5.attrs(source_group)["source_format"] = String(source_format)
+    _write_instance_source_metadata!(source_group, source_metadata)
 
     if !isnothing(source_text)
         source_group["content"] = String(source_text)
@@ -76,6 +124,7 @@ function add_instance!(
     source_format = nothing,
     source_text = nothing,
     source_encoding = nothing,
+    source_metadata = nothing,
     metadata = nothing,
 )::Integer
     @assert isopen(index)
@@ -153,7 +202,13 @@ function add_instance!(
     group = HDF5.create_group(h5["instances"], string(i))
 
     QUBOTools.write_model(group, model, _qubin_format())
-    _write_instance_source!(group; source_format, source_text, source_encoding)
+    _write_instance_source!(
+        group;
+        source_format,
+        source_text,
+        source_encoding,
+        source_metadata,
+    )
 
     return i
 end
