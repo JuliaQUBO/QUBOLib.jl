@@ -94,6 +94,8 @@ Reads the stored source formulation for an instance as a JuMP model.
 
 Currently, source formulations are loaded from instances that store an LP text
 blob under `/instances/{id}/source` with a `source_format = "lp"` attribute.
+The same source group may also carry provenance attributes such as upstream
+repository, commit, source path, URL, and content hash.
 """
 function source_model end
 
@@ -155,6 +157,8 @@ function remove_solver! end
     add_instance!(index::LibraryIndex, model::QUBOTools.Model{Int,Float64,Int}, collection = "standalone"; kwargs...)
 
 Adds a new instance and optional provenance metadata to the library index.
+Source formulations can be stored with `source_format`, `source_text`,
+`source_encoding`, and `source_metadata`.
 """
 function add_instance! end
 

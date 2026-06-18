@@ -71,6 +71,11 @@ function test_docs()
         @test occursin("No `.qs` or `.qs.xz` files", qoblib)
         @test occursin("Unavailable for canonical ingestion", qoblib)
         @test occursin("explicit naming and provenance", qoblib)
+        @test occursin("Source Formulation Storage", qoblib)
+        @test occursin("SHA-256 content hash", qoblib)
+        @test occursin("at most 1,000,000 bytes", qoblib)
+        @test occursin("`SolutionRecords.dual_bound`", qoblib)
+        @test occursin("`objective_bound` column", qoblib)
     end
 
     return nothing

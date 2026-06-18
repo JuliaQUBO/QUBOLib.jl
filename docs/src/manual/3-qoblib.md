@@ -30,3 +30,22 @@ If QOBLIB later publishes official QS/QUBO artifacts for any class, QUBOLib can
 add that class to the canonical importer and validate it against upstream
 metrics. LP/MIP-to-QUBO reformulation variants belong in a separate generated
 collection with explicit naming and provenance.
+
+## Source Formulation Storage
+
+When a canonical QOBLIB QS/QUBO artifact has a matching authoritative source
+model, QUBOLib stores source provenance under `/instances/{id}/source` in the
+HDF5 archive. The source group records `source_format`, upstream repository,
+commit, path, URL, hash algorithm, SHA-256 content hash, byte size, and the
+source-text storage decision. If the source encoding is known and trustworthy,
+the group also stores the encoding JSON used by `QUBOLib.project_solution` and
+`QUBOLib.evaluate_source`.
+
+Source LP text is stored only when the blob is at most 1,000,000 bytes. Larger
+source files keep URL, path, size, and SHA-256 provenance in the artifact while
+omitting the `content` dataset. This keeps the data artifact bounded without
+losing enough provenance to retrieve and verify the upstream source manually.
+
+When QOBLIB submission metadata provides an upstream optimality bound, QUBOLib
+stores it in `SolutionRecords.dual_bound`. The legacy `objective_bound` column
+keeps the same value for backward compatibility with existing consumers.

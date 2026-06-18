@@ -4,6 +4,7 @@ const QOBLIB_COLLECTION = "qoblib"
 const QOBLIB_REPOSITORY = "ZIB-AOPT/QOBLIB"
 const QOBLIB_SOURCE_COMMIT = "80e45c176fc6281e5316451f02296482934785fa"
 const QOBLIB_ARCHIVE_URL = "https://github.com/$(QOBLIB_REPOSITORY)/archive/$(QOBLIB_SOURCE_COMMIT).zip"
+const QOBLIB_SOURCE_TEXT_MAX_BYTES = 1_000_000
 
 const QOBLIB_GROUPS = (
     (
@@ -848,6 +849,239 @@ function _qoblib_source_path(root_path::AbstractString, path::AbstractString)
     return replace(relpath(path, root_path), '\\' => '/')
 end
 
+function _qoblib_group_source_format(group)
+    if hasproperty(group, :source_model_format)
+        return lowercase(String(group.source_model_format))
+    else
+        return "lp"
+    end
+end
+
+function _qoblib_group_source_roots(root_path::AbstractString, group)
+    paths = if hasproperty(group, :source_model_path)
+        [String(group.source_model_path)]
+    elseif hasproperty(group, :source_model_paths)
+        String.(group.source_model_paths)
+    else
+        String[]
+    end
+
+    return [joinpath(root_path, path) for path in paths]
+end
+
+function _qoblib_model_relative_stem(
+    root_path::AbstractString,
+    group,
+    model_path::AbstractString,
+)
+    stem = replace(relpath(model_path, joinpath(root_path, group.path)), '\\' => '/')
+
+    if endswith(stem, ".xz")
+        stem = first(splitext(stem))
+    end
+
+    if endswith(stem, ".qs")
+        stem = first(splitext(stem))
+    end
+
+    return stem
+end
+
+function _qoblib_source_model_path(
+    root_path::AbstractString,
+    group,
+    model_path::AbstractString,
+)
+    roots = _qoblib_group_source_roots(root_path, group)
+
+    if isempty(roots)
+        return nothing
+    end
+
+    source_format = _qoblib_group_source_format(group)
+    rel_stem = _qoblib_model_relative_stem(root_path, group, model_path)
+    suffixes = source_format == "lp" ? ("lp", "LP") : (source_format,)
+    candidates = String[]
+
+    for root in roots
+        for suffix in suffixes
+            push!(candidates, joinpath(root, "$(rel_stem).$(suffix)"))
+            push!(candidates, joinpath(root, "$(basename(rel_stem)).$(suffix)"))
+        end
+    end
+
+    for path in unique(candidates)
+        isfile(path) && return path
+    end
+
+    if hasproperty(group, :source_model_required) && group.source_model_required
+        error("[qoblib] Missing source model for '$model_path'")
+    else
+        return nothing
+    end
+end
+
+function _qoblib_source_text_max_bytes(group)
+    if hasproperty(group, :source_text_max_bytes)
+        return Int(group.source_text_max_bytes)
+    else
+        return QOBLIB_SOURCE_TEXT_MAX_BYTES
+    end
+end
+
+function _qoblib_source_encoding(root_path::AbstractString, group, model_path::AbstractString)
+    if !hasproperty(group, :source_encoding)
+        return nothing
+    end
+
+    encoding = group.source_encoding
+
+    if encoding isa Function
+        return encoding(root_path, group, model_path)
+    else
+        return encoding
+    end
+end
+
+function _qoblib_instance_source(
+    root_path::AbstractString,
+    group,
+    model_path::AbstractString,
+)
+    path = _qoblib_source_model_path(root_path, group, model_path)
+
+    if isnothing(path)
+        return (
+            source_format = nothing,
+            source_text = nothing,
+            source_encoding = nothing,
+            source_metadata = nothing,
+        )
+    end
+
+    source_bytes = read(path)
+    source_format = _qoblib_group_source_format(group)
+    limit = _qoblib_source_text_max_bytes(group)
+    store_text = length(source_bytes) <= limit
+    source_path = _qoblib_source_path(root_path, path)
+    metadata = Dict{String,Any}(
+        "source_kind"           => "source_model",
+        "source_repository"     => QOBLIB_REPOSITORY,
+        "source_commit"         => QOBLIB_SOURCE_COMMIT,
+        "source_path"           => source_path,
+        "source_url"            => _qoblib_source_url(root_path, path),
+        "source_hash_algorithm" => "sha256",
+        "source_sha256"         => bytes2hex(SHA.sha256(source_bytes)),
+        "source_size_bytes"     => length(source_bytes),
+        "source_text_max_bytes" => limit,
+        "source_text_storage"   => store_text ? "stored" : "omitted_size_limit",
+    )
+
+    return (
+        source_format = source_format,
+        source_text = store_text ? String(source_bytes) : nothing,
+        source_encoding = _qoblib_source_encoding(root_path, group, model_path),
+        source_metadata = metadata,
+    )
+end
+
+function _qoblib_source_evaluator(
+    index::QUBOLib.LibraryIndex,
+    instance::Integer;
+    context::AbstractString = string(instance),
+)
+    group = QUBOLib.archive(index)["instances"][string(instance)]
+
+    if !haskey(group, "source") ||
+       !haskey(group["source"], "content") ||
+       !haskey(group["source"], "encoding")
+        return nothing
+    end
+
+    try
+        source_group = group["source"]
+        encoding = QUBOLib._source_encoding(source_group)
+
+        return (
+            instance = instance,
+            dimension = QUBOLib._instance_dimension(index, instance),
+            model = QUBOLib.source_model(index, instance),
+            variables = QUBOLib._encoding_variables(encoding),
+            index_base = QUBOLib._encoding_index_base(encoding),
+        )
+    catch err
+        @warn "[qoblib] Source evaluator unavailable" context error = sprint(showerror, err)
+
+        return nothing
+    end
+end
+
+function _qoblib_project_source(evaluator, state)
+    if length(state) != evaluator.dimension
+        error(
+            "Source state length mismatch for instance '$(evaluator.instance)': " *
+            "expected $(evaluator.dimension), got $(length(state))",
+        )
+    end
+
+    binary_state = Float64.(state)
+    assignment = Dict{String,Float64}()
+
+    for (name, spec) in pairs(evaluator.variables)
+        key = String(name)
+
+        if key in ("index_base", "metadata")
+            continue
+        end
+
+        assignment[key] = QUBOLib._project_variable(
+            spec,
+            binary_state,
+            evaluator.index_base,
+        )
+    end
+
+    return assignment
+end
+
+function _qoblib_source_evaluation(
+    evaluator,
+    state;
+    context::AbstractString,
+    atol::Real = 1e-8,
+)
+    if isnothing(evaluator)
+        return (source_objective = missing, source_feasible = missing)
+    end
+
+    try
+        assignment = _qoblib_project_source(evaluator, state)
+        variable_value = variable -> QUBOLib._source_variable_value(assignment, variable)
+        objective = QUBOLib.JuMP.value(
+            variable_value,
+            QUBOLib.JuMP.objective_function(evaluator.model),
+        )
+
+        for (F, S) in QUBOLib.JuMP.list_of_constraint_types(evaluator.model)
+            for constraint in QUBOLib.JuMP.all_constraints(evaluator.model, F, S)
+                object = QUBOLib.JuMP.constraint_object(constraint)
+                value = QUBOLib.JuMP.value(variable_value, object.func)
+                violation = QUBOLib._constraint_violation(value, object.set; atol)
+
+                if violation > atol
+                    return (source_objective = Float64(objective), source_feasible = false)
+                end
+            end
+        end
+
+        return (source_objective = Float64(objective), source_feasible = true)
+    catch err
+        @warn "[qoblib] Source evaluation unavailable" context error = sprint(showerror, err)
+
+        return (source_objective = missing, source_feasible = missing)
+    end
+end
+
 function _qoblib_clean_csv_cell(value::AbstractString)
     return replace(strip(value), Char(0xfeff) => "")
 end
@@ -1201,6 +1435,7 @@ function _qoblib_add_unavailable_submission_record!(
         submission,
         source_value,
         objective_bound,
+        dual_bound = objective_bound,
         proven_optimal,
         feasibility_status = feasibility_status == "feasible" ? "unavailable" : feasibility_status,
         validation_status = "unavailable",
@@ -1236,6 +1471,7 @@ function _qoblib_add_unmapped_submission_record!(
         submission,
         source_value,
         objective_bound,
+        dual_bound = objective_bound,
         proven_optimal,
         feasibility_status = "unmapped",
         validation_status = "unmapped",
@@ -1254,6 +1490,7 @@ function _add_qoblib_submission!(
     root_path::AbstractString,
     group,
     summary,
+    source_evaluator = nothing,
 )
     row = summary.row
     summary_path = summary.path
@@ -1337,6 +1574,11 @@ function _add_qoblib_submission!(
 
         record_source_value = ismissing(source_value) ? solution.source_value : source_value
         qubo_value = QUBOTools.value(model, solution.state)
+        source_evaluation = _qoblib_source_evaluation(
+            source_evaluator,
+            solution.state;
+            context = solution_source_path,
+        )
         _qoblib_tag_source_value_agreement!(
             solution_metadata,
             qubo_value,
@@ -1360,7 +1602,10 @@ function _add_qoblib_submission!(
             submission,
             qubo_value,
             source_value = record_source_value,
+            source_objective = source_evaluation.source_objective,
             objective_bound,
+            dual_bound = objective_bound,
+            source_feasible = source_evaluation.source_feasible,
             proven_optimal,
             feasibility_status,
             validation_status = "validated",
@@ -1382,6 +1627,7 @@ function _add_qoblib_submissions!(
     group,
     model_path::AbstractString,
     submission_index::Dict{String,Vector{Any}},
+    source_evaluator = nothing,
 )
     key = _qoblib_solution_key(group, model_path)
 
@@ -1397,6 +1643,7 @@ function _add_qoblib_submissions!(
             root_path,
             group,
             summary,
+            source_evaluator,
         )
     end
 end
@@ -1476,6 +1723,7 @@ function _add_qoblib_incumbent!(
     group,
     model_path::AbstractString,
     solution_index::Dict{String,Any},
+    source_evaluator = nothing,
 )
     if !hasproperty(group, :solution_path)
         return :skipped
@@ -1507,6 +1755,11 @@ function _add_qoblib_incumbent!(
     end
 
     qubo_value = QUBOTools.value(model, solution.state)
+    source_evaluation = _qoblib_source_evaluation(
+        source_evaluator,
+        solution.state;
+        context = _qoblib_source_path(root_path, info),
+    )
     metadata = _qoblib_incumbent_metadata(root_path, group, info; source_value)
     _qoblib_tag_source_value_agreement!(
         metadata,
@@ -1526,6 +1779,8 @@ function _add_qoblib_incumbent!(
         sol;
         qubo_value,
         source_value = ismissing(source_value) ? missing : source_value,
+        source_objective = source_evaluation.source_objective,
+        source_feasible = source_evaluation.source_feasible,
         proven_optimal = info.proven_optimal,
         feasibility_status = "feasible",
         validation_status = "validated",
@@ -1608,6 +1863,7 @@ function build_qoblib!(
         for model_path in model_paths
             metadata = _qoblib_instance_metadata(root_path, group, model_path)
             model = QUBOTools.read_model(model_path, QOBLIBQS())
+            source = _qoblib_instance_source(root_path, group, model_path)
 
             merge!(QUBOTools.metadata(model), metadata)
             _validate_qoblib_metrics!(model, metrics, model_path)
@@ -1624,7 +1880,17 @@ function build_qoblib!(
                 source_commit     = metadata["source_commit"],
                 original_filename = metadata["original_filename"],
                 source_url        = metadata["source_url"],
+                source_format     = source.source_format,
+                source_text       = source.source_text,
+                source_encoding   = source.source_encoding,
+                source_metadata   = source.source_metadata,
                 metadata          = metadata,
+            )
+
+            source_evaluator = _qoblib_source_evaluator(
+                index,
+                instance;
+                context = metadata["source_path"],
             )
 
             incumbent_status = _add_qoblib_incumbent!(
@@ -1635,6 +1901,7 @@ function build_qoblib!(
                 group,
                 model_path,
                 solution_index,
+                source_evaluator,
             )
 
             if incumbent_status == :imported
@@ -1653,6 +1920,7 @@ function build_qoblib!(
                 group,
                 model_path,
                 submission_index,
+                source_evaluator,
             )
 
             count += 1
