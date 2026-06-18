@@ -52,6 +52,7 @@ include("library/qubotools.jl")
 include("library/access.jl")
 
 include("library/instances.jl")
+include("library/source.jl")
 include("library/collections.jl")
 include("library/solvers.jl")
 include("library/solutions.jl")

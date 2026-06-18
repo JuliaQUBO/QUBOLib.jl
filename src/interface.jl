@@ -88,6 +88,32 @@ function load_collection end
 function load_instance end
 
 @doc raw"""
+    source_model(index::LibraryIndex, instance::Integer)
+
+Reads the stored source formulation for an instance as a JuMP model.
+
+Currently, source formulations are loaded from instances that store an LP text
+blob under `/instances/{id}/source` with a `source_format = "lp"` attribute.
+"""
+function source_model end
+
+@doc raw"""
+    project_solution(index::LibraryIndex, instance::Integer, bitstring)
+
+Projects a QUBO-space bitstring to source-model variable values using the
+stored source encoding JSON.
+"""
+function project_solution end
+
+@doc raw"""
+    evaluate_source(index::LibraryIndex, instance::Integer, bitstring; atol = 1e-8)
+
+Projects a QUBO-space bitstring into the stored source model and returns
+`(objective, feasible, violations)`.
+"""
+function evaluate_source end
+
+@doc raw"""
     load_solution(index::LibraryIndex, solution::Integer)
     load_solution(index::LibraryIndex, instance::Integer, solution::Integer)
 """

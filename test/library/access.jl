@@ -75,6 +75,9 @@ function test_library_access()
                     instance;
                     submission = early_submission,
                     bitstring = "000",
+                    source_objective = 1.25,
+                    dual_bound = 0.75,
+                    source_feasible = true,
                     feasibility_status = "feasible",
                 )
 
@@ -85,6 +88,10 @@ function test_library_access()
                       Set([invalid, infeasible, unknown, worse, late, early])
                 @test only(records[records.record .== unknown, :feasibility_status]) ==
                       "unknown"
+                @test only(records[records.record .== early, :source_objective]) ≈
+                      1.25
+                @test only(records[records.record .== early, :dual_bound]) ≈ 0.75
+                @test Bool(only(records[records.record .== early, :source_feasible]))
 
                 best = QUBOLib.best_solution_record(index, instance)
 
@@ -110,6 +117,78 @@ function test_library_access()
                 @test QUBOTools.state(loaded_best[1]) == [0, 0, 0]
                 @test QUBOTools.value(loaded_best, 1) ≈ QUBOTools.value(sol, 1)
                 @test QUBOLib.JSON.parse(best[:metadata]) == QUBOTools.metadata(loaded_best)
+            end
+        end
+    end
+
+    @testset "Source formulations" begin
+        mktempdir() do path
+            model = QUBOTools.Model(
+                Dict(1 => 1.0, 2 => 2.0),
+                Dict{Tuple{Int,Int},Float64}((1, 2) => 0.5),
+            )
+            source_text = """
+            Minimize
+             obj: x + 2 y
+            Subject To
+             c1: x + y <= 1
+            Bounds
+             0 <= x <= 1
+             0 <= y <= 1
+            Binary
+             x y
+            End
+            """
+            source_encoding = Dict{String,Any}(
+                "variables" => Dict{String,Any}(
+                    "x" => Dict{String,Any}(
+                        "terms" => [Dict{String,Any}("index" => 1)],
+                    ),
+                    "y" => Dict{String,Any}(
+                        "terms" => [Dict{String,Any}("index" => 2)],
+                    ),
+                ),
+            )
+
+            QUBOLib.access(; path, clear = true) do index
+                instance = QUBOLib.add_instance!(
+                    index,
+                    model;
+                    name = "source.lp",
+                    source_format = "lp",
+                    source_text,
+                    source_encoding,
+                )
+
+                source_group =
+                    QUBOLib.archive(index)["instances"][string(instance)]["source"]
+
+                @test QUBOLib.HDF5.attrs(source_group)["source_format"] == "lp"
+                @test read(source_group["content"]) == source_text
+                @test QUBOLib.JSON.parse(read(source_group["encoding"])) ==
+                      source_encoding
+
+                source = QUBOLib.source_model(index, instance)
+                variable_names = sort(QUBOLib.JuMP.name.(QUBOLib.JuMP.all_variables(source)))
+
+                @test variable_names == ["x", "y"]
+
+                assignment = QUBOLib.project_solution(index, instance, "10")
+
+                @test assignment == Dict("x" => 1.0, "y" => 0.0)
+
+                feasible = QUBOLib.evaluate_source(index, instance, "10")
+
+                @test feasible.objective ≈ 1.0
+                @test feasible.feasible
+                @test isempty(feasible.violations)
+
+                infeasible = QUBOLib.evaluate_source(index, instance, "11")
+
+                @test infeasible.objective ≈ 3.0
+                @test !infeasible.feasible
+                @test length(infeasible.violations) == 1
+                @test only(infeasible.violations).violation ≈ 1.0
             end
         end
     end
@@ -301,6 +380,10 @@ function test_library_access()
                     QUBOLib.database(index),
                     "PRAGMA table_info(Instances);",
                 ) |> QUBOLib.DataFrame
+                solution_record_columns = QUBOLib.DBInterface.execute(
+                    QUBOLib.database(index),
+                    "PRAGMA table_info(SolutionRecords);",
+                ) |> QUBOLib.DataFrame
 
                 @test size(records, 1) == 2
                 @test Set(records[!, :record]) == Set([unknown, record])
@@ -320,6 +403,10 @@ function test_library_access()
                         "source_url",
                         "metadata",
                     )
+                )
+                @test all(
+                    column in string.(solution_record_columns[!, :name]) for
+                    column in ("source_objective", "dual_bound", "source_feasible")
                 )
             end
         end

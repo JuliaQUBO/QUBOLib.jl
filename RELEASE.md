@@ -62,3 +62,12 @@ gh release create v0.1.0 --generate-notes --target 41087be73d756e95a2f6e8a307057
 
 Do not run `gh release create v0.1.0` without an explicit target if the tag is
 missing; that can create the release tag at the wrong commit.
+
+## Data Artifact Schema Notes
+
+- `SolutionRecords` includes nullable `source_objective`, `dual_bound`, and
+  `source_feasible` columns for source-model evaluation. Existing artifacts are
+  migrated in place when opened through `QUBOLib.access`.
+- Instances may include an optional HDF5 source group at
+  `/instances/{id}/source`. LP-backed source groups store `content`, an
+  `encoding` JSON blob, and a `source_format = "lp"` attribute.

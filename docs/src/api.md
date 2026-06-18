@@ -44,6 +44,9 @@ QUBOLib.access
 ```@docs
 QUBOLib.load_collection
 QUBOLib.load_instance
+QUBOLib.source_model
+QUBOLib.project_solution
+QUBOLib.evaluate_source
 QUBOLib.load_solution
 QUBOLib.best_solution_record
 QUBOLib.load_best_solution

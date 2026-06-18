@@ -82,6 +82,16 @@ function _metadata_value(metadata)
     end
 end
 
+function _sql_bool_value(value)
+    if isnothing(value) || ismissing(value)
+        return missing
+    elseif value isa Bool
+        return value
+    else
+        error("Boolean SQL fields must be true, false, missing, or nothing")
+    end
+end
+
 function _submission_value(data::AbstractDict, key::AbstractString)
     return _sql_value(get(data, key, missing))
 end
@@ -220,7 +230,10 @@ function add_solution_record!(
     bitstring = nothing,
     qubo_value = nothing,
     source_value = nothing,
+    source_objective = nothing,
     objective_bound = nothing,
+    dual_bound = nothing,
+    source_feasible = nothing,
     proven_optimal::Bool = false,
     feasibility_status = "unknown",
     validation_status = nothing,
@@ -258,7 +271,10 @@ function add_solution_record!(
                 bitstring,
                 qubo_value,
                 source_value,
+                source_objective,
                 objective_bound,
+                dual_bound,
+                source_feasible,
                 proven_optimal,
                 feasibility_status,
                 validation_status,
@@ -267,7 +283,7 @@ function add_solution_record!(
                 metadata
             )
         VALUES
-            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """,
         (
             instance,
@@ -276,7 +292,10 @@ function add_solution_record!(
             bitstring,
             value,
             _sql_value(source_value),
+            _sql_value(source_objective),
             _sql_value(objective_bound),
+            _sql_value(dual_bound),
+            _sql_bool_value(source_feasible),
             proven_optimal,
             _sql_value(feasibility_status),
             _sql_value(status),
@@ -364,7 +383,10 @@ function add_solution!(
     submission = nothing,
     qubo_value = nothing,
     source_value = nothing,
+    source_objective = nothing,
     objective_bound = nothing,
+    dual_bound = nothing,
+    source_feasible = nothing,
     proven_optimal = nothing,
     feasibility_status = "feasible",
     validation_status = nothing,
@@ -415,7 +437,10 @@ function add_solution!(
         bitstring = _solution_bitstring(sol),
         qubo_value,
         source_value = provenance_value,
+        source_objective,
         objective_bound,
+        dual_bound,
+        source_feasible,
         proven_optimal = optimal,
         feasibility_status,
         validation_status,
