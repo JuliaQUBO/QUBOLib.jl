@@ -24,6 +24,7 @@ function _instance_source_encoding_value(source_encoding)
     if isnothing(source_encoding)
         return nothing
     elseif source_encoding isa AbstractString
+        # Validate caller-provided JSON before preserving its original text.
         JSON.parse(source_encoding)
 
         return String(source_encoding)

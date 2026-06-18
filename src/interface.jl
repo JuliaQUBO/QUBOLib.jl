@@ -101,7 +101,8 @@ function source_model end
     project_solution(index::LibraryIndex, instance::Integer, bitstring)
 
 Projects a QUBO-space bitstring to source-model variable values using the
-stored source encoding JSON.
+stored source encoding JSON. The bitstring length must match the stored
+instance dimension.
 """
 function project_solution end
 
@@ -109,7 +110,8 @@ function project_solution end
     evaluate_source(index::LibraryIndex, instance::Integer, bitstring; atol = 1e-8)
 
 Projects a QUBO-space bitstring into the stored source model and returns
-`(objective, feasible, violations)`.
+`(objective, feasible, violations)`. The bitstring length must match the stored
+instance dimension.
 """
 function evaluate_source end
 

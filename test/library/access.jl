@@ -176,12 +176,28 @@ function test_library_access()
                 assignment = QUBOLib.project_solution(index, instance, "10")
 
                 @test assignment == Dict("x" => 1.0, "y" => 0.0)
+                @test_throws ErrorException QUBOLib.project_solution(
+                    index,
+                    instance,
+                    "1",
+                )
+                @test_throws ErrorException QUBOLib.project_solution(
+                    index,
+                    instance,
+                    "100",
+                )
 
                 feasible = QUBOLib.evaluate_source(index, instance, "10")
 
                 @test feasible.objective ≈ 1.0
                 @test feasible.feasible
                 @test isempty(feasible.violations)
+                @test_throws ErrorException QUBOLib.evaluate_source(index, instance, "1")
+                @test_throws ErrorException QUBOLib.evaluate_source(
+                    index,
+                    instance,
+                    "100",
+                )
 
                 infeasible = QUBOLib.evaluate_source(index, instance, "11")
 

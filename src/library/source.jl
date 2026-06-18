@@ -235,12 +235,26 @@ function _project_variable(spec, state::AbstractVector{<:Real}, index_base::Inte
     return value
 end
 
+function _source_bitstring_state(index::LibraryIndex, instance::Integer, bitstring)
+    normalized = _normalize_bitstring(bitstring)
+    dimension = _instance_dimension(index, instance)
+
+    if length(normalized) != dimension
+        error(
+            "Bitstring length mismatch for instance '$instance': " *
+            "expected $dimension, got $(length(normalized))",
+        )
+    end
+
+    return Float64.(_bitstring_state(normalized))
+end
+
 function project_solution(index::LibraryIndex, instance::Integer, bitstring)
     source_group = _source_group(index, instance)
     encoding = _source_encoding(source_group)
     variables = _encoding_variables(encoding)
     index_base = _encoding_index_base(encoding)
-    state = Float64.(_bitstring_state(_normalize_bitstring(bitstring)))
+    state = _source_bitstring_state(index, instance, bitstring)
     assignment = Dict{String,Float64}()
 
     for (name, spec) in pairs(variables)
