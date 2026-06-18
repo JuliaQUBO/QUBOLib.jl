@@ -311,7 +311,10 @@ function migrate_database!(db::SQLite.DB)
           bitstring           TEXT        NULL,
           qubo_value          REAL        NULL,
           source_value        REAL        NULL,
+          source_objective    REAL        NULL,
           objective_bound     REAL        NULL,
+          dual_bound          REAL        NULL,
+          source_feasible     BOOLEAN     NULL,
           proven_optimal      BOOLEAN NOT NULL DEFAULT FALSE,
           feasibility_status  TEXT        NULL,
           validation_status   TEXT        NULL,
@@ -324,6 +327,10 @@ function migrate_database!(db::SQLite.DB)
         );
         """,
     )
+
+    _add_column_unless_exists!(db, "SolutionRecords", "source_objective", "REAL NULL")
+    _add_column_unless_exists!(db, "SolutionRecords", "dual_bound", "REAL NULL")
+    _add_column_unless_exists!(db, "SolutionRecords", "source_feasible", "BOOLEAN NULL")
 
     _ensure_best_solutions_view!(db)
 

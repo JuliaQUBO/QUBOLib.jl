@@ -20,6 +20,47 @@ function _instance_metadata_value(metadata)
     end
 end
 
+function _instance_source_encoding_value(source_encoding)
+    if isnothing(source_encoding)
+        return nothing
+    elseif source_encoding isa AbstractString
+        # Validate caller-provided JSON before preserving its original text.
+        JSON.parse(source_encoding)
+
+        return String(source_encoding)
+    else
+        return JSON.json(source_encoding)
+    end
+end
+
+function _write_instance_source!(
+    group::HDF5.Group;
+    source_format = nothing,
+    source_text = nothing,
+    source_encoding = nothing,
+)
+    if isnothing(source_format) && isnothing(source_text) && isnothing(source_encoding)
+        return nothing
+    elseif isnothing(source_format)
+        error("source_format is required when source_text or source_encoding is provided")
+    end
+
+    source_group = HDF5.create_group(group, "source")
+    HDF5.attrs(source_group)["source_format"] = String(source_format)
+
+    if !isnothing(source_text)
+        source_group["content"] = String(source_text)
+    end
+
+    encoding = _instance_source_encoding_value(source_encoding)
+
+    if !isnothing(encoding)
+        source_group["encoding"] = encoding
+    end
+
+    return nothing
+end
+
 function add_instance!(
     index::LibraryIndex,
     model::QUBOTools.Model{Int,Float64,Int},
@@ -32,6 +73,9 @@ function add_instance!(
     source_commit = nothing,
     original_filename = nothing,
     source_url = nothing,
+    source_format = nothing,
+    source_text = nothing,
+    source_encoding = nothing,
     metadata = nothing,
 )::Integer
     @assert isopen(index)
@@ -109,6 +153,7 @@ function add_instance!(
     group = HDF5.create_group(h5["instances"], string(i))
 
     QUBOTools.write_model(group, model, _qubin_format())
+    _write_instance_source!(group; source_format, source_text, source_encoding)
 
     return i
 end
