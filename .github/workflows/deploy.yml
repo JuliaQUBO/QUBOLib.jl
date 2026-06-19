@@ -83,13 +83,15 @@ jobs:
         git push origin --delete "refs/tags/mirror-data" || true
 
     - name: Switch to mirror branch
-      run: git checkout origin mirror
+      run: |
+        git fetch --no-tags --depth=1 origin mirror:refs/remotes/origin/mirror
+        git checkout --detach origin/mirror
 
     - name: Publish mirror release
       run: >
         gh release create "mirror-data"
         --prerelease
         --notes-file "$GITHUB_WORKSPACE/dist/build/mirror/NOTES.md"
-        --title "$SUBJECT"
+        --title "QUBOLib Data Mirror"
         --target $GITHUB_SHA
         $GITHUB_WORKSPACE/dist/build/mirror/*.zip
