@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.2.0 - 2026-06-18
+
+### Breaking changes
+
+- No intentional API-breaking changes are documented. This is a pre-1.0 minor
+  release because QOBLIB provenance, source-model metadata, and solution-record
+  schema behavior changed.
+
+### Added / Changed / Maintenance
+
+- Added QOBLIB source-model provenance and source-objective evaluation support.
+- Added nullable `source_objective`, `dual_bound`, and `source_feasible`
+  fields to solution records, with migration support for existing artifacts.
+- Updated QOBLIB documentation for canonical QS/QUBO ingestion and LP-only
+  source-class provenance.
+
 ## v0.1.3 - 2026-06-03
 
 - Added package and data release maintenance documentation.
