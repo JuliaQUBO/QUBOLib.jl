@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.1 - 2026-06-22
+
+### Fixed
+
+- Fixed mirror data release publishing.
+
+### Maintenance
+
+- Hardened TagBot workflow permissions for package release automation.
+- Added release process guardrails, including a static package-release
+  preflight script and Registrator release-note template.
+
 ## v0.2.0 - 2026-06-18
 
 ### Breaking changes
