@@ -11,6 +11,7 @@ function _synthesis_metadata(problem::AbstractString, parameters::Dict{String,An
         ),
     )
 
+    # Fail closed so new generators must extend the synthesis metadata schema.
     let report = QUBOLib.JSONSchema.validate(metadata, QUBOLib.SYNTHESIS_METADATA_SCHEMA)
         if !isnothing(report)
             error("Invalid synthesis metadata:\n$report")

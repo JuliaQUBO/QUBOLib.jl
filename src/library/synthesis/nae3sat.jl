@@ -11,7 +11,14 @@ struct NAE3SAT{T} <: AbstractProblem{T}
     function NAE3SAT{T}(m::Integer, n::Integer) where {T}
         @assert(n >= 3, "number of variables must be at least 3")
 
-        return new{T}(m, n, m / n)
+        return new{T}(Int(m), Int(n), m / n)
+    end
+
+    function NAE3SAT{T}(m::Integer, n::Integer, ratio::Real) where {T}
+        @assert(n >= 3, "number of variables must be at least 3")
+        @assert(ratio > 0, "ratio must be positive")
+
+        return new{T}(Int(m), Int(n), Float64(ratio))
     end
 end
 
@@ -47,7 +54,7 @@ function generate(rng, problem::NAE3SAT{T}) where {T}
             c[j] = pop!(C, rand(rng, C))
         end
         
-        s .= rand(rng, (↑,↓), 3)
+        s .= rand(rng, (-1, 1), 3)
 
         for i = 1:3, j = (i+1):3
             x = (c[i], c[j])

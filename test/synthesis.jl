@@ -2,6 +2,8 @@ function test_synthesis()
     @testset "→ Synthesis" verbose = true begin
         test_wishart()
         test_sherrington_kirkpatrick()
+        test_nae3sat()
+        test_invalid_wishart_metadata()
     end
 
     return nothing
@@ -65,6 +67,29 @@ function test_sherrington_kirkpatrick()
     return nothing
 end
 
+function test_nae3sat()
+    @testset "⋅ NAE3SAT" begin
+        let n = 12
+            ratio = 1.5
+            m = trunc(Int, n * ratio)
+
+            model = QUBOLib.Synthesis.generate(QUBOLib.Synthesis.NAE3SAT{Float64}(n, ratio))
+
+            test_synthesis_model_metadata(
+                model,
+                "Not-all-equal 3-SAT",
+                Dict{String,Any}(
+                    "m"     => m,
+                    "n"     => n,
+                    "ratio" => ratio,
+                ),
+            )
+        end
+    end
+
+    return nothing
+end
+
 function test_synthesis_model_metadata(model, problem::AbstractString, parameters::Dict{String,Any})
     metadata = QUBOTools.metadata(model)
 
@@ -74,6 +99,10 @@ function test_synthesis_model_metadata(model, problem::AbstractString, parameter
     @test isnothing(QUBOLib.JSONSchema.validate(metadata, QUBOLib.SYNTHESIS_METADATA_SCHEMA))
     @test QUBOLib.JSON.parse(QUBOLib.JSON.json(metadata))["synthesis"]["parameters"] == parameters
 
+    return nothing
+end
+
+function test_invalid_wishart_metadata()
     invalid_wishart_metadata = Dict{String,Any}(
         "origin"    => "QUBOLib.jl",
         "synthesis" => Dict{String,Any}(
