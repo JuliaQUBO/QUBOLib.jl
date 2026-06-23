@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Introduction · QUBOLib.jl</title><meta name="title" content="Introduction · QUBOLib.jl"/><meta property="og:title" content="Introduction · QUBOLib.jl"/><meta property="twitter:title" content="Introduction · QUBOLib.jl"/><meta name="description" content="Documentation for QUBOLib.jl."/><meta property="og:description" content="Documentation for QUBOLib.jl."/><meta property="twitter:description" content="Documentation for QUBOLib.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/extra_styles.css" rel="stylesheet" type="text/css"/><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="QUBOLib.jl logo"/></a><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../api/">API</a></li><li><span class="tocitem">Manual</span><ul><li class="is-active"><a class="tocitem" href>Introduction</a><ul class="internal"><li><a class="tocitem" href="#Mathematical-Definitions"><span>Mathematical Definitions</span></a></li><li><a class="tocitem" href="#Benchmarking-Physics-Inspired-Optimization-Solvers"><span>Benchmarking Physics-Inspired Optimization Solvers</span></a></li><li><a class="tocitem" href="#Table-of-Contents"><span>Table of Contents</span></a></li></ul></li><li><a class="tocitem" href="../1-basic/">Basic Usage</a></li><li><a class="tocitem" href="../2-advanced/">Advanced Usage</a></li><li><a class="tocitem" href="../3-qoblib/">QOBLIB Provenance</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Manual</a></li><li class="is-active"><a href>Introduction</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Introduction</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/JuliaQUBO/QUBOLib.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/docs/src/manual/0-intro.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Introduction"><a class="docs-heading-anchor" href="#Introduction">Introduction</a><a id="Introduction-1"></a><a class="docs-heading-anchor-permalink" href="#Introduction" title="Permalink"></a></h1><h2 id="Mathematical-Definitions"><a class="docs-heading-anchor" href="#Mathematical-Definitions">Mathematical Definitions</a><a id="Mathematical-Definitions-1"></a><a class="docs-heading-anchor-permalink" href="#Mathematical-Definitions" title="Permalink"></a></h2><p>All instances have been recast into the binary, minimization form:</p><p class="math-container">\[\begin{array}{rll}
+    \displaystyle
+    \min_{\mathbf{x}} &amp; \alpha \left[ \mathbf{x}&#39; \mathbf{Q} \, \mathbf{x} + \mathbf{\ell}&#39; \mathbf{x} + \beta \right] \\
+    \textrm{s.t.}     &amp; \mathbf{x} \in \mathbb{B}^{n} \\
+\end{array}\]</p><p>where <span>$\mathbf{Q} \in \mathbb{R}^{n \times n}$</span> is an upper triangular matrix, <span>$\mathbf{\ell} \in \mathbb{R}^{n}$</span> is a vector, <span>$\alpha, \beta \in \mathbb{R}$</span> are scalars, and <span>$\mathbb{B}^{n}$</span> is the set of binary vectors of length <span>$n$</span>.</p><h2 id="Benchmarking-Physics-Inspired-Optimization-Solvers"><a class="docs-heading-anchor" href="#Benchmarking-Physics-Inspired-Optimization-Solvers">Benchmarking Physics-Inspired Optimization Solvers</a><a id="Benchmarking-Physics-Inspired-Optimization-Solvers-1"></a><a class="docs-heading-anchor-permalink" href="#Benchmarking-Physics-Inspired-Optimization-Solvers" title="Permalink"></a></h2><p>QUBOLib is meant to make QUBO solver comparisons reproducible at the benchmarking boundary: every solver output is compared as a full bitstring in the imported QUBO variable order, and the comparison value is the locally evaluated QUBO objective. This is useful for physics-inspired and heuristic optimizers because the same instance can be attacked by simulated annealers, quantum annealers, tensor-network heuristics, classical MIP solvers, or source-domain codes while still being scored against one canonical QUBO model.</p><p>The library stores benchmark data in four related layers:</p><ul><li><code>Instances</code> are the canonical QUBO models stored in the SQLite/HDF5 library. Their metadata is useful for selecting benchmark sets by collection, dimension, density, source name, problem class, or formulation.</li><li><code>Submissions</code> describe provenance for a run or reference source: who produced it, when, with which method, hardware, runtime, reporting context, source path, and supporting metadata.</li><li><code>SolutionRecords</code> store submitted or reference QUBO-space bitstrings, their computed <code>qubo_value</code>, optional <code>source_value</code>, validation and feasibility status, optimality claims, and links to submission provenance.</li><li><code>BestSolutions</code> is the curated incumbent view. It selects the current best-known valid incumbent record for each instance and is the comparison target exposed through <code>QUBOLib.best_solution_record</code> and <code>QUBOLib.load_best_solution</code>.</li></ul><p>The canonical benchmark comparator is <code>qubo_value</code>: the value obtained by evaluating the full bitstring against the QUBO model stored in QUBOLib. A solution may originate from a source-domain solver, a classical MIP solve, a QOBLIB reference solution, or another external workflow. It can still be used for QUBO benchmarking once its state is mapped into the imported QUBO variable order and validated against the stored QUBO model. <code>source_value</code> is provenance only. It may differ from <code>qubo_value</code> because of source objective sign, offsets, penalties, auxiliary variables, or formulation conventions, so benchmark tables and gap calculations should use <code>qubo_value</code>.</p><h3 id="Incumbent-comparison-workflow"><a class="docs-heading-anchor" href="#Incumbent-comparison-workflow">Incumbent comparison workflow</a><a id="Incumbent-comparison-workflow-1"></a><a class="docs-heading-anchor-permalink" href="#Incumbent-comparison-workflow" title="Permalink"></a></h3><p>The usual workflow is:</p><ol><li>Query the SQLite index for instances with the metadata needed by an experiment.</li><li>Load each QUBO model with <code>QUBOLib.load_instance</code>.</li><li>Convert the solver output to a binary vector or bitstring in the same variable order.</li><li>Evaluate the candidate with <code>QUBOTools.value</code>.</li><li>Load the incumbent record with <code>QUBOLib.best_solution_record</code>, and optionally load its stored sample set with <code>QUBOLib.load_best_solution</code>.</li><li>Compare the candidate value to the incumbent record&#39;s <code>qubo_value</code>.</li><li>Inspect <code>QUBOLib.list_solution_records</code> and the linked <code>Submissions</code> row when reporting provenance, feasibility, validation, or attribution.</li></ol><p>The self-contained example below creates a tiny local benchmark library so the workflow is exercised as part of the documentation build. In normal use, open the packaged artifact with <code>QUBOLib.access()</code> and start from the SQL query. The example registers two benchmark instances with incumbents, evaluates two candidate methods on each instance, compares their values with the incumbent <code>qubo_value</code>, and inspects the related provenance. It uses SQLite.jl, DataFrames.jl, and QUBOTools.jl directly, so add them to the active Julia project before running similar scripts.</p><pre><code class="language-julia hljs">using QUBOLib
+using SQLite, DataFrames
+import QUBOTools
+
+result = mktempdir() do root
+    instances = (
+        (
+            name = &quot;tiny-a&quot;,
+            model = QUBOTools.Model(
+                Dict(1 =&gt; 1.0, 2 =&gt; -2.0),
+                Dict{Tuple{Int,Int},Float64}((1, 2) =&gt; 0.5),
+            ),
+            incumbent_state = [0, 1],
+            source_value = 123.0,
+        ),
+        (
+            name = &quot;tiny-b&quot;,
+            model = QUBOTools.Model(
+                Dict(1 =&gt; -1.0, 2 =&gt; 0.5, 3 =&gt; 2.0),
+                Dict{Tuple{Int,Int},Float64}((1, 2) =&gt; -0.25, (2, 3) =&gt; 1.0),
+            ),
+            incumbent_state = [1, 0, 0],
+            source_value = 456.0,
+        ),
+    )
+    methods = (
+        (name = &quot;zero-fill&quot;, state = n -&gt; fill(0, n)),
+        (name = &quot;one-fill&quot;, state = n -&gt; fill(1, n)),
+    )
+
+    QUBOLib.access(; path = root, clear = true) do index
+        for data in instances
+            instance_id = QUBOLib.add_instance!(index, data.model; name = data.name)
+            submission = QUBOLib.add_submission!(
+                index;
+                submitter = &quot;reference incumbent&quot;,
+                workflow = &quot;curated QUBO-space reference&quot;,
+                hardware = &quot;local CPU&quot;,
+            )
+
+            incumbent_solution = QUBOTools.SampleSet{Float64,Int}(
+                data.model,
+                [data.incumbent_state];
+                metadata = Dict{String,Any}(&quot;status&quot; =&gt; &quot;best_known&quot;),
+            )
+            QUBOLib.add_solution!(
+                index,
+                instance_id,
+                incumbent_solution;
+                submission,
+                source_value = data.source_value,
+                validation_status = &quot;validated&quot;,
+            )
+        end
+
+        db = QUBOLib.database(index)
+
+        selected = DBInterface.execute(
+            db,
+            &quot;&quot;&quot;
+            SELECT i.instance, i.collection, i.name, i.dimension
+            FROM Instances AS i
+            JOIN BestSolutions AS b
+              ON b.instance = i.instance
+            ORDER BY i.dimension, i.instance
+            LIMIT 2;
+            &quot;&quot;&quot;,
+        ) |&gt; DataFrame
+
+        rows = NamedTuple[]
+
+        for instance_row in eachrow(selected), method in methods
+            instance = instance_row[:instance]
+            model = QUBOLib.load_instance(index, instance)
+            incumbent_record = QUBOLib.best_solution_record(index, instance)
+            incumbent_sample = QUBOLib.load_best_solution(index, instance)
+
+            candidate_state = method.state(instance_row[:dimension])
+            candidate_value = QUBOTools.value(model, candidate_state)
+            incumbent_value = incumbent_record[:qubo_value]
+            absolute_gap = candidate_value - incumbent_value
+            relative_gap = absolute_gap / max(1.0, abs(incumbent_value))
+            records = QUBOLib.list_solution_records(index, instance)
+            provenance = DBInterface.execute(
+                db,
+                &quot;&quot;&quot;
+                SELECT submitter, workflow
+                FROM Submissions
+                WHERE submission = ?;
+                &quot;&quot;&quot;,
+                (incumbent_record[:submission],),
+            ) |&gt; DataFrame
+
+            push!(
+                rows,
+                (
+                    instance = instance_row[:name],
+                    method = method.name,
+                    candidate_value = candidate_value,
+                    incumbent_value = incumbent_value,
+                    incumbent_sample_value = QUBOTools.value(incumbent_sample, 1),
+                    source_value = incumbent_record[:source_value],
+                    absolute_gap = absolute_gap,
+                    relative_gap = relative_gap,
+                    solution_records = size(records, 1),
+                    incumbent_submitter = only(provenance[!, :submitter]),
+                ),
+            )
+        end
+
+        return DataFrame(rows)
+    end
+end
+
+result</code></pre><div><div style = "float: left;"><span>4×10 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">instance</th><th style = "text-align: left;">method</th><th style = "text-align: left;">candidate_value</th><th style = "text-align: left;">incumbent_value</th><th style = "text-align: left;">incumbent_sample_value</th><th style = "text-align: left;">source_value</th><th style = "text-align: left;">absolute_gap</th><th style = "text-align: left;">relative_gap</th><th style = "text-align: left;">solution_records</th><th style = "text-align: left;">incumbent_submitter</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "String" style = "text-align: left;">String</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "String" style = "text-align: left;">String</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">tiny-a</td><td style = "text-align: left;">zero-fill</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">-2.0</td><td style = "text-align: right;">-2.0</td><td style = "text-align: right;">123.0</td><td style = "text-align: right;">2.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1</td><td style = "text-align: left;">reference incumbent</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">tiny-a</td><td style = "text-align: left;">one-fill</td><td style = "text-align: right;">-0.5</td><td style = "text-align: right;">-2.0</td><td style = "text-align: right;">-2.0</td><td style = "text-align: right;">123.0</td><td style = "text-align: right;">1.5</td><td style = "text-align: right;">0.75</td><td style = "text-align: right;">1</td><td style = "text-align: left;">reference incumbent</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">tiny-b</td><td style = "text-align: left;">zero-fill</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">-1.0</td><td style = "text-align: right;">-1.0</td><td style = "text-align: right;">456.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">1</td><td style = "text-align: left;">reference incumbent</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">tiny-b</td><td style = "text-align: left;">one-fill</td><td style = "text-align: right;">2.25</td><td style = "text-align: right;">-1.0</td><td style = "text-align: right;">-1.0</td><td style = "text-align: right;">456.0</td><td style = "text-align: right;">3.25</td><td style = "text-align: right;">3.25</td><td style = "text-align: right;">1</td><td style = "text-align: left;">reference incumbent</td></tr></tbody></table></div><p>For a real packaged QOBLIB query, open the default artifact and filter the SQLite index by collection and problem class. Keep this form outside a documentation <code>@example</code> when you do not want the docs build to download the artifact:</p><pre><code class="language-julia hljs">using QUBOLib
+using SQLite, DataFrames
+
+QUBOLib.access() do index
+    DBInterface.execute(
+        QUBOLib.database(index),
+        &quot;&quot;&quot;
+        SELECT i.name, b.qubo_value, b.source_value, b.proven_optimal,
+               b.validation_status, b.feasibility_status
+        FROM BestSolutions AS b
+        JOIN Instances AS i
+          ON i.instance = b.instance
+        WHERE i.collection = &#39;qoblib&#39;
+          AND i.problem_class = &#39;LABS&#39;
+        ORDER BY b.qubo_value ASC
+        LIMIT 10;
+        &quot;&quot;&quot;,
+    ) |&gt; DataFrame
+end</code></pre><p>QOBLIB records may also carry metadata such as <code>source_value_agrees</code>, which records whether the source objective value matched the locally evaluated QUBO-space value for that record.</p><p>For solver stacks such as QUBODrivers, or for any other package that returns a QUBO-space state, keep the solver-specific call separate from the QUBOLib comparison step. Once the solver output has been converted to a binary vector in the variable order of <code>model</code>, the comparison is the same:</p><pre><code class="language-julia hljs"># candidate_state should be a Vector{Int} in the variable order of `model`.
+candidate_value = QUBOTools.value(model, candidate_state)
+incumbent_record = QUBOLib.best_solution_record(index, instance)
+absolute_gap = candidate_value - incumbent_record[:qubo_value]</code></pre><p>For the minimization QUBOs described above, smaller <code>qubo_value</code> values are better, so a positive absolute gap means the candidate is worse than the current incumbent. When writing generic reports, check the instance <code>sense</code> metadata and apply the matching sign convention consistently.</p><p><code>proven_optimal</code> records whether the incumbent is known or claimed to be optimal, not whether every future solver comparison should stop there. <code>validation_status</code> records whether the bitstring was evaluated, validated, or verified against the stored model. <code>feasibility_status</code> records whether the source workflow considered the result feasible, missing, unavailable, withdrawn, unmapped, or invalid. QUBOLib keeps non-incumbent records so reports can distinguish a high-quality validated incumbent from a rejected or unmapped source-domain result.</p><p>QOBLIB-derived records should be attributed through their collection, submission, source path, reference, and metadata fields. Their original <code>source_value</code> is preserved when available, but QUBOLib benchmarking uses the mapped bitstring and locally evaluated <code>qubo_value</code>.</p><h2 id="Table-of-Contents"><a class="docs-heading-anchor" href="#Table-of-Contents">Table of Contents</a><a id="Table-of-Contents-1"></a><a class="docs-heading-anchor-permalink" href="#Table-of-Contents" title="Permalink"></a></h2><ol><li><a href="../1-basic/">Basic Usage</a></li></ol></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../api/">« API</a><a class="docs-footer-nextpage" href="../1-basic/">Basic Usage »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 23 June 2026 20:46">Tuesday 23 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
