@@ -31,15 +31,12 @@ function generate(rng, problem::SherringtonKirkpatrick{T}) where {T}
 
     model = QUBOTools.Model{Int,Float64,Int}(
         f;
-        metadata = Dict{String,Any}(
-            "origin"    => "QUBOLib.jl",
-            "synthesis" => Dict{String,Any}(
-                "problem"    => "Sherrington-Kirkpatrick",
-                "parameters" => Dict{String,Any}(
-                    "n"     => problem.n,
-                    "mu"    => problem.μ,
-                    "sigma" => problem.σ,
-                ),
+        metadata = _synthesis_metadata(
+            "Sherrington-Kirkpatrick",
+            Dict{String,Any}(
+                "n"     => problem.n,
+                "mu"    => problem.μ,
+                "sigma" => problem.σ,
             ),
         )
     )

@@ -60,15 +60,12 @@ function generate(rng, problem::NAE3SAT{T}) where {T}
         h,
         J,
         domain   = :spin,
-        metadata = Dict{String,Any}(
-            "origin"    => "QUBOLib.jl",
-            "synthesis" => Dict{String,Any}(
-                "problem"    => "Not-all-equal 3-SAT",
-                "parameters" => Dict{String,Any}(
-                    "m"     => problem.m,
-                    "n"     => problem.n,
-                    "ratio" => problem.ratio,
-                ),
+        metadata = _synthesis_metadata(
+            "Not-all-equal 3-SAT",
+            Dict{String,Any}(
+                "m"     => problem.m,
+                "n"     => problem.n,
+                "ratio" => problem.ratio,
             ),
         )
     )

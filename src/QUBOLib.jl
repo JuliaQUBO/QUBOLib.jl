@@ -18,9 +18,12 @@ import TOML
 
 include("project.jl")
 
-const QUBOLIB_SQL_PATH       = joinpath(@__DIR__, "assets", "qubolib.sql")
-const COLLECTION_SCHEMA_PATH = joinpath(@__DIR__, "assets", "collection.schema.json")
-const COLLECTION_SCHEMA      = JSONSchema.Schema(JSON.parsefile(COLLECTION_SCHEMA_PATH))
+const QUBOLIB_SQL_PATH                = joinpath(@__DIR__, "assets", "qubolib.sql")
+const COLLECTION_SCHEMA_PATH          = joinpath(@__DIR__, "assets", "collection.schema.json")
+const COLLECTION_SCHEMA               = JSONSchema.Schema(JSON.parsefile(COLLECTION_SCHEMA_PATH))
+const SYNTHESIS_METADATA_SCHEMA_PATH  = joinpath(@__DIR__, "assets", "synthesis.metadata.schema.json")
+const SYNTHESIS_METADATA_SCHEMA       =
+    JSONSchema.Schema(JSON.parsefile(SYNTHESIS_METADATA_SCHEMA_PATH))
 
 const QUBOLIB_LOGO = raw"""
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
