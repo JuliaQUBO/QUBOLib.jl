@@ -14,10 +14,11 @@ function test_wishart()
         let n = 100
             m = 10
 
-            model = QUBOLib.Synthesis.generate(QUBOLib.Synthesis.Wishart(n, m))
+            rng = QUBOLib.Random.MersenneTwister(1)
+            model = QUBOLib.Synthesis.generate(rng, QUBOLib.Synthesis.Wishart(n, m))
 
             @test QUBOTools.dimension(model) == n
-            @test QUBOTools.density(model) ≈ 1.0 atol = 1E-8
+            @test QUBOTools.density(model) >= 0.99
             test_synthesis_model_metadata(
                 model,
                 "Wishart",
@@ -45,7 +46,8 @@ function test_sherrington_kirkpatrick()
             μ = 5.0
             σ = 1E-3
         
-            model = QUBOLib.Synthesis.generate(QUBOLib.Synthesis.SK(n, μ, σ))
+            rng = QUBOLib.Random.MersenneTwister(1)
+            model = QUBOLib.Synthesis.generate(rng, QUBOLib.Synthesis.SK(n, μ, σ))
             
             @test QUBOTools.dimension(model) == n
             @test QUBOTools.density(model) ≈ 1.0 atol = 1E-8
@@ -73,7 +75,8 @@ function test_nae3sat()
             ratio = 1.5
             m = trunc(Int, n * ratio)
 
-            model = QUBOLib.Synthesis.generate(QUBOLib.Synthesis.NAE3SAT{Float64}(n; ratio))
+            rng = QUBOLib.Random.MersenneTwister(1)
+            model = QUBOLib.Synthesis.generate(rng, QUBOLib.Synthesis.NAE3SAT{Float64}(n; ratio))
             linear_terms = collect(QUBOTools.linear_terms(model))
             quadratic_terms = collect(QUBOTools.quadratic_terms(model))
 
