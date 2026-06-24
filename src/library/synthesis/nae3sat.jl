@@ -23,15 +23,23 @@ struct NAE3SAT{T} <: AbstractProblem{T}
 end
 
 @doc raw"""
-    NAE3SAT{T}(n::Integer, ratio::Real = 2.11)
+    NAE3SAT{T}(n::Integer; ratio::Real = 2.11)
+    NAE3SAT{T}(n::Integer, ratio::Real)
 
 Not-all-equal 3-SAT on ``n`` variables with number of clauses defined
 by the *clause-to-variable* ratio.
+
+Prefer the keyword form when constructing by ratio. A second positional integer
+is interpreted as the exact number of variables in `NAE3SAT{T}(m, n)`.
 """
-function NAE3SAT{T}(n::Integer, ratio::Real = 2.11) where {T}
+function NAE3SAT{T}(n::Integer, ratio::Real) where {T}
     @assert(ratio > 0, "ratio must be positive")
 
     return NAE3SAT{T}(trunc(Int, n * ratio), n, ratio)
+end
+
+function NAE3SAT{T}(n::Integer; ratio::Real = 2.11) where {T}
+    return NAE3SAT{T}(n, ratio)
 end
 
 function generate(rng, problem::NAE3SAT{T}) where {T}

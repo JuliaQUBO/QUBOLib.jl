@@ -73,8 +73,13 @@ function test_nae3sat()
             ratio = 1.5
             m = trunc(Int, n * ratio)
 
-            model = QUBOLib.Synthesis.generate(QUBOLib.Synthesis.NAE3SAT{Float64}(n, ratio))
+            model = QUBOLib.Synthesis.generate(QUBOLib.Synthesis.NAE3SAT{Float64}(n; ratio))
+            linear_terms = collect(QUBOTools.linear_terms(model))
+            quadratic_terms = collect(QUBOTools.quadratic_terms(model))
 
+            @test 0 < QUBOTools.dimension(model) <= n
+            @test isempty(linear_terms)
+            @test !isempty(quadratic_terms)
             test_synthesis_model_metadata(
                 model,
                 "Not-all-equal 3-SAT",
