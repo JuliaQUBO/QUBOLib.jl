@@ -44,14 +44,13 @@ function generate(rng, problem::Wishart{T}) where {T}
 
     model = QUBOTools.Model{Int,T,Int}(
         f;
-        metadata = Dict{String,Any}(
-            "origin"    => "QUBOLib.jl",
-            "synthesis" => Dict{String,Any}( # TODO: Add this to the Schema
-                "problem"    => "Wishart",
-                "parameters" => Dict{String,Any}(
-                    "n" => problem.n,
-                    "m" => problem.m,
-                )
+        metadata = _synthesis_metadata(
+            "Wishart",
+            Dict{String,Any}(
+                "n"          => problem.n,
+                "m"          => problem.m,
+                "discretize" => problem.discretize,
+                "precision"  => problem.precision,
             ),
         ),
     )

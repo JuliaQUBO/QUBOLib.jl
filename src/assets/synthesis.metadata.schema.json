@@ -1,0 +1,123 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "object",
+    "properties": {
+        "origin": {
+            "type": "string"
+        },
+        "synthesis": {
+            "type": "object",
+            "properties": {
+                "problem": {
+                    "type": "string"
+                },
+                "parameters": {
+                    "type": "object"
+                }
+            },
+            "required": [
+                "problem",
+                "parameters"
+            ],
+            "additionalProperties": false,
+            "oneOf": [
+                {
+                    "properties": {
+                        "problem": {
+                            "enum": [
+                                "Not-all-equal 3-SAT"
+                            ]
+                        },
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "m": {
+                                    "type": "integer"
+                                },
+                                "n": {
+                                    "type": "integer"
+                                },
+                                "ratio": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "m",
+                                "n",
+                                "ratio"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                {
+                    "properties": {
+                        "problem": {
+                            "enum": [
+                                "Sherrington-Kirkpatrick"
+                            ]
+                        },
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "n": {
+                                    "type": "integer"
+                                },
+                                "mu": {
+                                    "type": "number"
+                                },
+                                "sigma": {
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "n",
+                                "mu",
+                                "sigma"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                },
+                {
+                    "properties": {
+                        "problem": {
+                            "enum": [
+                                "Wishart"
+                            ]
+                        },
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "n": {
+                                    "type": "integer"
+                                },
+                                "m": {
+                                    "type": "integer"
+                                },
+                                "discretize": {
+                                    "type": "boolean"
+                                },
+                                "precision": {
+                                    "type": "integer",
+                                    "minimum": 0
+                                }
+                            },
+                            "required": [
+                                "n",
+                                "m",
+                                "discretize",
+                                "precision"
+                            ],
+                            "additionalProperties": false
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "required": [
+        "origin",
+        "synthesis"
+    ]
+}

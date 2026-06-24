@@ -11,20 +11,35 @@ struct NAE3SAT{T} <: AbstractProblem{T}
     function NAE3SAT{T}(m::Integer, n::Integer) where {T}
         @assert(n >= 3, "number of variables must be at least 3")
 
-        return new{T}(m, n, m / n)
+        return new{T}(Int(m), Int(n), m / n)
+    end
+
+    function NAE3SAT{T}(m::Integer, n::Integer, ratio::Real) where {T}
+        @assert(n >= 3, "number of variables must be at least 3")
+        @assert(ratio > 0, "ratio must be positive")
+
+        return new{T}(Int(m), Int(n), Float64(ratio))
     end
 end
 
 @doc raw"""
-    NAE3SAT{T}(n::Integer, ratio::Real = 2.11)
+    NAE3SAT{T}(n::Integer; ratio::Real = 2.11)
+    NAE3SAT{T}(n::Integer, ratio::Real)
 
 Not-all-equal 3-SAT on ``n`` variables with number of clauses defined
 by the *clause-to-variable* ratio.
+
+Prefer the keyword form when constructing by ratio. A second positional integer
+is interpreted as the exact number of variables in `NAE3SAT{T}(m, n)`.
 """
-function NAE3SAT{T}(n::Integer, ratio::Real = 2.11) where {T}
+function NAE3SAT{T}(n::Integer, ratio::Real) where {T}
     @assert(ratio > 0, "ratio must be positive")
 
     return NAE3SAT{T}(trunc(Int, n * ratio), n, ratio)
+end
+
+function NAE3SAT{T}(n::Integer; ratio::Real = 2.11) where {T}
+    return NAE3SAT{T}(n, ratio)
 end
 
 function generate(rng, problem::NAE3SAT{T}) where {T}
@@ -47,7 +62,7 @@ function generate(rng, problem::NAE3SAT{T}) where {T}
             c[j] = pop!(C, rand(rng, C))
         end
         
-        s .= rand(rng, (↑,↓), 3)
+        s .= rand(rng, (-1, 1), 3)
 
         for i = 1:3, j = (i+1):3
             x = (c[i], c[j])
@@ -60,15 +75,12 @@ function generate(rng, problem::NAE3SAT{T}) where {T}
         h,
         J,
         domain   = :spin,
-        metadata = Dict{String,Any}(
-            "origin"    => "QUBOLib.jl",
-            "synthesis" => Dict{String,Any}(
-                "problem"    => "Not-all-equal 3-SAT",
-                "parameters" => Dict{String,Any}(
-                    "m"     => problem.m,
-                    "n"     => problem.n,
-                    "ratio" => problem.ratio,
-                ),
+        metadata = _synthesis_metadata(
+            "Not-all-equal 3-SAT",
+            Dict{String,Any}(
+                "m"     => problem.m,
+                "n"     => problem.n,
+                "ratio" => problem.ratio,
             ),
         )
     )
