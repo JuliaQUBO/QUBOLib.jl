@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.3 - 2026-06-24
+
+### Added
+
+- Added schema-backed metadata validation for synthesized Wishart,
+  Sherrington-Kirkpatrick, and NAE3SAT instances.
+
+### Maintenance
+
+- Expanded `PseudoBooleanOptimization` compatibility to include `0.3`.
+- Expanded `QUBOTools` compatibility to include `0.15`.
+
 ## v0.2.2 - 2026-06-23
 
 ### Maintenance
