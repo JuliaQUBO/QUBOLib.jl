@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.4 - 2026-06-26
+
+### Maintenance
+
+- Expanded `QUBOTools` compatibility to include `0.16`.
+
 ## v0.2.3 - 2026-06-24
 
 ### Added
