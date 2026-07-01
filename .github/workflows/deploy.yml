@@ -17,10 +17,7 @@ jobs:
     - uses: julia-actions/setup-julia@v3
       with:
         version: '1.10'
-    # - uses: actions/cache@v2.1.7
-    #   with:
-    #     path: ~/.julia/   # A list of files, directories, and wildcard patterns to cache and restore
-    #     key: ${{ runner.os }}-${{ hashFiles('**/Project.toml') }}
+    - uses: julia-actions/cache@v3
 
     - name: Create distribution directories
       run: |
