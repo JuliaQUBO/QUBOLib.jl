@@ -54,14 +54,14 @@ This repository has two release streams:
    gh release create vX.Y.Z --title "QUBOLib vX.Y.Z" --notes-file /path/to/notes.md --target <merge-commit>
    ```
 
-7. Verify that `vX.Y.Z` points at the registered merge commit:
+10. Verify that `vX.Y.Z` points at the registered merge commit:
 
    ```bash
    git ls-remote --tags origin refs/tags/vX.Y.Z 'refs/tags/vX.Y.Z^{}'
    gh release view vX.Y.Z --repo JuliaQUBO/QUBOLib.jl
    ```
 
-10. Verify `Pkg.add` from a fresh depot and project:
+11. Verify `Pkg.add` from a fresh depot and project:
 
     ```bash
     tmp="$(mktemp -d)"
