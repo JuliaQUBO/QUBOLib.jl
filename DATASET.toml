@@ -23,7 +23,7 @@ byte_identity_status = "not-verified"
 related_identifiers_status = "not-recorded"
 license_model = "per-collection"
 blocking_reasons = [
-    "Written redistribution clearance is not recorded for the three XORSAT collections.",
+    "Explicit written authorization covering all three XORSAT collections, transformed artifacts, public Zenodo deposit, and CC BY 4.0 is not yet recorded.",
     "The QPLIB mirror is pinned by SHA-256, but its exact upstream snapshot is not recorded.",
     "A dataset record, related identifiers, and access for two active managers are not recorded.",
 ]
@@ -39,7 +39,9 @@ mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mir
 mirror_sha256 = "a1b13f38112276f010e5559868eeeb3816b43b5c6753d1f44d49acb910ad13b0"
 provenance_status = "partial"
 rights_status = "pending"
-required_action = "Obtain and record a third-party redistribution grant from the data rights holder."
+rights_evidence_status = "preliminary-private-correspondence"
+rights_evidence_summary = "Itay Hen permits continued hosting of the source archives and indicates that CC BY 4.0 is acceptable; explicit scope confirmation is pending."
+required_action = "Obtain explicit authorization covering all named collections, transformed artifacts, public Zenodo deposit, CC BY 4.0, and public citation of the grant."
 
 [[collections]]
 id = "arXiv-1903-10928-5r5x"
@@ -52,7 +54,9 @@ mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mir
 mirror_sha256 = "da773fab84c4e6e621efdf090a2fda9fa43420be4c2f2010a6d8fe88b1f34045"
 provenance_status = "partial"
 rights_status = "pending"
-required_action = "Obtain and record a third-party redistribution grant from the data rights holder."
+rights_evidence_status = "preliminary-private-correspondence"
+rights_evidence_summary = "Itay Hen permits continued hosting of the source archives and indicates that CC BY 4.0 is acceptable; explicit scope confirmation is pending."
+required_action = "Obtain explicit authorization covering all named collections, transformed artifacts, public Zenodo deposit, CC BY 4.0, and public citation of the grant."
 
 [[collections]]
 id = "arXiv-2103-08464-3r3x"
@@ -65,7 +69,9 @@ mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mir
 mirror_sha256 = "a99b22c02aac03446589b7d366354bc448e6a8bae3e67120ac4bcc821601735b"
 provenance_status = "partial"
 rights_status = "pending"
-required_action = "Obtain and record a third-party redistribution grant from the data rights holder."
+rights_evidence_status = "preliminary-private-correspondence"
+rights_evidence_summary = "Itay Hen permits continued hosting of the source archives and indicates that CC BY 4.0 is acceptable; explicit scope confirmation is pending."
+required_action = "Obtain explicit authorization covering all named collections, transformed artifacts, public Zenodo deposit, CC BY 4.0, and public citation of the grant."
 
 [[collections]]
 id = "qplib"

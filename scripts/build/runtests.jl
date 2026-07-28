@@ -203,12 +203,20 @@ function test_dataset_collection_metadata()
             @test !haskey(data, "data_license")
             @test metadata["provenance_status"] == "partial"
             @test metadata["rights_status"] == "pending"
+            @test metadata["rights_evidence_status"] == "preliminary-private-correspondence"
+            @test occursin("explicit confirmation", metadata["rights_note"])
             @test metadata["mirror_sha256"] == entry[:mirror_sha256]
             @test occursin(r"^[0-9a-f]{64}$", metadata["mirror_sha256"])
             @test inventory[code]["mirror_sha256"] == metadata["mirror_sha256"]
             @test inventory[code]["citation_doi"] == metadata["citation_doi"]
             @test inventory[code]["provenance_status"] == metadata["provenance_status"]
             @test inventory[code]["rights_status"] == metadata["rights_status"]
+            @test inventory[code]["rights_evidence_status"] ==
+                  metadata["rights_evidence_status"]
+            @test occursin(
+                "explicit scope confirmation",
+                inventory[code]["rights_evidence_summary"],
+            )
         end
 
         @test QPLIB_DATA["data_license"] == "CC-BY-4.0"

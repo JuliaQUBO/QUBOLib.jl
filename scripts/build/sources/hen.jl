@@ -12,12 +12,13 @@ const HEN_MIRROR_SHA256 = Dict(
 
 function _hen_pending_rights_metadata(code::AbstractString, citation_doi::AbstractString)
     return Dict{String,Any}(
-        "citation_doi"      => citation_doi,
-        "mirror_url"        => HEN_MIRROR_URLS[code],
-        "mirror_sha256"     => HEN_MIRROR_SHA256[code],
-        "provenance_status" => "partial",
-        "rights_status"     => "pending",
-        "rights_note"       => "No public third-party redistribution grant has been recorded.",
+        "citation_doi"           => citation_doi,
+        "mirror_url"             => HEN_MIRROR_URLS[code],
+        "mirror_sha256"          => HEN_MIRROR_SHA256[code],
+        "provenance_status"      => "partial",
+        "rights_status"          => "pending",
+        "rights_evidence_status" => "preliminary-private-correspondence",
+        "rights_note"            => "Itay Hen permits continued source-archive hosting and indicates that CC BY 4.0 is acceptable; explicit confirmation covering all named collections, transformed artifacts, public Zenodo deposit, and public citation is pending.",
     )
 end
 

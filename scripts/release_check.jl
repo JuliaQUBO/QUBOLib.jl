@@ -228,6 +228,7 @@ function check_dataset_collections!(
         id = raw_id isa AbstractString ? String(raw_id) : ""
         provenance_status = get(collection, "provenance_status", "")
         rights_status = get(collection, "rights_status", "")
+        rights_evidence_status = get(collection, "rights_evidence_status", nothing)
         instances = get(collection, "instances", 0)
         citation_doi = get(collection, "citation_doi", "")
 
@@ -252,6 +253,14 @@ function check_dataset_collections!(
             rights_status in ("pending", "verified"),
             "Collection '$id' has an invalid rights_status.",
         )
+        if !isnothing(rights_evidence_status)
+            check!(
+                failures,
+                rights_evidence_status in
+                ("preliminary-private-correspondence", "verified-public-evidence"),
+                "Collection '$id' has an invalid rights_evidence_status.",
+            )
+        end
         check!(
             failures,
             citation_doi isa AbstractString && occursin(r"^10\.", citation_doi),
