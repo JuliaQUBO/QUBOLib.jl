@@ -50,6 +50,8 @@ function test_tags()
         @test occursin("41 missing-incumbent cases", notes)
         @test occursin("Apache-2.0", notes)
         @test occursin("CC-BY-4.0", notes)
+        @test occursin("no blanket dataset license", notes)
+        @test occursin("DATASET.md", notes)
         @test occursin("canonical QUBO-space `qubo_value`", notes)
         @test occursin("Artifacts.toml", notes)
     end
@@ -183,6 +185,53 @@ end
 function test_hen_importer_compatibility()
     @testset "▶ HEN importer compatibility" begin
         @test _hen_qubist_format() isa QUBOTools.AbstractFormat
+    end
+
+    return nothing
+end
+
+function test_dataset_collection_metadata()
+    @testset "▶ Dataset collection metadata" begin
+        dataset = TOML.parsefile(joinpath(QUBOLib.root_path(), "DATASET.toml"))
+        inventory = Dict(row["id"] => row for row in dataset["collections"])
+
+        for (code, entry) in HEN_DATA
+            data = entry[:data]
+            metadata = data["metadata"]
+
+            @test haskey(data, "citation")
+            @test !haskey(data, "data_license")
+            @test metadata["provenance_status"] == "partial"
+            @test metadata["rights_status"] == "pending"
+            @test metadata["mirror_sha256"] == entry[:mirror_sha256]
+            @test occursin(r"^[0-9a-f]{64}$", metadata["mirror_sha256"])
+            @test inventory[code]["mirror_sha256"] == metadata["mirror_sha256"]
+            @test inventory[code]["citation_doi"] == metadata["citation_doi"]
+            @test inventory[code]["provenance_status"] == metadata["provenance_status"]
+            @test inventory[code]["rights_status"] == metadata["rights_status"]
+        end
+
+        @test QPLIB_DATA["data_license"] == "CC-BY-4.0"
+        @test occursin("10.1007/s12532-018-0147-4", QPLIB_DATA["citation"])
+        @test QPLIB_DATA["metadata"]["provenance_status"] == "partial"
+        @test QPLIB_DATA["metadata"]["rights_status"] == "verified"
+        @test QPLIB_DATA["metadata"]["mirror_sha256"] == QPLIB_MIRROR_SHA256
+        @test inventory["qplib"]["mirror_sha256"] == QPLIB_MIRROR_SHA256
+        @test inventory["qplib"]["data_license"] == QPLIB_DATA["data_license"]
+
+        @test QOBLIB_DATA["data_license"] == "CC-BY-4.0"
+        @test QOBLIB_DATA["metadata"]["source_commit"] == QOBLIB_SOURCE_COMMIT
+        @test QOBLIB_DATA["metadata"]["provenance_status"] == "verified"
+        @test QOBLIB_DATA["metadata"]["rights_status"] == "verified"
+        @test inventory["qoblib"]["source_commit"] == QOBLIB_SOURCE_COMMIT
+        @test inventory["qoblib"]["data_license"] == QOBLIB_DATA["data_license"]
+
+        collection_data = [entry[:data] for entry in values(HEN_DATA)]
+        append!(collection_data, [QPLIB_DATA, QOBLIB_DATA])
+
+        for data in collection_data
+            @test QUBOLib.JSON.parse(QUBOLib.JSON.json(data)) isa Dict
+        end
     end
 
     return nothing
@@ -1008,6 +1057,7 @@ function test_main()
     @testset "♦ QUBOLib.jl/scripts/build test suite ♦" verbose = true begin
         test_tags()
         test_hen_importer_compatibility()
+        test_dataset_collection_metadata()
         test_deploy_qubolib_outputs()
         test_qoblib_qs_parser()
         test_qoblib_constrained_inventory()

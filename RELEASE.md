@@ -9,18 +9,20 @@ This repository has two release streams:
 
 1. Open a release PR that bumps `version` in `Project.toml`.
 2. Add a `CHANGELOG.md` section for `vX.Y.Z`.
-3. Update `docs/Project.toml` self-compat for `QUBOLib` so it includes the
+3. Update `CITATION.cff` so `version` and `date-released` describe the target
+   package release.
+4. Update `docs/Project.toml` self-compat for `QUBOLib` so it includes the
    target release line.
    - For `0.Y.Z`, include `0.Y`.
    - For `0.0.Z`, include `0.0.Z`.
    - For `X.Y.Z` with `X > 0`, include `X`.
-4. Run the static package-release preflight:
+5. Run the static package-release preflight:
 
    ```bash
    julia --project=. scripts/release_check.jl
    ```
 
-5. Run the package tests and documentation build:
+6. Run the package tests and documentation build:
 
    ```bash
    julia --project=. -e 'import Pkg; Pkg.test()'
@@ -28,8 +30,8 @@ This repository has two release streams:
    julia --project=docs docs/make.jl --skip-deploy
    ```
 
-6. Merge the release PR after CI is green.
-7. Trigger Registrator on the merge commit using `release-notes-template.md`:
+7. Merge the release PR after CI is green.
+8. Trigger Registrator on the merge commit using `release-notes-template.md`:
 
    ```bash
    gh api repos/JuliaQUBO/QUBOLib.jl/commits/<merge-sha>/comments -f body="$(cat release-notes-template.md)"
@@ -40,34 +42,69 @@ This repository has two release streams:
    releases as `BREAKING`, and AutoMerge requires one of those words in the
    release notes when that label is present.
 
-8. Confirm the General registry PR merges:
+9. Confirm the General registry PR merges:
 
    ```bash
    gh pr checks <general-pr-number> --repo JuliaRegistries/General --watch
    gh pr view <general-pr-number> --repo JuliaRegistries/General --json state,mergedAt,mergeCommit,url
    ```
 
-9. Let TagBot create the package tag and GitHub release. If the package tag was
+10. Let TagBot create the package tag and GitHub release. If the package tag was
    created manually before TagBot ran, create the GitHub release manually too:
 
    ```bash
    gh release create vX.Y.Z --title "QUBOLib vX.Y.Z" --notes-file /path/to/notes.md --target <merge-commit>
    ```
 
-10. Verify that `vX.Y.Z` points at the registered merge commit:
+11. Verify that `vX.Y.Z` points at the registered merge commit:
 
    ```bash
    git ls-remote --tags origin refs/tags/vX.Y.Z 'refs/tags/vX.Y.Z^{}'
    gh release view vX.Y.Z --repo JuliaQUBO/QUBOLib.jl
    ```
 
-11. Verify `Pkg.add` from a fresh depot and project:
+12. Verify `Pkg.add` from a fresh depot and project:
 
     ```bash
     tmp="$(mktemp -d)"
     mkdir -p "$tmp/depot" "$tmp/proj"
     JULIA_DEPOT_PATH="$tmp/depot" julia --startup-file=no --project="$tmp/proj" -e 'using Pkg; Pkg.add("QUBOLib"); deps = Pkg.dependencies(); versions = [(pkg.name, pkg.version) for pkg in values(deps) if pkg.name == "QUBOLib"]; @show versions'
     ```
+
+## Data Artifact Release
+
+The GitHub data release and a Zenodo dataset version must contain the same
+`qubolib.tar.gz` bytes. Rebuilding an equivalent index is not sufficient.
+
+1. Select the GitHub data release to archive and audit its exact asset. Record
+   the tag commit, compressed size, SHA-256, Julia artifact tree hash, archive
+   members, collection counts, and instance counts in `DATASET.toml`.
+2. For every populated collection, record its source snapshot or mirror hash,
+   citation, license evidence, and redistribution-rights evidence. Do not infer
+   a corpus-wide license from the repository's MIT software license or from one
+   collection's terms.
+3. Resolve every `zenodo.blocking_reasons` entry. Set each collection's
+   `provenance_status` and `rights_status` to `verified` only when the supporting
+   evidence is recorded.
+4. Create or update the Zenodo draft. Grant `Can manage` access to at least two
+   active maintainers and configure related identifiers for the repository,
+   software, GitHub data release, upstream collections, and ecosystem article.
+5. Record the draft state in `DATASET.toml`, set `zenodo.status = "ready"`, and
+   run the publication gate:
+
+   ```bash
+   julia --project=. scripts/release_check.jl --require-dataset-publishable
+   ```
+
+   Do not publish while this command fails.
+
+6. Upload the existing GitHub `qubolib.tar.gz` asset to the versioned Zenodo
+   record without rebuilding or recompressing it, then publish the record.
+7. Download the published Zenodo file, recompute its SHA-256 and artifact tree
+   hash, and confirm they match `Artifacts.toml` and `DATASET.toml`.
+8. Record the concept DOI, version DOI, verified byte identity, manager access,
+   and related identifiers in `DATASET.toml`; set `zenodo.status = "published"`.
+   Update `DATASET.md` and citation guidance, then rerun both release checks.
 
 ## TagBot Setup
 

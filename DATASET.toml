@@ -1,0 +1,98 @@
+schema_version = 1
+
+[artifact]
+tag = "v0.1.0-data+2"
+release_tag_commit = "bc3d61098865ee0e44dc839f4a8cc62801fc7202"
+release_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.1.0-data%2B2"
+asset_name = "qubolib.tar.gz"
+asset_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.1.0-data+2/qubolib.tar.gz"
+asset_size_bytes = 101268540
+sha256 = "e3826af0c2b7bed712b787304a28c57ff8fbb93543ef8c38fca1d8391a777387"
+git_tree_sha1 = "e27d0d1526f3491102ff447293b4be3725314db8"
+inventory_observed_at = "2026-07-28"
+archive_members = ["archive.h5", "index.db"]
+instances = 6263
+populated_collections = 5
+
+[zenodo]
+status = "blocked"
+required_active_managers = 2
+active_manager_count = 0
+manager_access_status = "not-recorded"
+byte_identity_status = "not-verified"
+related_identifiers_status = "not-recorded"
+license_model = "per-collection"
+blocking_reasons = [
+    "Written redistribution clearance is not recorded for the three XORSAT collections.",
+    "The QPLIB mirror is pinned by SHA-256, but its exact upstream snapshot is not recorded.",
+    "A dataset record, related identifiers, and access for two active managers are not recorded.",
+]
+
+[[collections]]
+id = "arXiv-1903-10928-3r3x"
+instances = 3200
+source_title = "Equation Planting: A Tool for Benchmarking Ising Machines"
+source_url = "https://arxiv.org/abs/1903.10928"
+citation_doi = "10.1103/PhysRevApplied.12.011003"
+source_format = "Qubist text"
+mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/arXiv-1903-10928-3r3x.zip"
+mirror_sha256 = "a1b13f38112276f010e5559868eeeb3816b43b5c6753d1f44d49acb910ad13b0"
+provenance_status = "partial"
+rights_status = "pending"
+required_action = "Obtain and record a third-party redistribution grant from the data rights holder."
+
+[[collections]]
+id = "arXiv-1903-10928-5r5x"
+instances = 307
+source_title = "Equation Planting: A Tool for Benchmarking Ising Machines"
+source_url = "https://arxiv.org/abs/1903.10928"
+citation_doi = "10.1103/PhysRevApplied.12.011003"
+source_format = "Qubist text"
+mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/arXiv-1903-10928-5r5x.zip"
+mirror_sha256 = "da773fab84c4e6e621efdf090a2fda9fa43420be4c2f2010a6d8fe88b1f34045"
+provenance_status = "partial"
+rights_status = "pending"
+required_action = "Obtain and record a third-party redistribution grant from the data rights holder."
+
+[[collections]]
+id = "arXiv-2103-08464-3r3x"
+instances = 2300
+source_title = "3-Regular 3-XORSAT Planted Solutions Benchmark of Classical and Quantum Heuristic Optimizers"
+source_url = "https://arxiv.org/abs/2103.08464"
+citation_doi = "10.1088/2058-9565/ac4d1b"
+source_format = "Qubist text"
+mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/arXiv-2103-08464-3r3x.zip"
+mirror_sha256 = "a99b22c02aac03446589b7d366354bc448e6a8bae3e67120ac4bcc821601735b"
+provenance_status = "partial"
+rights_status = "pending"
+required_action = "Obtain and record a third-party redistribution grant from the data rights holder."
+
+[[collections]]
+id = "qplib"
+instances = 23
+source_title = "QPLIB: a library of quadratic programming instances"
+source_url = "https://qplib.zib.de/"
+citation_doi = "10.1007/s12532-018-0147-4"
+source_format = "QPLIB, LP, and SOL text"
+mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/qplib.zip"
+mirror_sha256 = "896b2e1c5e5e78e7b89674cb6bc84a0f6e05a0e36adddeaaa744472733517672"
+provenance_status = "partial"
+rights_status = "verified"
+data_license = "CC-BY-4.0"
+license_evidence_url = "https://qplib.zib.de/"
+required_action = "Record the exact upstream QPLIB snapshot used to create the mirror."
+
+[[collections]]
+id = "qoblib"
+instances = 433
+source_title = "The Quantum Optimization Benchmarking Library"
+source_url = "https://github.com/ZIB-AOPT/QOBLIB"
+source_commit = "80e45c176fc6281e5316451f02296482934785fa"
+citation_doi = "10.1038/s43588-026-00991-1"
+source_format = "QS, LP, solution, and submission metadata"
+source_archive_url = "https://github.com/ZIB-AOPT/QOBLIB/archive/80e45c176fc6281e5316451f02296482934785fa.zip"
+provenance_status = "verified"
+rights_status = "verified"
+data_license = "CC-BY-4.0"
+license_evidence_url = "https://github.com/ZIB-AOPT/QOBLIB/blob/80e45c176fc6281e5316451f02296482934785fa/LICENSE.data"
+required_action = "Preserve the source commit, license, and attribution in the dataset record."

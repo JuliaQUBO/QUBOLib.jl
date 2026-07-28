@@ -234,6 +234,53 @@ function _get_qplib_var_map(path::AbstractString, n::Integer = 1)
 end
 
 const QPLIB_URL = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/qplib.zip"
+const QPLIB_MIRROR_SHA256 = "896b2e1c5e5e78e7b89674cb6bc84a0f6e05a0e36adddeaaa744472733517672"
+const QPLIB_CITATION = """
+@article{Furini2019QPLIB,
+  title={QPLIB: a library of quadratic programming instances},
+  author={Furini, Fabio and Traversi, Emiliano and Belotti, Pietro and Frangioni, Antonio and Gleixner, Ambros and Gould, Nick and Liberti, Leo and Lodi, Andrea and Misener, Ruth and Mittelmann, Hans and Sahinidis, Nikolaos and Vigerske, Stefan and Wiegele, Angelika},
+  journal={Mathematical Programming Computation},
+  volume={11},
+  pages={237--265},
+  year={2019},
+  doi={10.1007/s12532-018-0147-4},
+}
+"""
+
+const QPLIB_DATA = Dict{String,Any}(
+    "name"         => "QPLIB",
+    "author"       => [
+        "Fabio Furini",
+        "Emiliano Traversi",
+        "Pietro Belotti",
+        "Antonio Frangioni",
+        "Ambros Gleixner",
+        "Nick Gould",
+        "Leo Liberti",
+        "Andrea Lodi",
+        "Ruth Misener",
+        "Hans Mittelmann",
+        "Nikolaos Sahinidis",
+        "Stefan Vigerske",
+        "Angelika Wiegele",
+    ],
+    "description"  => "The Quadratic Programming Library",
+    "year"         => 2014,
+    "url"          => "https://qplib.zib.de/",
+    "data_license" => "CC-BY-4.0",
+    "citation"     => QPLIB_CITATION,
+    "metadata"     => Dict{String,Any}(
+        "source_name"          => "QPLIB",
+        "source_url"           => "https://qplib.zib.de/",
+        "mirror_url"           => QPLIB_URL,
+        "mirror_sha256"        => QPLIB_MIRROR_SHA256,
+        "citation_doi"         => "10.1007/s12532-018-0147-4",
+        "license_evidence_url" => "https://qplib.zib.de/",
+        "provenance_status"    => "partial",
+        "rights_status"        => "verified",
+        "provenance_note"      => "The exact upstream QPLIB snapshot used to build the mirror has not been recorded.",
+    ),
+)
 
 function build_qplib!(index::QUBOLib.LibraryIndex; cache::Bool = true)
     if QUBOLib.has_collection(index, "qplib")
@@ -248,31 +295,7 @@ function build_qplib!(index::QUBOLib.LibraryIndex; cache::Bool = true)
 
     @info "[qplib] Building QPLIB"
 
-    QUBOLib.add_collection!(
-        index,
-        "qplib",
-        Dict{String,Any}(
-            "name"        => "QPLIB",
-            "author"      => [
-                "Fabio Furini",
-                "Emiliano Traversi",
-                "Pietro Belotti",
-                "Antonio Frangioni",
-                "Ambros Gleixner",
-                "Nick Gould",
-                "Leo Liberti",
-                "Andrea Lodi",
-                "Ruth Misener",
-                "Hans Mittelmann",
-                "Nikolaos Sahinidis",
-                "Stefan Vigerske",
-                "Angelika Wiegele"
-            ],
-            "description" => "The Quadratic Programming Library",
-            "year"        => 2014,
-            "url"         => "http://qplib.zib.de/",
-        ),
-    )
+    QUBOLib.add_collection!(index, "qplib", QPLIB_DATA)
 
     code_list = load_qplib!(index)
 

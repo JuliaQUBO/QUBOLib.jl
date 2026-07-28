@@ -95,7 +95,21 @@ julia> QUBOLib.access() do index
        end
 ```
 
+## Citation and dataset provenance
+
+For general use, cite the
+[QUBO.jl ecosystem article](https://doi.org/10.1080/10556788.2026.2702926).
+Use [`CITATION.cff`](CITATION.cff) for QUBOLib software citation metadata and
+identify the package version used.
+
+The data artifact combines independently sourced collections; the repository's
+MIT software license is not a blanket dataset license. Before redistributing or
+publishing the corpus, consult [`DATASET.md`](DATASET.md) and its
+machine-readable [`DATASET.toml`](DATASET.toml) inventory for the exact artifact
+hashes, source citations, provenance status, and collection-specific terms.
+
 ## Project maintenance
 
 - See [`CHANGELOG.md`](CHANGELOG.md) for package release notes.
 - See [`RELEASE.md`](RELEASE.md) for the package and data-artifact release checklist.
+- See [`DATASET.md`](DATASET.md) for dataset provenance and publication status.
