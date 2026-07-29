@@ -280,6 +280,15 @@ function check_dataset_collections!(
             )
         end
 
+        if provenance_status == "verified"
+            check!(
+                failures,
+                haskey(collection, "source_commit") &&
+                is_lower_hex(collection["source_commit"], 40),
+                "Collection '$id' has verified provenance but no valid source commit.",
+            )
+        end
+
         if haskey(collection, "mirror_sha256")
             check!(
                 failures,

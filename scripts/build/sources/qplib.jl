@@ -235,6 +235,10 @@ end
 
 const QPLIB_URL = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/qplib.zip"
 const QPLIB_MIRROR_SHA256 = "896b2e1c5e5e78e7b89674cb6bc84a0f6e05a0e36adddeaaa744472733517672"
+const QPLIB_SOURCE_REPOSITORY_URL = "https://gitlab.com/svigerske/qplib-web"
+const QPLIB_SOURCE_COMMIT = "4b681a263d9c2cb21e83f08e1b3232361dcedd5a"
+const QPLIB_SOURCE_COMMIT_URL =
+    "https://gitlab.com/svigerske/qplib-web/-/commit/$QPLIB_SOURCE_COMMIT"
 const QPLIB_CITATION = """
 @article{Furini2019QPLIB,
   title={QPLIB: a library of quadratic programming instances},
@@ -270,15 +274,21 @@ const QPLIB_DATA = Dict{String,Any}(
     "data_license" => "CC-BY-4.0",
     "citation"     => QPLIB_CITATION,
     "metadata"     => Dict{String,Any}(
-        "source_name"          => "QPLIB",
-        "source_url"           => "https://qplib.zib.de/",
-        "mirror_url"           => QPLIB_URL,
-        "mirror_sha256"        => QPLIB_MIRROR_SHA256,
-        "citation_doi"         => "10.1007/s12532-018-0147-4",
-        "license_evidence_url" => "https://qplib.zib.de/",
-        "provenance_status"    => "partial",
-        "rights_status"        => "verified",
-        "provenance_note"      => "The exact upstream QPLIB snapshot used to build the mirror has not been recorded.",
+        "source_name"              => "QPLIB",
+        "source_url"               => "https://qplib.zib.de/",
+        "source_repository_url"    => QPLIB_SOURCE_REPOSITORY_URL,
+        "source_commit"            => QPLIB_SOURCE_COMMIT,
+        "source_commit_url"        => QPLIB_SOURCE_COMMIT_URL,
+        "source_snapshot_status"   => "reconstructed-and-verified",
+        "source_snapshot_evidence" => "The 2018 mirror timestamps and all 23 historical solution objectives identify source commit 4b681a2.",
+        "mirror_url"               => QPLIB_URL,
+        "mirror_sha256"            => QPLIB_MIRROR_SHA256,
+        "citation_doi"             => "10.1007/s12532-018-0147-4",
+        "license_evidence_url"     => "https://qplib.zib.de/",
+        "provenance_status"        => "verified",
+        "rights_status"            => "verified",
+        "provenance_note"          => "Later official-file drift is documented in DATASET.md.",
+        "transformation_note"      => "QUBOLib redistributes a processed subset of 23 QBB instances, parsing QPLIB models, mapping SOL entries through LP variable names, and storing the results in HDF5 and SQLite.",
     ),
 )
 

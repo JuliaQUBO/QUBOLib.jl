@@ -221,10 +221,21 @@ function test_dataset_collection_metadata()
 
         @test QPLIB_DATA["data_license"] == "CC-BY-4.0"
         @test occursin("10.1007/s12532-018-0147-4", QPLIB_DATA["citation"])
-        @test QPLIB_DATA["metadata"]["provenance_status"] == "partial"
+        @test QPLIB_DATA["metadata"]["provenance_status"] == "verified"
         @test QPLIB_DATA["metadata"]["rights_status"] == "verified"
+        @test QPLIB_DATA["metadata"]["source_commit"] == QPLIB_SOURCE_COMMIT
+        @test QPLIB_DATA["metadata"]["source_commit_url"] == QPLIB_SOURCE_COMMIT_URL
+        @test occursin(
+            "23 historical solution objectives",
+            QPLIB_DATA["metadata"]["source_snapshot_evidence"],
+        )
+        @test occursin("processed subset", QPLIB_DATA["metadata"]["transformation_note"])
         @test QPLIB_DATA["metadata"]["mirror_sha256"] == QPLIB_MIRROR_SHA256
         @test inventory["qplib"]["mirror_sha256"] == QPLIB_MIRROR_SHA256
+        @test inventory["qplib"]["source_commit"] == QPLIB_SOURCE_COMMIT
+        @test inventory["qplib"]["provenance_status"] == "verified"
+        @test inventory["qplib"]["mirror_files"] == 69
+        @test length(inventory["qplib"]["updated_solution_files"]) == 4
         @test inventory["qplib"]["data_license"] == QPLIB_DATA["data_license"]
 
         @test QOBLIB_DATA["data_license"] == "CC-BY-4.0"

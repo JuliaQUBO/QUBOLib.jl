@@ -24,7 +24,6 @@ related_identifiers_status = "not-recorded"
 license_model = "per-collection"
 blocking_reasons = [
     "Explicit written authorization covering all three XORSAT collections, transformed artifacts, public Zenodo deposit, and CC BY 4.0 is not yet recorded.",
-    "The QPLIB mirror is pinned by SHA-256, but its exact upstream snapshot is not recorded.",
     "A dataset record, related identifiers, and access for two active managers are not recorded.",
 ]
 
@@ -78,15 +77,26 @@ id = "qplib"
 instances = 23
 source_title = "QPLIB: a library of quadratic programming instances"
 source_url = "https://qplib.zib.de/"
+source_repository_url = "https://gitlab.com/svigerske/qplib-web"
+source_commit = "4b681a263d9c2cb21e83f08e1b3232361dcedd5a"
+source_commit_url = "https://gitlab.com/svigerske/qplib-web/-/commit/4b681a263d9c2cb21e83f08e1b3232361dcedd5a"
+source_snapshot_status = "reconstructed-and-verified"
+source_snapshot_evidence = "The 46 LP and QPLIB mirror members were generated at 2018-09-23T11:23-11:24Z, after source commit 4b681a2 at 11:12Z and before the next commit at 21:41Z; all 23 mirrored solution objectives match the metadata at 4b681a2."
 citation_doi = "10.1007/s12532-018-0147-4"
 source_format = "QPLIB, LP, and SOL text"
 mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/qplib.zip"
 mirror_sha256 = "896b2e1c5e5e78e7b89674cb6bc84a0f6e05a0e36adddeaaa744472733517672"
-provenance_status = "partial"
+mirror_files = 69
+current_comparison_commit = "f601bec47cbafd7afe03aad30d5135d6676568f1"
+current_comparison_observed_at = "2026-07-29"
+current_comparison_summary = "Against the official files at f601bec: 23/23 LP files are byte-identical; 23/23 QPLIB files differ only on the problem-type line corrected in 2025; 19/23 SOL files are byte-identical."
+updated_solution_files = ["QPLIB_3650.sol", "QPLIB_3693.sol", "QPLIB_3850.sol", "QPLIB_5721.sol"]
+transformation_note = "QUBOLib redistributes a processed subset: it selects the 23 QBB instances, parses each QPLIB model, uses LP variable names to map SOL entries, and stores the resulting models and solutions in HDF5 and SQLite."
+provenance_status = "verified"
 rights_status = "verified"
 data_license = "CC-BY-4.0"
 license_evidence_url = "https://qplib.zib.de/"
-required_action = "Record the exact upstream QPLIB snapshot used to create the mirror."
+required_action = "Preserve the source commit, QPLIB article and website attribution, CC BY 4.0 notice, and QUBOLib processing statement."
 
 [[collections]]
 id = "qoblib"

@@ -57,7 +57,7 @@ query must return the same five collection counts recorded below.
 | `arXiv-1903-10928-3r3x` | 3,200 | Partial | Preliminary reply; exact grant pending | [10.1103/PhysRevApplied.12.011003](https://doi.org/10.1103/PhysRevApplied.12.011003) |
 | `arXiv-1903-10928-5r5x` | 307 | Partial | Preliminary reply; exact grant pending | [10.1103/PhysRevApplied.12.011003](https://doi.org/10.1103/PhysRevApplied.12.011003) |
 | `arXiv-2103-08464-3r3x` | 2,300 | Partial | Preliminary reply; exact grant pending | [10.1088/2058-9565/ac4d1b](https://doi.org/10.1088/2058-9565/ac4d1b) |
-| `qplib` | 23 | Partial | CC-BY-4.0 verified | [10.1007/s12532-018-0147-4](https://doi.org/10.1007/s12532-018-0147-4) |
+| `qplib` | 23 | Verified at reconstructed source commit | CC-BY-4.0 verified | [10.1007/s12532-018-0147-4](https://doi.org/10.1007/s12532-018-0147-4) |
 | `qoblib` | 433 | Verified at pinned commit | CC-BY-4.0 verified | [10.1038/s43588-026-00991-1](https://doi.org/10.1038/s43588-026-00991-1) |
 
 The three XORSAT mirror ZIPs contain instance files but no license, notice, or
@@ -76,10 +76,38 @@ Publication therefore remains blocked until a data rights holder supplies a
 clear grant covering QUBOLib, the transformed artifact, and the intended
 Zenodo deposit.
 
-[QPLIB states that the library is CC-BY-4.0](https://qplib.zib.de/). The exact
-QUBOLib mirror is pinned by SHA-256, but the upstream QPLIB snapshot used to
-create it was not recorded. That source version must be documented before a
-dataset deposit is finalized.
+[QPLIB states that the library is CC-BY-4.0](https://qplib.zib.de/). Its
+maintainers confirmed that the website is the sole official distribution,
+QPLIB has no numbered releases or historical archive, the underlying instance
+definitions have not changed since inclusion, and attribution should cite the
+QPLIB article and link to the official website. They also confirmed that
+solution files and generated exports may be updated and identified the
+[repository that feeds the website](https://gitlab.com/svigerske/qplib-web)
+as the available change history.
+
+The QUBOLib mirror was reconstructed against that repository. Its 46 `.lp` and
+`.qplib` members were generated at 2018-09-23 11:23--11:24 UTC, after commit
+[`4b681a2`](https://gitlab.com/svigerske/qplib-web/-/commit/4b681a263d9c2cb21e83f08e1b3232361dcedd5a)
+at 11:12 UTC and before the next repository commit at 21:41 UTC. All 23
+mirrored solution objective values match the metadata at `4b681a2`.
+
+A comparison on 2026-07-29 against official repository commit
+`f601bec47cbafd7afe03aad30d5135d6676568f1` and the corresponding website
+files found:
+
+- all 23 `.lp` files byte-identical;
+- all 23 `.qplib` files byte-identical except for the problem-type line changed
+  from `QBB` to `QBN` by QPLIB's 2025 classification correction;
+- 19 of 23 `.sol` files byte-identical; QPLIB subsequently updated
+  `QPLIB_3650.sol`, `QPLIB_3693.sol`, `QPLIB_3850.sol`, and
+  `QPLIB_5721.sol`.
+
+QUBOLib redistributes a processed subset of QPLIB. The build selects the 23
+`QBB` instances, parses each `.qplib` model, uses the `.lp` variable names to
+map `.sol` entries, and stores the resulting models and solutions in the
+artifact's HDF5 and SQLite files. The dataset record must identify these
+changes, retain the QPLIB article and website attribution, and include the
+CC-BY-4.0 notice.
 
 QOBLIB commit
 [`80e45c176fc6281e5316451f02296482934785fa`](https://github.com/ZIB-AOPT/QOBLIB/tree/80e45c176fc6281e5316451f02296482934785fa)
