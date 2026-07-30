@@ -227,6 +227,9 @@ function check_dataset_collections!(
         raw_id = get(collection, "id", "")
         id = raw_id isa AbstractString ? String(raw_id) : ""
         provenance_status = get(collection, "provenance_status", "")
+        provenance_evidence_status =
+            get(collection, "provenance_evidence_status", nothing)
+        provenance_evidence_url = get(collection, "provenance_evidence_url", nothing)
         rights_status = get(collection, "rights_status", "")
         rights_evidence_status = get(collection, "rights_evidence_status", nothing)
         instances = get(collection, "instances", 0)
@@ -248,6 +251,13 @@ function check_dataset_collections!(
             provenance_status in ("partial", "verified"),
             "Collection '$id' has an invalid provenance_status.",
         )
+        if !isnothing(provenance_evidence_status)
+            check!(
+                failures,
+                provenance_evidence_status == "verified-public-evidence",
+                "Collection '$id' has an invalid provenance_evidence_status.",
+            )
+        end
         check!(
             failures,
             rights_status in ("pending", "verified"),
@@ -281,11 +291,17 @@ function check_dataset_collections!(
         end
 
         if provenance_status == "verified"
+            has_source_commit =
+                haskey(collection, "source_commit") &&
+                is_lower_hex(collection["source_commit"], 40)
+            has_public_evidence =
+                provenance_evidence_status == "verified-public-evidence" &&
+                provenance_evidence_url isa AbstractString &&
+                startswith(provenance_evidence_url, "https://")
             check!(
                 failures,
-                haskey(collection, "source_commit") &&
-                is_lower_hex(collection["source_commit"], 40),
-                "Collection '$id' has verified provenance but no valid source commit.",
+                has_source_commit || has_public_evidence,
+                "Collection '$id' has verified provenance but neither a valid source commit nor verified public evidence.",
             )
         end
 

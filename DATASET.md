@@ -54,27 +54,21 @@ query must return the same five collection counts recorded below.
 
 | Collection | Instances | Provenance | Redistribution rights | Citation |
 |:--|--:|:--|:--|:--|
-| `arXiv-1903-10928-3r3x` | 3,200 | Partial | Preliminary reply; exact grant pending | [10.1103/PhysRevApplied.12.011003](https://doi.org/10.1103/PhysRevApplied.12.011003) |
-| `arXiv-1903-10928-5r5x` | 307 | Partial | Preliminary reply; exact grant pending | [10.1103/PhysRevApplied.12.011003](https://doi.org/10.1103/PhysRevApplied.12.011003) |
-| `arXiv-2103-08464-3r3x` | 2,300 | Partial | Preliminary reply; exact grant pending | [10.1088/2058-9565/ac4d1b](https://doi.org/10.1088/2058-9565/ac4d1b) |
+| `arXiv-1903-10928-3r3x` | 3,200 | Verified by rights-holder statement | CC-BY-4.0 verified | [10.1103/PhysRevApplied.12.011003](https://doi.org/10.1103/PhysRevApplied.12.011003) |
+| `arXiv-1903-10928-5r5x` | 307 | Verified by rights-holder statement | CC-BY-4.0 verified | [10.1103/PhysRevApplied.12.011003](https://doi.org/10.1103/PhysRevApplied.12.011003) |
+| `arXiv-2103-08464-3r3x` | 2,300 | Verified by rights-holder statement | CC-BY-4.0 verified | [10.1088/2058-9565/ac4d1b](https://doi.org/10.1088/2058-9565/ac4d1b) |
 | `qplib` | 23 | Verified at reconstructed source commit | CC-BY-4.0 verified | [10.1007/s12532-018-0147-4](https://doi.org/10.1007/s12532-018-0147-4) |
 | `qoblib` | 433 | Verified at pinned commit | CC-BY-4.0 verified | [10.1038/s43588-026-00991-1](https://doi.org/10.1038/s43588-026-00991-1) |
 
-The three XORSAT mirror ZIPs contain instance files but no license, notice, or
-redistribution grant. Itay Hen subsequently permitted continued hosting of the
-source archives in private correspondence and indicated that CC BY 4.0 is
-acceptable. The reply used tentative rights-holder language, however, and did
-not explicitly cover all three named collections, transformed or packaged
-artifacts, a public Zenodo deposit, or public citation of the permission. A
-follow-up requesting that exact confirmation is pending.
-
-The associated arXiv records use the
-[arXiv non-exclusive distribution license](https://arxiv.org/licenses/nonexclusive-distrib/1.0/license.html),
-which records permission for arXiv to distribute the articles. It is not
-evidence that QUBOLib may redistribute the associated instance archives.
-Publication therefore remains blocked until a data rights holder supplies a
-clear grant covering QUBOLib, the transformed artifact, and the intended
-Zenodo deposit.
+The three XORSAT mirror ZIPs contain instance files but no embedded license
+notice. Itay Hen subsequently supplied an
+[explicit written grant](https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5132166520)
+confirming that he owns or is authorized by all applicable rights holders to
+license the three named archives under CC BY 4.0. The grant authorizes QUBOLib
+to reproduce, host, redistribute, reformat, convert, and package them through
+GitHub Releases and Zenodo. QUBOLib parses the Qubist source files and stores
+the converted models in HDF5 and SQLite. The dataset record must retain the
+source-paper attribution and CC BY 4.0 notice and identify this conversion.
 
 [QPLIB states that the library is CC-BY-4.0](https://qplib.zib.de/). Its
 maintainers confirmed that the website is the sole official distribution,

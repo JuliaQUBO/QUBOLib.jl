@@ -200,23 +200,35 @@ function test_dataset_collection_metadata()
             metadata = data["metadata"]
 
             @test haskey(data, "citation")
-            @test !haskey(data, "data_license")
-            @test metadata["provenance_status"] == "partial"
-            @test metadata["rights_status"] == "pending"
-            @test metadata["rights_evidence_status"] == "preliminary-private-correspondence"
-            @test occursin("explicit confirmation", metadata["rights_note"])
+            @test data["data_license"] == "CC-BY-4.0"
+            @test metadata["provenance_status"] == "verified"
+            @test metadata["provenance_evidence_status"] == "verified-public-evidence"
+            @test metadata["provenance_evidence_url"] == HEN_LICENSE_GRANT_URL
+            @test metadata["rights_status"] == "verified"
+            @test metadata["rights_evidence_status"] == "verified-public-evidence"
+            @test metadata["license_evidence_url"] == HEN_LICENSE_GRANT_URL
+            @test occursin("all applicable rights holders", metadata["rights_note"])
+            @test occursin("HDF5/SQLite", metadata["transformation_note"])
             @test metadata["mirror_sha256"] == entry[:mirror_sha256]
             @test occursin(r"^[0-9a-f]{64}$", metadata["mirror_sha256"])
             @test inventory[code]["mirror_sha256"] == metadata["mirror_sha256"]
             @test inventory[code]["citation_doi"] == metadata["citation_doi"]
             @test inventory[code]["provenance_status"] == metadata["provenance_status"]
+            @test inventory[code]["provenance_evidence_status"] ==
+                  metadata["provenance_evidence_status"]
+            @test inventory[code]["provenance_evidence_url"] ==
+                  metadata["provenance_evidence_url"]
             @test inventory[code]["rights_status"] == metadata["rights_status"]
             @test inventory[code]["rights_evidence_status"] ==
                   metadata["rights_evidence_status"]
+            @test inventory[code]["data_license"] == data["data_license"]
+            @test inventory[code]["license_evidence_url"] ==
+                  metadata["license_evidence_url"]
             @test occursin(
-                "explicit scope confirmation",
+                "all applicable rights holders",
                 inventory[code]["rights_evidence_summary"],
             )
+            @test occursin("HDF5/SQLite", inventory[code]["transformation_note"])
         end
 
         @test QPLIB_DATA["data_license"] == "CC-BY-4.0"
