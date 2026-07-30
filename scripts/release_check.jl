@@ -438,6 +438,11 @@ function check_zenodo_metadata!(
             related_identifiers_status == "verified",
             "A ready or published dataset requires verified related identifiers.",
         )
+        check!(
+            failures,
+            byte_identity_status == "verified",
+            "A ready or published dataset requires verified byte identity.",
+        )
     end
 
     if require_publishable
@@ -449,11 +454,6 @@ function check_zenodo_metadata!(
     end
 
     if status == "published"
-        check!(
-            failures,
-            byte_identity_status == "verified",
-            "A published dataset requires verified byte identity.",
-        )
         check!(
             failures,
             haskey(zenodo, "concept_doi") && haskey(zenodo, "version_doi"),

@@ -125,8 +125,9 @@ blanket dataset license.
 
 ## Zenodo publication gate
 
-`DATASET.toml` deliberately records the dataset as `blocked`. Do not upload the
-corpus or claim a QUBOLib dataset DOI until all of the following are true:
+`DATASET.toml` deliberately records the dataset as `blocked`. Do not publish
+the Zenodo record or claim a QUBOLib dataset DOI until all of the following are
+true:
 
 1. Every populated collection has verified provenance and redistribution
    rights.

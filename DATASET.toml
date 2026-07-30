@@ -23,7 +23,7 @@ byte_identity_status = "not-verified"
 related_identifiers_status = "not-recorded"
 license_model = "per-collection"
 blocking_reasons = [
-    "A dataset record, related identifiers, and access for two active managers are not recorded.",
+    "A Zenodo dataset record, related identifiers, access for two active managers, and a byte-identity check against the GitHub release asset are not recorded.",
 ]
 
 [[collections]]
