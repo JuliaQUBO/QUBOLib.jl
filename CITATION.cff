@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+message: "For general use, cite the preferred QUBO.jl ecosystem article; also cite the exact QUBOLib software and dataset versions used."
+title: "QUBOLib.jl"
+type: software
+abstract: "A Julia interface to a curated collection of binary quadratic optimization benchmark instances."
+authors:
+  - given-names: "Pedro"
+    family-names: "Maciel Xavier"
+  - given-names: "David E."
+    family-names: "Bernal Neira"
+repository-code: "https://github.com/JuliaQUBO/QUBOLib.jl"
+url: "https://juliaqubo.github.io/QUBOLib.jl"
+license: MIT
+version: "0.2.4"
+date-released: "2026-06-26"
+keywords:
+  - "binary optimization"
+  - "benchmark dataset"
+  - "Julia"
+  - "QUBO"
+preferred-citation:
+  type: article
+  title: "QUBO.jl: a Julia ecosystem for quadratic unconstrained binary optimization"
+  authors:
+    - given-names: "Pedro"
+      family-names: "Maciel Xavier"
+    - given-names: "Pedro"
+      family-names: "Ripper"
+    - given-names: "Tiago"
+      family-names: "Andrade"
+    - given-names: "Joaquim"
+      family-names: "Dias Garcia"
+    - given-names: "Nelson"
+      family-names: "Maculan"
+    - given-names: "David E."
+      family-names: "Bernal Neira"
+  doi: "10.1080/10556788.2026.2702926"
+  journal: "Optimization Methods and Software"
+  year: 2026

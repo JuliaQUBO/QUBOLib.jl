@@ -142,6 +142,8 @@ function qubolib_release_notes(
 
     QOBLIB source code and scripts are Apache-2.0 licensed. QOBLIB data is CC-BY-4.0 licensed. Cite QOBLIB with the collection citation stored in the artifact metadata.
 
+    This artifact also contains collections with separate provenance, citation, and redistribution terms; no blanket dataset license applies. Review [the QUBOLib dataset audit](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.md) before redistribution. Do not publish the corpus to Zenodo until every populated collection passes the recorded rights and provenance gates.
+
     ## `Artifacts.toml`
 
     To access the `qubolib` artifact in your project, add the following entry to `Artifacts.toml`.
@@ -157,6 +159,8 @@ function qubolib_mirror_release_notes()
     # QUBOLib Data Mirror Release Notes
 
     This release provides access to mirrored and preprocessed instances from other libraries, including the pinned QOBLIB source archive used to build the packaged QUBOLib data artifact.
+
+    Each source retains its own provenance, citation, and redistribution terms; no blanket dataset license applies. See [the QUBOLib dataset audit](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.md) before using a mirror to build or publish a corpus.
     """
 end
 
