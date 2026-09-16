@@ -7,9 +7,9 @@ QUBOTools = "60eb5b62-0a39-4ddc-84c5-97d2adff9319"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
 [compat]
-Downloads = "1.7.0"
+Downloads = "1.7.0, < 0.0.1, 1.4"
 JuliaFormatter = "2.10.1"
 LaTeXStrings = "1.4.0"
 QUBOLib = "0.2.4"
 QUBOTools = "0.16.0"
-TOML = "1.0.3"
+TOML = "1.0.3, < 0.0.1, 1"
