@@ -24,7 +24,9 @@ through [`Artifacts.toml`](Artifacts.toml).
 
 The SHA-256 was recomputed from the GitHub release asset. The inventory was
 queried from the asset's SQLite index. A Zenodo upload must use these exact
-bytes; rebuilding the database is not an equivalent archive.
+bytes if this release is chosen; rebuilding the database is not an equivalent
+archive. The preferred first Zenodo version is now the reviewed successor
+described below, after its GitHub publication and artifact-pointer update.
 
 `index.db` is the relational catalog of collections, instances, and solutions.
 `archive.h5` stores the corresponding models and solution payloads. Reproduce
@@ -49,6 +51,70 @@ sqlite3 "$audit_dir/extracted/index.db" \
 
 The expected SHA-256 and tree hash are the values in the table above. The SQL
 query must return the same five collection counts recorded below.
+
+## September QOBLIB candidate (not published)
+
+The importer now uses QOBLIB
+[`16a166ee67c24c112551c803aab5394743b815b5`](https://github.com/ZIB-AOPT/QOBLIB/tree/16a166ee67c24c112551c803aab5394743b815b5).
+This includes Parallel ILS, merged through upstream PR #33 after replacing
+PR #22, and the subsequent portfolio, LABS, market-split, and MIS updates.
+The snapshot retains the
+[CC-BY-4.0 data license](https://github.com/ZIB-AOPT/QOBLIB/blob/16a166ee67c24c112551c803aab5394743b815b5/LICENSE.data).
+
+The full corpus was rebuilt on 2026-09-28 with Julia 1.10.11 at QUBOLib commit
+`8735aa035a082401a01b5cb2540bd1ebaf00c675`. The three XORSAT sources and QPLIB
+source were checked against the mirror hashes in `DATASET.toml`; their source
+snapshots and instance counts are unchanged. The candidate is separate from
+the selected artifact above and has not been uploaded to GitHub or Zenodo.
+
+| Property | Candidate value |
+|:--|:--|
+| Proposed tag | `v0.2.4-data+4` (`v0.2.0-data+3` already exists) |
+| Asset | `qubolib.tar.gz` |
+| Compressed size | 102,890,681 bytes |
+| SHA-256 | `276eb06a66cec325cd3ec895cded7ba28f848aeb3998f4944466acbb33bcd001` |
+| Julia artifact tree hash | `90da567266bc93ffb76cc0435691409557d500fc` |
+| Archive members | `archive.h5`, `index.db` |
+| Corpus | 6,263 instances in 5 populated collections |
+| QOBLIB | 433 instances; 392 reference solutions, 41 missing references |
+
+The QOBLIB solution-record inventory is:
+
+| Class | Instances | Validated | Unmapped | Unavailable | Missing reference |
+|:--|--:|--:|--:|--:|--:|
+| LABS | 99 | 605 | 0 | 99 | 0 |
+| Market Split | 156 | 451 | 0 | 60 | 41 |
+| Maximum Independent Set | 50 | 704 | 0 | 0 | 0 |
+| Portfolio Optimization | 128 | 271 | 113 | 0 | 0 |
+| Total | 433 | 2,031 | 113 | 159 | 41 |
+
+These are record counts, not unique solutions or instances. `validated` means
+the assignment was mapped and evaluated on the stored QUBO; it does not certify
+source-model feasibility or optimality. `unavailable` submissions have no
+usable solution file, and `missing` records identify absent reference solutions.
+All 50 Parallel ILS assignments are included, including source objectives 96
+for `frb100-40` and 53 for `frb53-24-1` (QUBO values -96 and -53).
+
+Portfolio positions are converted to ordered copy slots and reconstructed
+capital/budget slack bits, not the original solver bitstrings. All 128 curated
+reference objectives match their evaluated QUBO values. The 113 unmapped
+portfolio submissions have infeasible slack values and remain metadata-only;
+no assignment is invented. Compact market-split bitstrings and MIS full bit
+vectors are now supported alongside the existing formats.
+
+To reproduce the build, check out the recorded build commit, instantiate
+`scripts/build`, and run `build_qubolib!(destination; clear_build = true)` from
+`scripts/build/build.jl` in a fresh destination. It downloads the pinned sources;
+`QUBOLIB_QOBLIB_SOURCE` can instead point to a clean checkout of the exact
+QOBLIB commit. Before packaging, set `dist/build/last.tag` under the destination
+to `v0.2.0-data+3` so the generated successor is `v0.2.4-data+4`. Package locally
+with `QUBOLib.access(index -> deploy_qubolib!(index); path = destination)`;
+the function writes local release files but does not upload them. Re-audit any rebuilt bytes: database
+serialization and dependency resolution can change the artifact hashes.
+
+Retain the audited tarball until human review and follow
+[`RELEASE.md`](RELEASE.md#promote-a-reviewed-candidate) to publish and select it.
+The importer PR alone does not change the package's download or complete #70.
 
 ## Collection audit
 
@@ -134,7 +200,11 @@ true:
 2. The exact release asset, SHA-256, and Julia tree hash are recorded.
 3. The dataset description includes the schema, collection inventory,
    provenance, licenses, citations, and reproduction instructions.
-4. At least two active maintainers have `Can manage` access to the record.
+4. David Bernal (`bernalde`) has verified owner/manager access under the
+   [2026-08-01 stewardship decision](https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5153545937).
+   This supersedes the two-manager completion gate; it does not verify access
+   by itself. Use his personal account without sharing credentials, and revisit
+   a backup manager annually or when maintainership changes.
 5. Related identifiers connect the dataset, repository, package and data
    releases, upstream sources, and ecosystem article.
 6. A downloaded Zenodo file is byte-identical to the selected GitHub asset.

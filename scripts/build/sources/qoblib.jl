@@ -2,7 +2,7 @@ struct QOBLIBQS <: QUBOTools.AbstractFormat end
 
 const QOBLIB_COLLECTION = "qoblib"
 const QOBLIB_REPOSITORY = "ZIB-AOPT/QOBLIB"
-const QOBLIB_SOURCE_COMMIT = "80e45c176fc6281e5316451f02296482934785fa"
+const QOBLIB_SOURCE_COMMIT = "16a166ee67c24c112551c803aab5394743b815b5"
 const QOBLIB_ARCHIVE_URL = "https://github.com/$(QOBLIB_REPOSITORY)/archive/$(QOBLIB_SOURCE_COMMIT).zip"
 const QOBLIB_SOURCE_TEXT_MAX_BYTES = 1_000_000
 
@@ -34,8 +34,8 @@ const QOBLIB_GROUPS = (
         problem_class       = "Portfolio Optimization",
         formulation         = "unconstrained_quadratic_optimization",
         path                = "06-portfolio/models/unconstrained_quadratic_optimization/qs_files",
-        solution_path       = "06-portfolio/solutions/uqo",
-        solution_format     = :assignments,
+        solution_path       = "06-portfolio/solutions",
+        solution_format     = :portfolio_positions,
         expected_count      = 128,
         expected_incumbents = 128,
         nested              = true,
@@ -66,11 +66,11 @@ const QOBLIB_CITATION = """
 """
 
 const QOBLIB_CONSTRAINED_INVENTORY_SOURCE = Dict{String,Any}(
-    "observed_at"           => "2026-06-18",
+    "observed_at"           => "2026-09-28",
     "repository"            => QOBLIB_REPOSITORY,
     "pinned_source_commit"  => QOBLIB_SOURCE_COMMIT,
     "default_branch"        => "main",
-    "default_branch_commit" => "a686aaa09fe14651294f744f34d453d5dce9cf57",
+    "default_branch_commit" => QOBLIB_SOURCE_COMMIT,
     "github_release_status" => "no_github_releases",
     "artifact_probe"        =>
         "tree_scan_for_qs_and_qs_xz_blobs_found_zero_for_each_constrained_class",
@@ -497,7 +497,7 @@ function _qoblib_solution_status(file::AbstractString)
 end
 
 function _qoblib_portfolio_key(stem::AbstractString)
-    name = startswith(stem, "uqo_") ? stem[5:end] : String(stem)
+    name = replace(String(stem), r"^(uqo_|po_)" => "")
     m = match(r"^(.*)_l([^_]+)$", name)
 
     if isnothing(m)
@@ -510,7 +510,8 @@ end
 function _qoblib_solution_key(group, path::AbstractString)
     stem = _qoblib_qs_stem(path)
 
-    if hasproperty(group, :solution_format) && group.solution_format == :assignments
+    if hasproperty(group, :solution_format) &&
+       group.solution_format in (:assignments, :portfolio_positions)
         return _qoblib_portfolio_key(stem)
     else
         return stem
@@ -593,7 +594,8 @@ function _qoblib_direct_solution_index(root_path::AbstractString, group)
             status = _qoblib_solution_status(file)
             path = joinpath(root, file)
 
-            index[status.stem] = (
+            key = _qoblib_solution_key(group, status.stem)
+            index[key] = (
                 kind = :file,
                 path = path,
                 member = nothing,
@@ -671,15 +673,13 @@ function _qoblib_parse_bit_tokens(lines::Vector{String})
         append!(tokens, split(line))
     end
 
-    return map(tokens) do token
-        if token == "0"
-            return 0
-        elseif token == "1"
-            return 1
-        else
+    state = Int[]
+    for token in tokens
+        occursin(r"^[01]+$", token) ||
             QUBOTools.syntax_error("Invalid QOBLIB incumbent bit '$token'")
-        end
+        append!(state, Int(bit == '1') for bit in token)
     end
+    return state
 end
 
 function _qoblib_read_bit_tokens(lines::Vector{String}, dimension::Integer)
@@ -826,6 +826,8 @@ function _qoblib_read_solution(info, format::Symbol, dimension::Integer)
         error("[qoblib] Unsupported incumbent source kind '$(info.kind)'")
     end
 end
+
+include("qoblib_portfolio.jl")
 
 function _qoblib_source_path(root_path::AbstractString, info)
     source_path = replace(relpath(info.path, root_path), '\\' => '/')
@@ -1196,7 +1198,8 @@ end
 function _qoblib_submission_key(group, problem)
     stem = _qoblib_qs_stem(String(problem))
 
-    if hasproperty(group, :solution_format) && group.solution_format == :assignments
+    if hasproperty(group, :solution_format) &&
+       group.solution_format in (:assignments, :portfolio_positions)
         return _qoblib_portfolio_key(stem)
     else
         return stem
@@ -1391,7 +1394,8 @@ function _qoblib_submission_proven_optimal(row)
     end
 end
 
-function _qoblib_submission_solution_format(path::AbstractString, group)
+function _qoblib_submission_solution_format(path::AbstractString, group, dimension::Integer)
+    tokens = String[]
     for raw_line in eachline(path)
         line = strip(raw_line)
 
@@ -1400,8 +1404,18 @@ function _qoblib_submission_solution_format(path::AbstractString, group)
         elseif occursin(r"^x#[0-9]+\s+", line)
             return :assignments
         else
-            break
+            append!(tokens, split(line))
         end
+    end
+
+    # Some MIS submissions store a full bit vector rather than active indices.
+    # Require the model length; a short list containing only 1 stays an index list.
+    if hasproperty(group, :solution_format) &&
+       group.solution_format == :active_indices &&
+       !isempty(tokens) &&
+       all(t -> occursin(r"^[01]+$", t), tokens) &&
+       sum(length, tokens) == dimension
+        return :bit_tokens
     end
 
     if hasproperty(group, :solution_format)
@@ -1411,11 +1425,21 @@ function _qoblib_submission_solution_format(path::AbstractString, group)
     end
 end
 
-function _qoblib_read_submission_solution(path::AbstractString, group, dimension::Integer)
-    format = _qoblib_submission_solution_format(path, group)
+function _qoblib_read_submission_solution(
+    path::AbstractString,
+    group,
+    dimension::Integer;
+    root_path::AbstractString,
+    problem::AbstractString,
+)
+    format = _qoblib_submission_solution_format(path, group, dimension)
 
     return open(path, "r") do io
-        _qoblib_read_solution(io, format, dimension)
+        if format == :portfolio_positions
+            _qoblib_read_portfolio_solution(io, root_path, problem, dimension)
+        else
+            _qoblib_read_solution(io, format, dimension)
+        end
     end
 end
 
@@ -1557,7 +1581,13 @@ function _add_qoblib_submission!(
         solution_metadata["solution_source_url"] = _qoblib_source_url(root_path, solution_path)
 
         solution = try
-            _qoblib_read_submission_solution(solution_path, group, dimension)
+            _qoblib_read_submission_solution(
+                solution_path,
+                group,
+                dimension;
+                root_path,
+                problem = String(row["Problem"]),
+            )
         catch err
             _qoblib_add_unmapped_submission_record!(
                 index,
@@ -1577,6 +1607,9 @@ function _add_qoblib_submission!(
         end
 
         record_source_value = ismissing(source_value) ? solution.source_value : source_value
+        if hasproperty(solution, :conversion)
+            solution_metadata["conversion"] = solution.conversion
+        end
         qubo_value = QUBOTools.value(model, solution.state)
         source_evaluation = _qoblib_source_evaluation(
             source_evaluator,
@@ -1748,7 +1781,18 @@ function _add_qoblib_incumbent!(
 
     info = solution_index[key]
     dimension = QUBOTools.dimension(model)
-    solution = _qoblib_read_solution(info, group.solution_format, dimension)
+    solution = if group.solution_format == :portfolio_positions
+        open(info.path, "r") do io
+            _qoblib_read_portfolio_solution(
+                io,
+                root_path,
+                _qoblib_qs_stem(model_path),
+                dimension,
+            )
+        end
+    else
+        _qoblib_read_solution(info, group.solution_format, dimension)
+    end
     source_value = ismissing(info.source_value) ? solution.source_value : info.source_value
 
     if length(solution.state) != dimension
@@ -1765,6 +1809,9 @@ function _add_qoblib_incumbent!(
         context = _qoblib_source_path(root_path, info),
     )
     metadata = _qoblib_incumbent_metadata(root_path, group, info; source_value)
+    if hasproperty(solution, :conversion)
+        metadata["conversion"] = solution.conversion
+    end
     _qoblib_tag_source_value_agreement!(
         metadata,
         qubo_value,
@@ -1891,11 +1938,8 @@ function build_qoblib!(
                 metadata          = metadata,
             )
 
-            source_evaluator = _qoblib_source_evaluator(
-                index,
-                instance;
-                context = metadata["source_path"],
-            )
+            source_evaluator =
+                _qoblib_source_evaluator(index, instance; context = metadata["source_path"])
 
             incumbent_status = _add_qoblib_incumbent!(
                 index,
@@ -2042,6 +2086,10 @@ function _qoblib_archive_patterns(root::AbstractString, groups)
     patterns = ["$root/README.md", "$root/LICENSE", "$root/LICENSE.data"]
 
     for group in groups
+        if hasproperty(group, :solution_format) &&
+           group.solution_format == :portfolio_positions
+            push!(patterns, "$root/06-portfolio/instances/*/stock_prices.txt*")
+        end
         push!(patterns, "$root/$(group.path)/README.md")
         push!(patterns, "$root/$(group.path)/metrics.csv")
 
@@ -2184,7 +2232,7 @@ function _read_qoblib_metrics(path::AbstractString)
             row = Dict{String,String}(
                 String(k) => String(v) for (k, v) in zip(header, values)
             )
-            metrics[row["file"]] = Dict{String,Any}(
+            metrics[_qoblib_metric_key(row["file"])] = Dict{String,Any}(
                 "num_variables" => parse(Int, row["num_variables"]),
                 "density"       => parse(Float64, row["density"]),
                 "min_coeff"     => parse(Float64, row["min_coeff"]),
@@ -2203,7 +2251,9 @@ function _qoblib_metric_key(path::AbstractString)
         name = first(splitext(name))
     end
 
-    return name
+    # Upstream renamed portfolio QS files to scientific notation while the
+    # metrics table retains decimal lambda spellings.
+    return startswith(name, "uqo_") ? _qoblib_portfolio_key(_qoblib_qs_stem(name)) : name
 end
 
 function _qoblib_coefficients(model::QUBOTools.Model{Int,Float64,Int})

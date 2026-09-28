@@ -381,10 +381,17 @@ function check_zenodo_metadata!(
         active_managers isa Integer && active_managers >= 0,
         "DATASET.toml zenodo.active_manager_count must be a non-negative integer.",
     )
+    # The maintainer decision permits one designated owner, not an anonymous
+    # reduction of the access requirement. Actual access must still be verified.
+    sole_owner_exception =
+        get(zenodo, "designated_owner", "") == "bernalde" &&
+        get(zenodo, "manager_policy_evidence_url", "") ==
+        "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5153545937"
     check!(
         failures,
-        required_managers isa Integer && required_managers >= 2,
-        "DATASET.toml zenodo.required_active_managers must be at least 2.",
+        required_managers isa Integer &&
+        (required_managers >= 2 || (required_managers == 1 && sole_owner_exception)),
+        "DATASET.toml requires two managers or the documented designated-owner exception.",
     )
     check!(
         failures,
@@ -653,4 +660,6 @@ function main()
     return isempty(failures) ? 0 : 1
 end
 
-exit(main())
+if abspath(PROGRAM_FILE) == @__FILE__
+    exit(main())
+end

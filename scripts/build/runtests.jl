@@ -1,6 +1,7 @@
 using Test
 
 include("build.jl")
+include("test_portfolio.jl")
 
 function test_tags()
     @testset "▶ Tags" begin
@@ -254,14 +255,17 @@ function test_dataset_collection_metadata()
         @test QOBLIB_DATA["metadata"]["source_commit"] == QOBLIB_SOURCE_COMMIT
         @test QOBLIB_DATA["metadata"]["provenance_status"] == "verified"
         @test QOBLIB_DATA["metadata"]["rights_status"] == "verified"
-        @test inventory["qoblib"]["source_commit"] == QOBLIB_SOURCE_COMMIT
+        # The distributed artifact stays immutable while its successor is reviewed.
+        @test dataset["candidate_artifact"]["qoblib_source_commit"] == QOBLIB_SOURCE_COMMIT
         @test inventory["qoblib"]["data_license"] == QOBLIB_DATA["data_license"]
 
         collection_data = [entry[:data] for entry in values(HEN_DATA)]
         append!(collection_data, [QPLIB_DATA, QOBLIB_DATA])
 
         for data in collection_data
-            @test QUBOLib.JSON.parse(QUBOLib.JSON.json(data)) isa Dict
+            decoded = QUBOLib.JSON.parse(QUBOLib.JSON.json(data))
+            @test decoded isa AbstractDict
+            @test decoded == data
         end
     end
 
@@ -292,8 +296,9 @@ function test_deploy_qubolib_outputs()
                     """,
                 )
 
-                QUBOLib.access(; path, clear = true) do index
+                packaged_index = QUBOLib.access(; path, clear = true) do index
                     deploy_qubolib!(index)
+                    return index
                 end
 
                 build_path = QUBOLib.build_path(path)
@@ -305,10 +310,14 @@ function test_deploy_qubolib_outputs()
                 @test isfile(joinpath(build_path, "NOTES.md"))
 
                 hashes = _deploy_hashes(build_path)
+                @test hashes.tree ==
+                      bytes2hex(Pkg.GitTools.tree_hash(QUBOLib.library_path(path)))
+                @test hashes.tar ==
+                      bytes2hex(open(SHA.sha256, joinpath(build_path, "qubolib.tar.gz")))
 
-                QUBOLib.access(; path) do index
-                    deploy_qubolib!(index)
-                end
+                # Repackage the same closed files. Reopening HDF5 in write mode
+                # can change file metadata, which is a different input artifact.
+                deploy_qubolib!(packaged_index)
 
                 @test _deploy_hashes(build_path) == hashes
             end
@@ -1091,6 +1100,8 @@ function test_main()
         test_dataset_collection_metadata()
         test_deploy_qubolib_outputs()
         test_qoblib_qs_parser()
+        test_qoblib_portfolio_positions()
+        test_qoblib_submission_bit_formats()
         test_qoblib_constrained_inventory()
         test_qoblib_build_fixture()
         test_qoblib_submission_failure_handling()
