@@ -263,7 +263,9 @@ function test_dataset_collection_metadata()
         append!(collection_data, [QPLIB_DATA, QOBLIB_DATA])
 
         for data in collection_data
-            @test QUBOLib.JSON.parse(QUBOLib.JSON.json(data)) isa Dict
+            decoded = QUBOLib.JSON.parse(QUBOLib.JSON.json(data))
+            @test decoded isa AbstractDict
+            @test decoded == data
         end
     end
 
@@ -294,8 +296,9 @@ function test_deploy_qubolib_outputs()
                     """,
                 )
 
-                QUBOLib.access(; path, clear = true) do index
+                packaged_index = QUBOLib.access(; path, clear = true) do index
                     deploy_qubolib!(index)
+                    return index
                 end
 
                 build_path = QUBOLib.build_path(path)
@@ -307,10 +310,14 @@ function test_deploy_qubolib_outputs()
                 @test isfile(joinpath(build_path, "NOTES.md"))
 
                 hashes = _deploy_hashes(build_path)
+                @test hashes.tree ==
+                      bytes2hex(Pkg.GitTools.tree_hash(QUBOLib.library_path(path)))
+                @test hashes.tar ==
+                      bytes2hex(open(SHA.sha256, joinpath(build_path, "qubolib.tar.gz")))
 
-                QUBOLib.access(; path) do index
-                    deploy_qubolib!(index)
-                end
+                # Repackage the same closed files. Reopening HDF5 in write mode
+                # can change file metadata, which is a different input artifact.
+                deploy_qubolib!(packaged_index)
 
                 @test _deploy_hashes(build_path) == hashes
             end
