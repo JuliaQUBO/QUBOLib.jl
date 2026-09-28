@@ -3,7 +3,9 @@
 This repository has two release streams:
 
 - Julia package releases, tagged as `vX.Y.Z` and registered in General.
-- QUBOLib data artifact releases, tagged as `vX.Y.Z-data+N` and published by the `Deployment` workflow.
+- QUBOLib data artifact releases, tagged as `vX.Y.Z-data+N`, normally published
+  by the `Deployment` workflow. A locally audited candidate can instead be
+  published unchanged after human review, as described below.
 
 ## Package Release
 
@@ -76,6 +78,32 @@ This repository has two release streams:
 The GitHub data release and a Zenodo dataset version must contain the same
 `qubolib.tar.gz` bytes. Rebuilding an equivalent index is not sufficient.
 
+### Promote a reviewed candidate
+
+`DATASET.toml` separates the selected `[artifact]` from `[candidate_artifact]`.
+For the September QOBLIB refresh, review the importer and candidate inventory
+before publishing `v0.2.4-data+4`. Do not reuse `v0.2.0-data+3`, which already
+exists, or replace an existing release asset.
+
+1. Retain the locally built `qubolib.tar.gz` and verify its size, SHA-256, and
+   extracted tree hash against `[candidate_artifact]`. If those bytes are lost,
+   rebuild and repeat the audit; do not assume the old hashes still apply.
+2. After human approval, publish those exact bytes to a new GitHub data release
+   with an explicit reviewed target commit. Include the upstream cutoff,
+   conversion notes, inventory, and hashes in the release notes. Do not run the
+   ordinary `Deployment` workflow to promote this file: it rebuilds the corpus
+   and replaces the source mirror release.
+3. Download the new GitHub asset and verify it again. In a follow-up PR, promote
+   its metadata into `[artifact]`, update the QOBLIB collection source/license
+   links, update `Artifacts.toml` and `DATASET.md`, and remove the candidate
+   section. Update the importer/docs consistency tests to use the selected
+   collection pin instead of the removed candidate section. Confirm that the
+   public download works and run the package tests and release preflight.
+4. Use that selected release for the first Zenodo version below. Publishing the
+   candidate is not part of the importer PR's automated human-review workflow.
+
+### Archive the selected GitHub release
+
 1. Select the GitHub data release to archive and audit its exact asset. Record
    the tag commit, compressed size, SHA-256, Julia artifact tree hash, archive
    members, collection counts, and instance counts in `DATASET.toml`.
@@ -92,8 +120,11 @@ The GitHub data release and a Zenodo dataset version must contain the same
    Do not share account credentials. Revisit backup management annually or
    whenever maintainership changes. Configure related identifiers for the repository,
    software, GitHub data release, upstream collections, and ecosystem article.
-5. Record the draft state in `DATASET.toml`, set `zenodo.status = "ready"`, and
-   run the publication gate:
+5. Upload the existing GitHub `qubolib.tar.gz` asset to the Zenodo draft without
+   rebuilding or recompressing it. Download the draft file and verify byte
+   identity against the selected GitHub asset. Record verified access, related
+   identifiers, and byte identity in `DATASET.toml`, clear resolved blockers,
+   set `zenodo.status = "ready"`, and run the publication gate:
 
    ```bash
    julia --project=. scripts/release_check.jl --require-dataset-publishable
@@ -101,8 +132,7 @@ The GitHub data release and a Zenodo dataset version must contain the same
 
    Do not publish while this command fails.
 
-6. Upload the existing GitHub `qubolib.tar.gz` asset to the versioned Zenodo
-   record without rebuilding or recompressing it, then publish the record.
+6. Publish the verified draft as the versioned Zenodo record.
 7. Download the published Zenodo file, recompute its SHA-256 and artifact tree
    hash, and confirm they match `Artifacts.toml` and `DATASET.toml`.
 8. Record the concept DOI, version DOI, verified byte identity, manager access,

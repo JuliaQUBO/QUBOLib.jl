@@ -34,6 +34,25 @@ tag = "v0.2.4-data+4"
 previous_data_release = "v0.2.0-data+3"
 qoblib_source_commit = "16a166ee67c24c112551c803aab5394743b815b5"
 qoblib_license_evidence_url = "https://github.com/ZIB-AOPT/QOBLIB/blob/16a166ee67c24c112551c803aab5394743b815b5/LICENSE.data"
+build_commit = "8735aa035a082401a01b5cb2540bd1ebaf00c675"
+build_julia_version = "1.10.11"
+inventory_observed_at = "2026-09-28"
+asset_name = "qubolib.tar.gz"
+asset_size_bytes = 102890681
+sha256 = "276eb06a66cec325cd3ec895cded7ba28f848aeb3998f4944466acbb33bcd001"
+git_tree_sha1 = "90da567266bc93ffb76cc0435691409557d500fc"
+archive_members = ["archive.h5", "index.db"]
+instances = 6263
+populated_collections = 5
+qoblib_instances = 433
+qoblib_reference_solutions = 392
+qoblib_missing_references = 41
+qoblib_validated_solution_records = 2031
+qoblib_unmapped_solution_records = 113
+qoblib_unavailable_solution_records = 159
+qoblib_parallel_ils_solutions = 50
+qoblib_portfolio_reference_objectives_matched = 128
+qoblib_unmapped_reason = "Canonical portfolio positions have infeasible capital or budget slack; retain source metadata without inventing an assignment."
 
 [[collections]]
 id = "arXiv-1903-10928-3r3x"
