@@ -6,6 +6,22 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 jobs:
+  importer:
+    name: Data importer
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1.10'
+      - uses: julia-actions/cache@v3
+      - name: Set up importer environment
+        run: julia --project=scripts/build -e 'import Pkg; Pkg.develop(path=pwd()); Pkg.instantiate()'
+      - name: Test data importers
+        run: julia --project=scripts/build --load scripts/build/runtests.jl --eval 'test_main()'
+
   metadata:
     name: Release metadata
     runs-on: ubuntu-latest
@@ -18,6 +34,8 @@ jobs:
           version: '1.10'
       - name: Check release and dataset metadata
         run: julia --project=. scripts/release_check.jl
+      - name: Test dataset publication gate
+        run: julia --project=. scripts/test_release_check.jl
       - name: Validate CITATION.cff
         uses: citation-file-format/cffconvert-github-action@4cf11baa70a673bfdf9dad0acc7ee33b3f4b6084 # 2.0.0
         with:

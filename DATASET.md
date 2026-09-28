@@ -134,7 +134,11 @@ true:
 2. The exact release asset, SHA-256, and Julia tree hash are recorded.
 3. The dataset description includes the schema, collection inventory,
    provenance, licenses, citations, and reproduction instructions.
-4. At least two active maintainers have `Can manage` access to the record.
+4. David Bernal (`bernalde`) has verified owner/manager access under the
+   [2026-08-01 stewardship decision](https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5153545937).
+   This supersedes the two-manager completion gate; it does not verify access
+   by itself. Use his personal account without sharing credentials, and revisit
+   a backup manager annually or when maintainership changes.
 5. Related identifiers connect the dataset, repository, package and data
    releases, upstream sources, and ecosystem article.
 6. A downloaded Zenodo file is byte-identical to the selected GitHub asset.

@@ -86,8 +86,11 @@ The GitHub data release and a Zenodo dataset version must contain the same
 3. Resolve every `zenodo.blocking_reasons` entry. Set each collection's
    `provenance_status` and `rights_status` to `verified` only when the supporting
    evidence is recorded.
-4. Create or update the Zenodo draft. Grant `Can manage` access to at least two
-   active maintainers and configure related identifiers for the repository,
+4. Create or update the Zenodo draft using David Bernal's personal account.
+   Verify his owner/manager access under the
+   [designated-owner decision](https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5153545937).
+   Do not share account credentials. Revisit backup management annually or
+   whenever maintainership changes. Configure related identifiers for the repository,
    software, GitHub data release, upstream collections, and ecosystem article.
 5. Record the draft state in `DATASET.toml`, set `zenodo.status = "ready"`, and
    run the publication gate:

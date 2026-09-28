@@ -16,15 +16,24 @@ populated_collections = 5
 
 [zenodo]
 status = "blocked"
-required_active_managers = 2
+required_active_managers = 1
+designated_owner = "bernalde"
+manager_policy_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5153545937"
 active_manager_count = 0
 manager_access_status = "not-recorded"
 byte_identity_status = "not-verified"
 related_identifiers_status = "not-recorded"
 license_model = "per-collection"
 blocking_reasons = [
-    "A Zenodo dataset record, related identifiers, access for two active managers, and a byte-identity check against the GitHub release asset are not recorded.",
+    "A Zenodo dataset record, related identifiers, verified access for the designated owner, and a byte-identity check against the GitHub release asset are not recorded.",
 ]
+
+[candidate_artifact]
+status = "awaiting-human-review"
+tag = "v0.2.4-data+4"
+previous_data_release = "v0.2.0-data+3"
+qoblib_source_commit = "16a166ee67c24c112551c803aab5394743b815b5"
+qoblib_license_evidence_url = "https://github.com/ZIB-AOPT/QOBLIB/blob/16a166ee67c24c112551c803aab5394743b815b5/LICENSE.data"
 
 [[collections]]
 id = "arXiv-1903-10928-3r3x"

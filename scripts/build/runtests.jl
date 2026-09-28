@@ -1,6 +1,7 @@
 using Test
 
 include("build.jl")
+include("test_portfolio.jl")
 
 function test_tags()
     @testset "▶ Tags" begin
@@ -254,7 +255,8 @@ function test_dataset_collection_metadata()
         @test QOBLIB_DATA["metadata"]["source_commit"] == QOBLIB_SOURCE_COMMIT
         @test QOBLIB_DATA["metadata"]["provenance_status"] == "verified"
         @test QOBLIB_DATA["metadata"]["rights_status"] == "verified"
-        @test inventory["qoblib"]["source_commit"] == QOBLIB_SOURCE_COMMIT
+        # The distributed artifact stays immutable while its successor is reviewed.
+        @test dataset["candidate_artifact"]["qoblib_source_commit"] == QOBLIB_SOURCE_COMMIT
         @test inventory["qoblib"]["data_license"] == QOBLIB_DATA["data_license"]
 
         collection_data = [entry[:data] for entry in values(HEN_DATA)]
@@ -1091,6 +1093,8 @@ function test_main()
         test_dataset_collection_metadata()
         test_deploy_qubolib_outputs()
         test_qoblib_qs_parser()
+        test_qoblib_portfolio_positions()
+        test_qoblib_submission_bit_formats()
         test_qoblib_constrained_inventory()
         test_qoblib_build_fixture()
         test_qoblib_submission_failure_handling()

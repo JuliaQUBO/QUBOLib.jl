@@ -5,13 +5,32 @@ QUBO/QS artifacts. Source LP/MIP models, incumbent solutions, and solver
 submissions are provenance inputs, but they are not converted into canonical
 QUBO instances inside QUBOLib.
 
-The current QUBOLib artifact source is QOBLIB commit
-`80e45c176fc6281e5316451f02296482934785fa`. The constrained-class inventory
-below was checked against that commit and against upstream QOBLIB `main` at
-`a686aaa09fe14651294f744f34d453d5dce9cf57` on 2026-06-18. QOBLIB did not list
+The importer is pinned to QOBLIB commit
+`16a166ee67c24c112551c803aab5394743b815b5`. The constrained-class inventory
+below was checked against that snapshot on 2026-09-28. QOBLIB did not list
 GitHub releases at that time. For every listed class, the repository tree scan
 found zero blobs ending in `.qs` or `.qs.xz`. Files named `metrics_qs_files.csv`
 are preserved as metric metadata, not as retrievable QS artifacts.
+
+The selected package artifact and the next release candidate are recorded
+separately in [`DATASET.toml`](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.toml).
+Updating the importer does not change an already published artifact.
+
+## Portfolio solution conversion
+
+At this snapshot, portfolio reference solutions and submissions use named
+long/short unit counts. QUBOLib reconstructs the published `u3_c10` QUBO
+encoding using asset order from `stock_prices.txt[.gz]`, fills copy slots in
+order, and computes the capital and budget slack bits. These are canonical
+assignments, not the original solver bitstrings; source objectives are retained
+separately from the value evaluated on the stored QUBO. The conversion follows
+[QOBLIB's format specification](https://github.com/ZIB-AOPT/QOBLIB/blob/16a166ee67c24c112551c803aab5394743b815b5/06-portfolio/check/README.md).
+
+Model identity, budget, risk weight, dimensions, symbols, and positions must
+agree. Submissions that cannot be mapped (including infeasible slack values)
+remain metadata-only records. A reference solution that cannot be mapped fails
+the build. Small portfolio examples without an authoritative QS model are not
+added to the canonical collection.
 
 ## Constrained Class Inventory
 

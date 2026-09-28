@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Pin the data importer to QOBLIB `16a166ee67c24c112551c803aab5394743b815b5`,
+  including the merged Parallel ILS submission and later benchmark updates.
+- Map canonical portfolio positions to the published QUBO ordering and match
+  scientific-notation filenames to the upstream metrics table.
+- Stage the next data artifact separately from the selected download for human
+  review, and apply the documented Zenodo designated-owner exception.
+- Run importer regression tests in CI.
+
 ## v0.2.4 - 2026-06-26
 
 ### Maintenance
