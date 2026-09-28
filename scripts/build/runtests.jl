@@ -255,8 +255,7 @@ function test_dataset_collection_metadata()
         @test QOBLIB_DATA["metadata"]["source_commit"] == QOBLIB_SOURCE_COMMIT
         @test QOBLIB_DATA["metadata"]["provenance_status"] == "verified"
         @test QOBLIB_DATA["metadata"]["rights_status"] == "verified"
-        # The distributed artifact stays immutable while its successor is reviewed.
-        @test dataset["candidate_artifact"]["qoblib_source_commit"] == QOBLIB_SOURCE_COMMIT
+        @test inventory["qoblib"]["source_commit"] == QOBLIB_SOURCE_COMMIT
         @test inventory["qoblib"]["data_license"] == QOBLIB_DATA["data_license"]
 
         collection_data = [entry[:data] for entry in values(HEN_DATA)]
