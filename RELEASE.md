@@ -80,10 +80,10 @@ The GitHub data release and a Zenodo dataset version must contain the same
 
 ### Promote a reviewed candidate
 
-`DATASET.toml` separates the selected `[artifact]` from `[candidate_artifact]`.
-For the September QOBLIB refresh, review the importer and candidate inventory
-before publishing `v0.2.4-data+4`. Do not reuse `v0.2.0-data+3`, which already
-exists, or replace an existing release asset.
+Record the selected release under `[artifact]` in `DATASET.toml`; keep any
+unpublished successor separate under `[candidate_artifact]`. Review the importer
+and candidate inventory before publication. Use a new `-data+N` tag; never
+reuse an existing tag or replace a published release asset.
 
 1. Retain the locally built `qubolib.tar.gz` and verify its size, SHA-256, and
    extracted tree hash against `[candidate_artifact]`. If those bytes are lost,

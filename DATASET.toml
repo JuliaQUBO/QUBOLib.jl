@@ -1,15 +1,18 @@
 schema_version = 1
 
 [artifact]
-tag = "v0.1.0-data+2"
-release_tag_commit = "bc3d61098865ee0e44dc839f4a8cc62801fc7202"
-release_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.1.0-data%2B2"
+tag = "v0.2.4-data+4"
+release_tag_commit = "6fb487e1982857253afd7b20fc30868452b4d001"
+release_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B4"
+previous_data_release = "v0.2.0-data+3"
+build_commit = "8735aa035a082401a01b5cb2540bd1ebaf00c675"
+build_julia_version = "1.10.11"
 asset_name = "qubolib.tar.gz"
-asset_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.1.0-data+2/qubolib.tar.gz"
-asset_size_bytes = 101268540
-sha256 = "e3826af0c2b7bed712b787304a28c57ff8fbb93543ef8c38fca1d8391a777387"
-git_tree_sha1 = "e27d0d1526f3491102ff447293b4be3725314db8"
-inventory_observed_at = "2026-07-28"
+asset_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.4-data+4/qubolib.tar.gz"
+asset_size_bytes = 102890681
+sha256 = "276eb06a66cec325cd3ec895cded7ba28f848aeb3998f4944466acbb33bcd001"
+git_tree_sha1 = "90da567266bc93ffb76cc0435691409557d500fc"
+inventory_observed_at = "2026-09-28"
 archive_members = ["archive.h5", "index.db"]
 instances = 6263
 populated_collections = 5
@@ -27,32 +30,6 @@ license_model = "per-collection"
 blocking_reasons = [
     "A Zenodo dataset record, related identifiers, verified access for the designated owner, and a byte-identity check against the GitHub release asset are not recorded.",
 ]
-
-[candidate_artifact]
-status = "awaiting-human-review"
-tag = "v0.2.4-data+4"
-previous_data_release = "v0.2.0-data+3"
-qoblib_source_commit = "16a166ee67c24c112551c803aab5394743b815b5"
-qoblib_license_evidence_url = "https://github.com/ZIB-AOPT/QOBLIB/blob/16a166ee67c24c112551c803aab5394743b815b5/LICENSE.data"
-build_commit = "8735aa035a082401a01b5cb2540bd1ebaf00c675"
-build_julia_version = "1.10.11"
-inventory_observed_at = "2026-09-28"
-asset_name = "qubolib.tar.gz"
-asset_size_bytes = 102890681
-sha256 = "276eb06a66cec325cd3ec895cded7ba28f848aeb3998f4944466acbb33bcd001"
-git_tree_sha1 = "90da567266bc93ffb76cc0435691409557d500fc"
-archive_members = ["archive.h5", "index.db"]
-instances = 6263
-populated_collections = 5
-qoblib_instances = 433
-qoblib_reference_solutions = 392
-qoblib_missing_references = 41
-qoblib_validated_solution_records = 2031
-qoblib_unmapped_solution_records = 113
-qoblib_unavailable_solution_records = 159
-qoblib_parallel_ils_solutions = 50
-qoblib_portfolio_reference_objectives_matched = 128
-qoblib_unmapped_reason = "Canonical portfolio positions have infeasible capital or budget slack; retain source metadata without inventing an assignment."
 
 [[collections]]
 id = "arXiv-1903-10928-3r3x"
@@ -148,12 +125,21 @@ id = "qoblib"
 instances = 433
 source_title = "The Quantum Optimization Benchmarking Library"
 source_url = "https://github.com/ZIB-AOPT/QOBLIB"
-source_commit = "80e45c176fc6281e5316451f02296482934785fa"
+source_commit = "16a166ee67c24c112551c803aab5394743b815b5"
 citation_doi = "10.1038/s43588-026-00991-1"
 source_format = "QS, LP, solution, and submission metadata"
-source_archive_url = "https://github.com/ZIB-AOPT/QOBLIB/archive/80e45c176fc6281e5316451f02296482934785fa.zip"
+source_archive_url = "https://github.com/ZIB-AOPT/QOBLIB/archive/16a166ee67c24c112551c803aab5394743b815b5.zip"
 provenance_status = "verified"
 rights_status = "verified"
 data_license = "CC-BY-4.0"
-license_evidence_url = "https://github.com/ZIB-AOPT/QOBLIB/blob/80e45c176fc6281e5316451f02296482934785fa/LICENSE.data"
+license_evidence_url = "https://github.com/ZIB-AOPT/QOBLIB/blob/16a166ee67c24c112551c803aab5394743b815b5/LICENSE.data"
+reference_solutions = 392
+missing_references = 41
+validated_solution_records = 2031
+unmapped_solution_records = 113
+unavailable_solution_records = 159
+parallel_ils_solutions = 50
+portfolio_reference_objectives_matched = 128
+transformation_note = "QUBOLib parses authoritative QS/QUBO models and stores models, provenance, and solution records in HDF5/SQLite. Portfolio positions are converted to canonical ordered copy slots and reconstructed capital/budget slack, not original solver bitstrings."
+unmapped_reason = "Canonical portfolio positions have infeasible capital or budget slack; retain source metadata without inventing an assignment."
 required_action = "Preserve the source commit, license, and attribution in the dataset record."

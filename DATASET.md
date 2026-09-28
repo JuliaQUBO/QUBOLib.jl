@@ -6,27 +6,28 @@ machine-readable companion is [`DATASET.toml`](DATASET.toml).
 
 ## Selected artifact
 
-The package currently selects
-[`v0.1.0-data+2`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.1.0-data%2B2)
-through [`Artifacts.toml`](Artifacts.toml).
+This repository's [`Artifacts.toml`](Artifacts.toml) selects
+[`v0.2.4-data+4`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B4)
+for the package. Previously tagged package versions retain their original
+artifact pins; publishing a data release does not modify them.
 
 | Property | Recorded value |
 |:--|:--|
-| Release tag commit | `bc3d61098865ee0e44dc839f4a8cc62801fc7202` |
+| Release tag commit | `6fb487e1982857253afd7b20fc30868452b4d001` |
 | Asset | `qubolib.tar.gz` |
-| Compressed size | 101,268,540 bytes |
-| SHA-256 | `e3826af0c2b7bed712b787304a28c57ff8fbb93543ef8c38fca1d8391a777387` |
-| Julia artifact tree hash | `e27d0d1526f3491102ff447293b4be3725314db8` |
+| Compressed size | 102,890,681 bytes |
+| SHA-256 | `276eb06a66cec325cd3ec895cded7ba28f848aeb3998f4944466acbb33bcd001` |
+| Julia artifact tree hash | `90da567266bc93ffb76cc0435691409557d500fc` |
 | Archive members | `archive.h5`, `index.db` |
 | Populated collections | 5 |
 | Instances | 6,263 |
-| Inventory date | 2026-07-28 |
+| Inventory date | 2026-09-28 |
 
 The SHA-256 was recomputed from the GitHub release asset. The inventory was
 queried from the asset's SQLite index. A Zenodo upload must use these exact
-bytes if this release is chosen; rebuilding the database is not an equivalent
-archive. The preferred first Zenodo version is now the reviewed successor
-described below, after its GitHub publication and artifact-pointer update.
+bytes; rebuilding the database is not an equivalent archive. This release is
+the selected first Zenodo version. It was published to GitHub unchanged from
+the candidate audited in PR #77; no Zenodo record has been published yet.
 
 `index.db` is the relational catalog of collections, instances, and solutions.
 `archive.h5` stores the corresponding models and solution payloads. Reproduce
@@ -34,7 +35,7 @@ the recorded file identity and populated-collection counts with:
 
 ```bash
 audit_dir="$(mktemp -d)"
-gh release download 'v0.1.0-data+2' \
+gh release download 'v0.2.4-data+4' \
   --repo JuliaQUBO/QUBOLib.jl \
   --pattern qubolib.tar.gz \
   --dir "$audit_dir"
@@ -52,7 +53,7 @@ sqlite3 "$audit_dir/extracted/index.db" \
 The expected SHA-256 and tree hash are the values in the table above. The SQL
 query must return the same five collection counts recorded below.
 
-## September QOBLIB candidate (not published)
+## September QOBLIB snapshot
 
 The importer now uses QOBLIB
 [`16a166ee67c24c112551c803aab5394743b815b5`](https://github.com/ZIB-AOPT/QOBLIB/tree/16a166ee67c24c112551c803aab5394743b815b5).
@@ -64,19 +65,8 @@ The snapshot retains the
 The full corpus was rebuilt on 2026-09-28 with Julia 1.10.11 at QUBOLib commit
 `8735aa035a082401a01b5cb2540bd1ebaf00c675`. The three XORSAT sources and QPLIB
 source were checked against the mirror hashes in `DATASET.toml`; their source
-snapshots and instance counts are unchanged. The candidate is separate from
-the selected artifact above and has not been uploaded to GitHub or Zenodo.
-
-| Property | Candidate value |
-|:--|:--|
-| Proposed tag | `v0.2.4-data+4` (`v0.2.0-data+3` already exists) |
-| Asset | `qubolib.tar.gz` |
-| Compressed size | 102,890,681 bytes |
-| SHA-256 | `276eb06a66cec325cd3ec895cded7ba28f848aeb3998f4944466acbb33bcd001` |
-| Julia artifact tree hash | `90da567266bc93ffb76cc0435691409557d500fc` |
-| Archive members | `archive.h5`, `index.db` |
-| Corpus | 6,263 instances in 5 populated collections |
-| QOBLIB | 433 instances; 392 reference solutions, 41 missing references |
+snapshots and instance counts are unchanged. The selected artifact contains
+433 QOBLIB instances, with 392 reference solutions and 41 missing references.
 
 The QOBLIB solution-record inventory is:
 
@@ -112,9 +102,10 @@ with `QUBOLib.access(index -> deploy_qubolib!(index); path = destination)`;
 the function writes local release files but does not upload them. Re-audit any rebuilt bytes: database
 serialization and dependency resolution can change the artifact hashes.
 
-Retain the audited tarball until human review and follow
-[`RELEASE.md`](RELEASE.md#promote-a-reviewed-candidate) to publish and select it.
-The importer PR alone does not change the package's download or complete #70.
+For preservation, download the published archive rather than rebuilding it.
+The remaining Zenodo steps are listed in
+[`RELEASE.md`](RELEASE.md#archive-the-selected-github-release). Issue #70 stays
+open until the dataset DOIs and external verification evidence are recorded.
 
 ## Collection audit
 
@@ -170,13 +161,15 @@ changes, retain the QPLIB article and website attribution, and include the
 CC-BY-4.0 notice.
 
 QOBLIB commit
-[`80e45c176fc6281e5316451f02296482934785fa`](https://github.com/ZIB-AOPT/QOBLIB/tree/80e45c176fc6281e5316451f02296482934785fa)
+[`16a166ee67c24c112551c803aab5394743b815b5`](https://github.com/ZIB-AOPT/QOBLIB/tree/16a166ee67c24c112551c803aab5394743b815b5)
 contains a CC-BY-4.0 data license. The dataset record must retain the QOBLIB
 attribution, source commit, and citation.
 
 The repository's MIT license covers QUBOLib software. It does not replace the
-collection-specific data terms above, so the corpus does not currently have a
-blanket dataset license.
+collection-specific data terms above. All five included collections have
+verified CC-BY-4.0 terms, so the Zenodo license field can identify CC BY 4.0
+while retaining each collection's attribution and conversion notices. This
+does not grant rights to other upstream material or to future collections.
 
 ## Citation guidance
 
