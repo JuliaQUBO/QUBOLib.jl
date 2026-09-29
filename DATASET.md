@@ -39,9 +39,10 @@ Published on 2026-09-29 (UTC) under CC BY 4.0, with collection-specific
 attribution and conversion notices. Both the draft download and the public
 download were compared byte-for-byte against an independent GitHub download;
 their compressed size, SHA-256, and extracted Julia tree hash match the table.
-DOI resolver verification is tracked separately in `DATASET.toml`. Use the
-direct Zenodo record link if registration has not yet reached DOI.org; issue
-#70 remains open until both identifiers resolve to the intended record.
+Both DOI.org links were verified on 2026-09-29 to resolve to the published
+record. DataCite reports both identifiers as findable under the title
+"QUBOLib benchmark corpus". The verification timestamp and registration
+evidence are recorded in `DATASET.toml`.
 
 `index.db` is the relational catalog of collections, instances, and solutions.
 `archive.h5` stores the corresponding models and solution payloads. Reproduce
