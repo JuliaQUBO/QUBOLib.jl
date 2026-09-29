@@ -27,7 +27,21 @@ The SHA-256 was recomputed from the GitHub release asset. The inventory was
 queried from the asset's SQLite index. A Zenodo upload must use these exact
 bytes; rebuilding the database is not an equivalent archive. This release is
 the selected first Zenodo version. It was published to GitHub unchanged from
-the candidate audited in PR #77; no Zenodo record has been published yet.
+the candidate audited in PR #77 and preserved unchanged in
+[Zenodo record 23027944](https://zenodo.org/records/23027944).
+
+| Zenodo identifier | Use |
+|:--|:--|
+| [10.5281/zenodo.23027943](https://doi.org/10.5281/zenodo.23027943) | Concept DOI for the corpus across versions |
+| [10.5281/zenodo.23027944](https://doi.org/10.5281/zenodo.23027944) | Version DOI for the exact `v0.2.4-data+4` archive |
+
+Published on 2026-09-29 (UTC) under CC BY 4.0, with collection-specific
+attribution and conversion notices. Both the draft download and the public
+download were compared byte-for-byte against an independent GitHub download;
+their compressed size, SHA-256, and extracted Julia tree hash match the table.
+DOI resolver verification is tracked separately in `DATASET.toml`. Use the
+direct Zenodo record link if registration has not yet reached DOI.org; issue
+#70 remains open until both identifiers resolve to the intended record.
 
 `index.db` is the relational catalog of collections, instances, and solutions.
 `archive.h5` stores the corresponding models and solution payloads. Reproduce
@@ -103,9 +117,11 @@ the function writes local release files but does not upload them. Re-audit any r
 serialization and dependency resolution can change the artifact hashes.
 
 For preservation, download the published archive rather than rebuilding it.
-The remaining Zenodo steps are listed in
-[`RELEASE.md`](RELEASE.md#archive-the-selected-github-release). Issue #70 stays
-open until the dataset DOIs and external verification evidence are recorded.
+Future data releases must repeat the publication and verification steps in
+[`RELEASE.md`](RELEASE.md#archive-the-selected-github-release).
+[`Artifacts.toml`](Artifacts.toml) retains the GitHub download URL. Zenodo
+provides an independently verified preservation copy; adding it as an
+automatic artifact fallback is not required for preservation.
 
 ## Collection audit
 
@@ -178,15 +194,20 @@ does not grant rights to other upstream material or to future collections.
   for the general JuliaQUBO methods and software ecosystem.
 - Cite QUBOLib software using [`CITATION.cff`](CITATION.cff), and identify the
   package version used when reproducibility depends on it.
-- Identify the exact QUBOLib data release and cite each source collection used.
-  After the dataset concept DOI exists, cite that DOI as well; use its version
-  DOI when exact archived bytes matter.
+- Cite the [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) for
+  the corpus across versions. For the exact `v0.2.4-data+4` bytes, cite the
+  [version DOI](https://doi.org/10.5281/zenodo.23027944). Also cite each source
+  collection used. A dataset DOI does not identify the Julia package version.
 
 ## Zenodo publication gate
 
-`DATASET.toml` deliberately records the dataset as `blocked`. Do not publish
-the Zenodo record or claim a QUBOLib dataset DOI until all of the following are
-true:
+`DATASET.toml` records this version as `published`. The public
+[record metadata](https://zenodo.org/api/records/23027944) identifies owner
+1784890 and the 15 verified related identifiers. Authenticated creation,
+upload, and publication verified the designated owner's access. This record
+uses the single-owner exception, not a claim of two active managers.
+
+Before publishing any successor, all of the following must be true:
 
 1. Every populated collection has verified provenance and redistribution
    rights.
@@ -214,4 +235,5 @@ Before a dataset publication, require the stronger gate:
 julia --project=. scripts/release_check.jl --require-dataset-publishable
 ```
 
-The stronger command is expected to fail while the status is `blocked`.
+The stronger command passes for the published version and must fail for a
+successor whose status is `blocked` or whose required evidence is unverified.

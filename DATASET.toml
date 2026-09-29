@@ -18,18 +18,31 @@ instances = 6263
 populated_collections = 5
 
 [zenodo]
-status = "blocked"
+status = "published"
 required_active_managers = 1
 designated_owner = "bernalde"
 manager_policy_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5153545937"
-active_manager_count = 0
-manager_access_status = "not-recorded"
-byte_identity_status = "not-verified"
-related_identifiers_status = "not-recorded"
+active_manager_count = 1
+manager_access_status = "verified"
+owner_id = 1784890
+manager_access_evidence = "Authenticated creation, metadata read-back, file upload, and publication under owner 1784890, the same owner as the designated owner's existing PseudoBooleanOptimization and ToQUBO deposits; public record metadata confirms this owner."
+record_id = 23027944
+record_url = "https://zenodo.org/records/23027944"
+concept_doi = "10.5281/zenodo.23027943"
+version_doi = "10.5281/zenodo.23027944"
+doi_resolution_status = "pending"
+doi_resolution_checked_at = "2026-09-29T02:01:00Z"
+doi_resolution_note = "Zenodo's public record assigns both DOIs, but doi.org returns HTTP 404 for each; the older PseudoBooleanOptimization DOI resolves. Recheck both identifiers before closing issue #70."
+publication_date = "2026-09-29"
+asset_url = "https://zenodo.org/records/23027944/files/qubolib.tar.gz"
+byte_identity_status = "verified"
+byte_identity_evidence = "Both the authenticated draft download and anonymous published download are byte-identical to the independently downloaded GitHub release asset; size, SHA-256, and extracted Julia artifact tree hash all match."
+verified_at = "2026-09-29"
+related_identifiers_status = "verified"
+related_identifiers_count = 15
+related_identifiers_evidence_url = "https://zenodo.org/api/records/23027944"
 license_model = "per-collection"
-blocking_reasons = [
-    "A Zenodo dataset record, related identifiers, verified access for the designated owner, and a byte-identity check against the GitHub release asset are not recorded.",
-]
+blocking_reasons = []
 
 [[collections]]
 id = "arXiv-1903-10928-3r3x"
