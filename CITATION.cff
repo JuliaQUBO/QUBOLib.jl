@@ -18,6 +18,18 @@ keywords:
   - "benchmark dataset"
   - "Julia"
   - "QUBO"
+references:
+  - type: data
+    title: "QUBOLib benchmark corpus"
+    authors:
+      - given-names: "Pedro"
+        family-names: "Maciel Xavier"
+      - given-names: "David E."
+        family-names: "Bernal Neira"
+    doi: "10.5281/zenodo.23027944"
+    url: "https://zenodo.org/records/23027944"
+    version: "v0.2.4-data+4"
+    year: 2026
 preferred-citation:
   type: article
   title: "QUBO.jl: a Julia ecosystem for quadratic unconstrained binary optimization"

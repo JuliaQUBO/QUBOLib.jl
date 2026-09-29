@@ -24,7 +24,11 @@ This repository has two release streams:
    julia --project=. scripts/release_check.jl
    ```
 
-6. Run the package tests and documentation build:
+6. Confirm that `Artifacts.toml` selects the intended dataset version and
+   matches `[artifact]` in `DATASET.toml`. For a preserved version, verify its
+   Zenodo version DOI, file identity, and dataset reference in `CITATION.cff`;
+   a Julia package version and a data-release version are different identifiers.
+   Run the package tests and documentation build:
 
    ```bash
    julia --project=. -e 'import Pkg; Pkg.test()'
@@ -137,7 +141,13 @@ reuse an existing tag or replace a published release asset.
    hash, and confirm they match `Artifacts.toml` and `DATASET.toml`.
 8. Record the concept DOI, version DOI, verified byte identity, manager access,
    and related identifiers in `DATASET.toml`; set `zenodo.status = "published"`.
-   Update `DATASET.md` and citation guidance, then rerun both release checks.
+   Update `DATASET.md`, the dataset reference in `CITATION.cff`, and README/docs
+   citation guidance, then rerun both release checks. Keep the CFF's software
+   type, MIT license, and package version separate from the CC BY 4.0 dataset.
+9. Verify both DOI.org links resolve to the intended record and record the
+   result separately from Zenodo publication status. If registration is still
+   pending, retain the direct record URL and leave the preservation issue open;
+   do not republish or create a replacement record merely to retry resolution.
 
 ## TagBot Setup
 

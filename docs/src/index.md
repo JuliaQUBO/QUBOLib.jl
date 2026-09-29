@@ -75,6 +75,21 @@ end
 See [Basic Usage](manual/1-basic.md) for the common access workflow and
 [API](@ref) for the exported functions.
 
+## Citation and preservation
+
+For general use, cite the
+[QUBO.jl ecosystem article](https://doi.org/10.1080/10556788.2026.2702926)
+and identify the QUBOLib package version. For benchmark data, cite the
+[dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) across versions,
+or the [version DOI](https://doi.org/10.5281/zenodo.23027944) for the exact
+`v0.2.4-data+4` archive, and cite the source collections used.
+
+The [Zenodo record](https://zenodo.org/records/23027944) preserves the same
+archive as the GitHub data release. Check `Artifacts.toml` at the package
+version used: older package tags retain their earlier data pins. The
+[dataset provenance inventory](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.md)
+records hashes, licenses, conversions, and verification evidence.
+
 ## Contributing benchmark collections
 
 QUBOLib is also an invitation to donate challenging QUBOs. If you have benchmark
