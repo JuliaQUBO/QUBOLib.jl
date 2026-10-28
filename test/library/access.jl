@@ -99,10 +99,21 @@ function test_library_access()
                 @test best[:qubo_value] ≈ 0.0
                 @test QUBOLib.load_best_solution(index, instance) === nothing
 
+                @test !QUBOLib.has_solver(index, "QUBOPreprocessing.jl")
+                QUBOLib.add_solver!(
+                    index,
+                    "QUBOPreprocessing.jl",
+                    Dict("version" => "0.1.2", "description" => "Preprocessing"),
+                )
+                @test QUBOLib.has_solver(index, "QUBOPreprocessing.jl")
+
                 sol = QUBOTools.SampleSet{Float64,Int}(
                     model,
                     [[0, 0, 0]];
-                    metadata = Dict{String,Any}("status" => "optimal"),
+                    metadata = Dict{String,Any}(
+                        "status" => "optimal",
+                        "solver" => "QUBOPreprocessing.jl",
+                    ),
                 )
                 solution = QUBOLib.add_solution!(index, instance, sol)
                 loaded = QUBOLib.load_solution(index, instance, solution)

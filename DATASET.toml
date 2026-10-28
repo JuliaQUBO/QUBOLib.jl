@@ -1,21 +1,32 @@
 schema_version = 1
 
 [artifact]
-tag = "v0.2.4-data+4"
+tag = "v0.2.4-data+5"
 release_tag_commit = "6fb487e1982857253afd7b20fc30868452b4d001"
-release_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B4"
-previous_data_release = "v0.2.0-data+3"
-build_commit = "8735aa035a082401a01b5cb2540bd1ebaf00c675"
+release_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B5"
+previous_data_release = "v0.2.4-data+4"
+build_commit = "358ac748f4aec165f9709c74c0c517022bae856d"
 build_julia_version = "1.10.11"
 asset_name = "qubolib.tar.gz"
-asset_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.4-data+4/qubolib.tar.gz"
-asset_size_bytes = 102890681
-sha256 = "276eb06a66cec325cd3ec895cded7ba28f848aeb3998f4944466acbb33bcd001"
-git_tree_sha1 = "90da567266bc93ffb76cc0435691409557d500fc"
-inventory_observed_at = "2026-09-28"
+asset_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.4-data+5/qubolib.tar.gz"
+asset_size_bytes = 102931361
+sha256 = "9061af4d8641efb42f040e74a471dcb8d04a4d8236ca57b740e8c7594e0d378c"
+git_tree_sha1 = "4cba988f0e6c54fe87e2556bae60c95d46f80534"
+inventory_observed_at = "2026-10-28"
 archive_members = ["archive.h5", "index.db"]
 instances = 6263
 populated_collections = 5
+
+[preprocessing]
+package = "QUBOPreprocessing.jl"
+version = "0.1.2"
+repository = "https://github.com/JuliaQUBO/QUBOPreprocessing.jl"
+enriched_instances = 6263
+exact_zero_residual_solutions = 5
+repaired_strong_solutions = 10
+repaired_weak_solutions = 23
+total_added_solution_records = 38
+new_qplib_best_incumbents = ["QPLIB_3650.qplib", "QPLIB_3705.qplib", "QPLIB_3852.qplib", "QPLIB_5721.qplib", "QPLIB_5755.qplib"]
 
 [zenodo]
 status = "published"
@@ -26,21 +37,21 @@ active_manager_count = 1
 manager_access_status = "verified"
 owner_id = 1784890
 manager_access_evidence = "Authenticated creation, metadata read-back, file upload, and publication under owner 1784890, the same owner as the designated owner's existing PseudoBooleanOptimization and ToQUBO deposits; public record metadata confirms this owner."
-record_id = 23027944
-record_url = "https://zenodo.org/records/23027944"
+record_id = 23745448
+record_url = "https://zenodo.org/records/23745448"
 concept_doi = "10.5281/zenodo.23027943"
-version_doi = "10.5281/zenodo.23027944"
+version_doi = "10.5281/zenodo.23745448"
 doi_resolution_status = "verified"
-doi_resolution_checked_at = "2026-09-29T12:21:32Z"
-doi_resolution_note = "Both DOI.org links resolve to https://zenodo.org/records/23027944 with HTTP 200. DataCite reports both identifiers as findable under the title QUBOLib benchmark corpus; the version and concept DOIs were registered on 2026-09-29 at 04:37:09Z and 04:37:12Z respectively."
-publication_date = "2026-09-29"
-asset_url = "https://zenodo.org/records/23027944/files/qubolib.tar.gz"
+doi_resolution_checked_at = "2026-10-28T20:56:35Z"
+doi_resolution_note = "Published as the v0.2.4-data+5 dataset version under concept DOI 10.5281/zenodo.23027943 (record 23745448); public record URL and public file download verified byte-for-byte."
+publication_date = "2026-10-28"
+asset_url = "https://zenodo.org/records/23745448/files/qubolib.tar.gz"
 byte_identity_status = "verified"
 byte_identity_evidence = "Both the authenticated draft download and anonymous published download are byte-identical to the independently downloaded GitHub release asset; size, SHA-256, and extracted Julia artifact tree hash all match."
-verified_at = "2026-09-29"
+verified_at = "2026-10-28"
 related_identifiers_status = "verified"
 related_identifiers_count = 15
-related_identifiers_evidence_url = "https://zenodo.org/api/records/23027944"
+related_identifiers_evidence_url = "https://zenodo.org/api/records/23745448"
 license_model = "per-collection"
 blocking_reasons = []
 

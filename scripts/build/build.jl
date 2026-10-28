@@ -16,6 +16,7 @@ include("library/deploy.jl")
 include("sources/hen.jl")
 include("sources/qplib.jl")
 include("sources/qoblib.jl")
+include("sources/preprocessing.jl")
 
 function build_qubolib!(
     path::AbstractString = pwd();
