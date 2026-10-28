@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Publish data release `v0.2.4-data+5` (Zenodo `10.5281/zenodo.23745448` under
+  concept DOI `10.5281/zenodo.23027943`), enriching all 6,263 instances with
+  certified `QUBOPreprocessing.jl` `v0.1.2` reduction metadata (`n_strong`,
+  `m_strong`, `n_weak`, `m_weak`) and adding 5 exact zero-residual ground
+  states plus 33 repaired solution records (including 5 improved `QPLIB`
+  best-known incumbents).
+- Fix `DBInterface.execute` queries in `src/library/solvers.jl`.
 - Pin the data importer to QOBLIB `16a166ee67c24c112551c803aab5394743b815b5`,
   including the merged Parallel ILS submission and later benchmark updates.
 - Map canonical portfolio positions to the published QUBO ordering and match

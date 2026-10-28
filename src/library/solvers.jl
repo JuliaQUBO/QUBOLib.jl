@@ -1,16 +1,16 @@
-function has_solver(index::LibraryIndex, solver::String)
+function has_solver(index::LibraryIndex, solver::AbstractString)
     @assert isopen(index)
 
-    df = DBInterface.query(
+    df = DBInterface.execute(
         index.db,
-        "SELECT COUNT(*) FROM solvers WHERE solver = ?",
-        (solver,),
+        "SELECT COUNT(*) FROM Solvers WHERE solver = ?",
+        (String(solver),),
     ) |> DataFrame
 
     return (only(df[!, 1]) > 0)
 end
 
-function add_solver!(index::LibraryIndex, solver::AbstractString, data::Dict{String,Any})
+function add_solver!(index::LibraryIndex, solver::AbstractString, data::AbstractDict)
     @assert isopen(index)
 
     db = QUBOLib.database(index)
@@ -18,7 +18,7 @@ function add_solver!(index::LibraryIndex, solver::AbstractString, data::Dict{Str
     DBInterface.execute(
         db,
         """
-        INSERT INTO solvers
+        INSERT INTO Solvers
             (solver, version, description) 
         VALUES
             (?, ?, ?);
@@ -36,13 +36,13 @@ end
 function get_solvers(index::LibraryIndex)
     @assert isopen(index)
 
-    return DBInterface.query(index.db, "SELECT * FROM solvers") |> DataFrame
+    return DBInterface.execute(index.db, "SELECT * FROM Solvers") |> DataFrame
 end
 
 function list_solvers(index::LibraryIndex)
     @assert isopen(index)
 
-    df = DBInterface.query(index.db, "SELECT solver FROM solvers") |> DataFrame
+    df = DBInterface.execute(index.db, "SELECT solver FROM Solvers") |> DataFrame
 
     return collect(df[!, 1])
 end

@@ -56,6 +56,48 @@ function _write_solution_metadata(
     return nothing
 end
 
+function _read_solution(
+    fp::P,
+) where {P<:Union{HDF5.File,HDF5.Group}}
+    sol_grp = fp["solution"]
+    data_grp = sol_grp["data"]
+
+    ψ = read(data_grp["state"])::Matrix{Int}
+    λ = read(data_grp["value"])::Vector{Float64}
+    r = read(data_grp["reads"])::Vector{Int}
+
+    length(λ) == length(r) || error(
+        "Inconsistent solution dataset lengths: value has length $(length(λ)), reads has length $(length(r))",
+    )
+
+    samples = if isempty(λ)
+        QUBOTools.Sample{Float64,Int}[]
+    elseif size(ψ, 1) == length(λ)
+        QUBOTools.Sample{Float64,Int}[
+            QUBOTools.Sample{Float64,Int}(ψ[i, :], λ[i], r[i]) for i in eachindex(λ)
+        ]
+    elseif size(ψ, 2) == length(λ)
+        QUBOTools.Sample{Float64,Int}[
+            QUBOTools.Sample{Float64,Int}(ψ[:, i], λ[i], r[i]) for i in eachindex(λ)
+        ]
+    else
+        error(
+            "Inconsistent solution dataset dimensions: state is $(size(ψ)), value has length $(length(λ)), reads has length $(length(r))",
+        )
+    end
+
+    sense = Symbol(read(sol_grp["sense"])::String)
+    domain = Symbol(read(sol_grp["domain"])::String)
+    metadata = Dict{String,Any}(JSON.parse(read(sol_grp["metadata"])::String))
+
+    return QUBOTools.SampleSet{Float64,Int}(
+        samples,
+        metadata;
+        sense = sense,
+        domain = domain,
+    )
+end
+
 function _data_dict(data)
     return Dict{String,Any}(String(k) => v for (k, v) in pairs(data))
 end
@@ -342,7 +384,7 @@ function load_solution(index::LibraryIndex, solution::Integer)
 
     h5 = QUBOLib.archive(index)
 
-    return QUBOTools.read_solution(h5["solutions"][string(solution)], _qubin_format())
+    return _read_solution(h5["solutions"][string(solution)])
 end
 
 function load_solution(index::LibraryIndex, instance::Integer, solution::Integer)

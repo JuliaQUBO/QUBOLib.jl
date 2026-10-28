@@ -1092,6 +1092,117 @@ function test_qoblib_submission_failure_handling()
     return nothing
 end
 
+module _MockQUBOPreprocessing
+import QUBOTools
+
+function preprocess(model::QUBOTools.Model; mode::Symbol = :strong)
+    if QUBOTools.dimension(model) == 2
+        reduced = QUBOTools.Model{Int,Float64,Int}(
+            Set{Int}(),
+            Dict{Int,Float64}(),
+            Dict{Tuple{Int,Int},Float64}();
+            offset = -1.0,
+            domain = :bool,
+            sense  = QUBOTools.sense(model),
+        )
+        return (
+            model = reduced,
+            surviving_variables = Int[],
+            trace = (:exact_two_var, mode),
+        )
+    else
+        reduced = QUBOTools.Model{Int,Float64,Int}(
+            Set{Int}([1]),
+            Dict{Int,Float64}(1 => -1.0),
+            Dict{Tuple{Int,Int},Float64}();
+            offset = -4.0,
+            domain = :bool,
+            sense  = QUBOTools.sense(model),
+        )
+        return (
+            model = reduced,
+            surviving_variables = [1],
+            trace = (:repair_three_var, mode),
+        )
+    end
+end
+
+function reconstruct(trace, reduced_state::AbstractVector{<:Integer})
+    kind, mode = trace
+    if kind == :exact_two_var
+        return [1, 0]
+    else
+        x1 = isempty(reduced_state) ? 0 : Int(reduced_state[1])
+        return mode == :strong ? [1, 1, x1] : [0, 0, 1]
+    end
+end
+end
+
+function test_preprocessing_enrichment()
+    @testset "▶ QUBOPreprocessing enrichment" begin
+        model_exact = QUBOTools.read_model(
+            IOBuffer(_qoblib_independent_set_fixture()),
+            QOBLIBQS(),
+        )
+        model_repair = QUBOTools.read_model(IOBuffer(_qoblib_fixture()), QOBLIBQS())
+
+        mktempdir() do path
+            QUBOLib.access(; path, clear = true) do index
+                inst_exact = QUBOLib.add_instance!(index, model_exact; name = "exact.qs")
+                inst_repair = QUBOLib.add_instance!(index, model_repair; name = "repair.qs")
+
+                subopt_sol = QUBOTools.SampleSet{Float64,Int}(
+                    model_repair,
+                    [[0, 0, 0]];
+                    metadata = Dict{String,Any}("origin" => "fixture"),
+                )
+                QUBOLib.add_solution!(
+                    index,
+                    inst_repair,
+                    subopt_sol;
+                    qubo_value = QUBOTools.value(model_repair, [0, 0, 0]),
+                    proven_optimal = false,
+                    feasibility_status = "feasible",
+                    validation_status = "validated",
+                )
+
+                stats = enrich_preprocessing!(index, _MockQUBOPreprocessing)
+
+                @test stats.exact_count == 1
+                @test stats.repaired_strong_count == 1
+                @test stats.repaired_weak_count == 1
+                @test QUBOLib.has_solver(index, QUBOPREPROCESSING_SOLVER)
+
+                meta_df = QUBOLib.DBInterface.execute(
+                    QUBOLib.database(index),
+                    "SELECT instance, metadata FROM Instances ORDER BY instance;",
+                ) |> QUBOLib.DataFrame
+                meta_exact = QUBOLib.JSON.parse(meta_df[1, :metadata])
+                meta_repair = QUBOLib.JSON.parse(meta_df[2, :metadata])
+
+                @test meta_exact["n_strong"] == 0
+                @test meta_exact["m_strong"] == 0
+                @test meta_exact["preprocessing"]["package"] == QUBOPREPROCESSING_SOLVER
+                @test meta_repair["n_strong"] == 1
+                @test meta_repair["m_strong"] == 0
+
+                best_exact = QUBOLib.best_solution_record(index, inst_exact)
+                @test !isnothing(best_exact)
+                @test best_exact[:bitstring] == "10"
+                @test Bool(best_exact[:proven_optimal])
+                @test best_exact[:qubo_value] ≈ -1.0
+
+                best_repair = QUBOLib.best_solution_record(index, inst_repair)
+                @test !isnothing(best_repair)
+                @test best_repair[:bitstring] == "001"
+                @test best_repair[:qubo_value] ≈ 1.0
+            end
+        end
+    end
+
+    return nothing
+end
+
 function test_main()
     @testset "♦ QUBOLib.jl/scripts/build test suite ♦" verbose = true begin
         test_tags()
@@ -1104,6 +1215,7 @@ function test_main()
         test_qoblib_constrained_inventory()
         test_qoblib_build_fixture()
         test_qoblib_submission_failure_handling()
+        test_preprocessing_enrichment()
     end
 
     return nothing

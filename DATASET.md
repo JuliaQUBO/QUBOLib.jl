@@ -7,7 +7,7 @@ machine-readable companion is [`DATASET.toml`](DATASET.toml).
 ## Selected artifact
 
 This repository's [`Artifacts.toml`](Artifacts.toml) selects
-[`v0.2.4-data+4`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B4)
+[`v0.2.4-data+5`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B5)
 for the package. Previously tagged package versions retain their original
 artifact pins; publishing a data release does not modify them.
 
@@ -15,33 +15,34 @@ artifact pins; publishing a data release does not modify them.
 |:--|:--|
 | Release tag commit | `6fb487e1982857253afd7b20fc30868452b4d001` |
 | Asset | `qubolib.tar.gz` |
-| Compressed size | 102,890,681 bytes |
-| SHA-256 | `276eb06a66cec325cd3ec895cded7ba28f848aeb3998f4944466acbb33bcd001` |
-| Julia artifact tree hash | `90da567266bc93ffb76cc0435691409557d500fc` |
+| Compressed size | 102,931,361 bytes |
+| SHA-256 | `9061af4d8641efb42f040e74a471dcb8d04a4d8236ca57b740e8c7594e0d378c` |
+| Julia artifact tree hash | `4cba988f0e6c54fe87e2556bae60c95d46f80534` |
 | Archive members | `archive.h5`, `index.db` |
 | Populated collections | 5 |
 | Instances | 6,263 |
-| Inventory date | 2026-09-28 |
+| Inventory date | 2026-10-28 |
 
 The SHA-256 was recomputed from the GitHub release asset. The inventory was
 queried from the asset's SQLite index. A Zenodo upload must use these exact
-bytes; rebuilding the database is not an equivalent archive. This release is
-the selected first Zenodo version. It was published to GitHub unchanged from
-the candidate audited in PR #77 and preserved unchanged in
-[Zenodo record 23027944](https://zenodo.org/records/23027944).
+bytes; rebuilding the database is not an equivalent archive. This release
+enriches `v0.2.4-data+4` with certified `QUBOPreprocessing.jl` v0.1.2 reduction
+metadata (`n_strong`, `m_strong`, `n_weak`, `m_weak`) across all 6,263
+instances, 5 exact ground states on instances reduced to zero residual
+variables, and 33 repaired solution records (including 5 improved `QPLIB`
+best-known incumbents), and is preserved unchanged in
+[Zenodo record 23745448](https://zenodo.org/records/23745448).
 
 | Zenodo identifier | Use |
 |:--|:--|
 | [10.5281/zenodo.23027943](https://doi.org/10.5281/zenodo.23027943) | Concept DOI for the corpus across versions |
-| [10.5281/zenodo.23027944](https://doi.org/10.5281/zenodo.23027944) | Version DOI for the exact `v0.2.4-data+4` archive |
+| [10.5281/zenodo.23745448](https://doi.org/10.5281/zenodo.23745448) | Version DOI for the exact `v0.2.4-data+5` archive |
 
-Published on 2026-09-29 (UTC) under CC BY 4.0, with collection-specific
+Published on 2026-10-28 (UTC) under CC BY 4.0, with collection-specific
 attribution and conversion notices. Both the draft download and the public
 download were compared byte-for-byte against an independent GitHub download;
 their compressed size, SHA-256, and extracted Julia tree hash match the table.
-Both DOI.org links were verified on 2026-09-29 to resolve to the published
-record. DataCite reports both identifiers as findable under the title
-"QUBOLib benchmark corpus". The verification timestamp and registration
+The verification timestamp and registration
 evidence are recorded in `DATASET.toml`.
 
 `index.db` is the relational catalog of collections, instances, and solutions.
@@ -50,7 +51,7 @@ the recorded file identity and populated-collection counts with:
 
 ```bash
 audit_dir="$(mktemp -d)"
-gh release download 'v0.2.4-data+4' \
+gh release download 'v0.2.4-data+5' \
   --repo JuliaQUBO/QUBOLib.jl \
   --pattern qubolib.tar.gz \
   --dir "$audit_dir"
@@ -196,14 +197,14 @@ does not grant rights to other upstream material or to future collections.
 - Cite QUBOLib software using [`CITATION.cff`](CITATION.cff), and identify the
   package version used when reproducibility depends on it.
 - Cite the [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) for
-  the corpus across versions. For the exact `v0.2.4-data+4` bytes, cite the
-  [version DOI](https://doi.org/10.5281/zenodo.23027944). Also cite each source
+  the corpus across versions. For the exact `v0.2.4-data+5` bytes, cite the
+  [version DOI](https://doi.org/10.5281/zenodo.23745448). Also cite each source
   collection used. A dataset DOI does not identify the Julia package version.
 
 ## Zenodo publication gate
 
 `DATASET.toml` records this version as `published`. The public
-[record metadata](https://zenodo.org/api/records/23027944) identifies owner
+[record metadata](https://zenodo.org/api/records/23745448) identifies owner
 1784890 and the 15 verified related identifiers. Authenticated creation,
 upload, and publication verified the designated owner's access. This record
 uses the single-owner exception, not a claim of two active managers.
