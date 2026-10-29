@@ -1138,6 +1138,71 @@ function reconstruct(trace, reduced_state::AbstractVector{<:Integer})
 end
 end
 
+module _MockWorkspaceQUBOPreprocessing
+import QUBOTools
+
+mutable struct _MockState
+    initial_edges::Int
+    fixes::Vector{Int}
+end
+
+mutable struct Workspace
+    model::QUBOTools.Model
+    _state::_MockState
+    probed_orders::Vector{Symbol}
+    schedule_calls::Int
+end
+
+function Workspace(model::QUBOTools.Model; rules::Symbol = :mixed)
+    m_init = length(QUBOTools.quadratic_terms(model))
+    return Workspace(model, _MockState(m_init, Int[]), Symbol[], 0)
+end
+
+original_variables(ws::Workspace) = collect(1:QUBOTools.dimension(ws.model))
+
+function schedule_reductions!(ws::Workspace; kwargs...)
+    ws.schedule_calls += 1
+    return (
+        dominance_deductions = 0,
+        elimination_deductions = 0,
+        star_triangle_deductions = 0,
+        relation_deductions = 0,
+        fill_edges = 0,
+    )
+end
+
+apply_roof_duality!(ws::Workspace) = (fixings = Pair{Int,Int}[],)
+apply_submodular_cut!(ws::Workspace) = (fixings = Pair{Int,Int}[],)
+apply_maxcut!(ws::Workspace; kwargs...) = (deductions = 0, fill_edges = 0)
+coercive_field_witness(ws::Workspace; kwargs...) = ones(Int, QUBOTools.dimension(ws.model))
+
+function probe_variables!(ws::Workspace; order::Symbol = :index, kwargs...)
+    push!(ws.probed_orders, order)
+    push!(ws._state.fixes, 1)
+    return (deductions = 1,)
+end
+
+function materialize(ws::Workspace; coefficient_type = Float64)
+    n = QUBOTools.dimension(ws.model)
+    free = setdiff(collect(1:n), ws._state.fixes)
+    red = QUBOTools.Model{Int,Float64,Int}(
+        Set{Int}(1:length(free)),
+        Dict{Int,Float64}(i => -1.0 for i in 1:length(free)),
+        Dict{Tuple{Int,Int},Float64}();
+        offset = -1.0,
+        domain = :bool,
+        sense  = QUBOTools.sense(ws.model),
+    )
+    return (_free = free, _model = red, _ws = ws)
+end
+
+export_model(mat) = mat._model
+
+function reconstruct(mat, reduced_state::AbstractVector{<:Integer})
+    return (state = vcat([1], collect(Int, reduced_state)),)
+end
+end
+
 function test_preprocessing_enrichment()
     @testset "▶ QUBOPreprocessing enrichment" begin
         model_exact = QUBOTools.read_model(
@@ -1146,7 +1211,89 @@ function test_preprocessing_enrichment()
         )
         model_repair = QUBOTools.read_model(IOBuffer(_qoblib_fixture()), QOBLIBQS())
 
+        # Gauge-invariant 2-variable Max-Cut QUBO: 2*x1 + 2*x2 - 4*x1*x2 => h1 = h2 = 0
+        model_gi = QUBOTools.Model(
+            Dict(1 => 2.0, 2 => 2.0),
+            Dict((1, 2) => -4.0);
+            domain = :bool,
+            sense = :min,
+        )
+        cf_gi = _coercive_field_summary_dict(model_gi)
+        @test cf_gi["is_gauge_invariant"] == true
+        @test cf_gi["zero_field_fraction"] ≈ 1.0
+        @test cf_gi["trivial_dominance_fraction"] ≈ 0.0
+        @test cf_gi["coercive_l1_ratio"] ≈ 0.0
+        @test cf_gi["coercive_l2_ratio"] ≈ 0.0
+        @test isnothing(_field_alignment(model_gi, [1, 0]))
+
+        # Uncoupled 2-variable model: l1 = l2 = 0 => ratios are nothing (JSON-safe)
+        model_uncoupled = QUBOTools.Model(
+            Dict(1 => -2.0, 2 => 4.0),
+            Dict{Tuple{Int,Int},Float64}();
+            domain = :bool,
+            sense = :min,
+        )
+        cf_uncoupled = _coercive_field_summary_dict(model_uncoupled)
+        @test cf_uncoupled["is_gauge_invariant"] == false
+        @test cf_uncoupled["zero_field_fraction"] ≈ 0.0
+        @test cf_uncoupled["trivial_dominance_fraction"] ≈ 1.0
+        @test isnothing(cf_uncoupled["coercive_l1_ratio"])
+        @test isnothing(cf_uncoupled["coercive_l2_ratio"])
+        @test _field_alignment(model_uncoupled, [1, 0]) ≈ 1.0
+        @test _field_alignment(model_uncoupled, [0, 1]) ≈ 0.0
+
+        # Spin / Max model: h = [3, -1], J12 = 1 => l1 = [1, 1], l2 = [1, 1]
+        # Under :max, favorable spins are s_i = sign(h_i) => [+1, -1]
+        model_spin_max = QUBOTools.Model(
+            Dict(1 => 3.0, 2 => -1.0),
+            Dict((1, 2) => 1.0);
+            domain = :spin,
+            sense = :max,
+        )
+        cf_spin = _coercive_field_summary_dict(model_spin_max)
+        @test cf_spin["is_gauge_invariant"] == false
+        @test cf_spin["zero_field_fraction"] ≈ 0.0
+        @test cf_spin["trivial_dominance_fraction"] ≈ 0.5
+        @test cf_spin["coercive_l1_ratio"] ≈ 2.0
+        @test cf_spin["coercive_l2_ratio"] ≈ 2.0
+        @test _field_alignment(model_spin_max, [1, -1]) ≈ 1.0
+        @test _field_alignment(model_spin_max, [1, 1]) ≈ 0.5
+        @test _field_alignment(model_spin_max, [-1, 1]) ≈ 0.0
+        @test_throws ArgumentError _field_alignment(model_spin_max, [1, 0])
+        @test_throws DimensionMismatch _field_alignment(model_spin_max, [1])
+
+        # Workspace-mode probing with coercive_field_witness and order = :coercive
+        ws_res = _run_qubopreprocessing_mode(
+            _MockWorkspaceQUBOPreprocessing,
+            model_exact;
+            mode = :strong,
+        )
+        @test ws_res.surviving_variables == [2]
+        @test ws_res.trace._ws.probed_orders == [:coercive]
+        @test ws_res.trace._ws.schedule_calls == 2
+        @test ws_res.rules["probing"] == 1
+
         mktempdir() do path
+            coercive_tsv = joinpath(path, "coercive_metrics.tsv")
+            write(
+                coercive_tsv,
+                join(
+                    [
+                        "instance\tcollection\tclass\tname\tdimension\tedges\tsense\tdomain\tis_gauge_invariant\tzero_field_fraction\ttrivial_dominance_fraction\tcoercive_l1_ratio\tcoercive_l2_ratio",
+                        "1\tqoblib\tMIS\texact.qs\t2\t1\tmin\tbool\ttrue\t1.0\t0.0\t0.0\t0.0",
+                        "2\tqoblib\tMIS\trepair.qs\t3\t2\tmin\tbool\tfalse\t0.333333\t0.666667\tNaN\t",
+                    ],
+                    "\n",
+                ) * "\n",
+            )
+            loaded_coercive = _load_coercive_metrics_tsv(coercive_tsv)
+            @test loaded_coercive[1]["is_gauge_invariant"] == true
+            @test loaded_coercive[1]["coercive_l1_ratio"] ≈ 0.0
+            @test loaded_coercive[2]["is_gauge_invariant"] == false
+            @test loaded_coercive[2]["zero_field_fraction"] ≈ 0.333333
+            @test isnothing(loaded_coercive[2]["coercive_l1_ratio"])
+            @test isnothing(loaded_coercive[2]["coercive_l2_ratio"])
+
             QUBOLib.access(; path, clear = true) do index
                 inst_exact = QUBOLib.add_instance!(index, model_exact; name = "exact.qs")
                 inst_repair = QUBOLib.add_instance!(index, model_repair; name = "repair.qs")
@@ -1166,7 +1313,11 @@ function test_preprocessing_enrichment()
                     validation_status = "validated",
                 )
 
-                stats = enrich_preprocessing!(index, _MockQUBOPreprocessing)
+                stats = enrich_preprocessing!(
+                    index,
+                    _MockQUBOPreprocessing;
+                    coercive_tsv = coercive_tsv,
+                )
 
                 @test stats.exact_count == 1
                 @test stats.repaired_strong_count == 1
@@ -1183,19 +1334,31 @@ function test_preprocessing_enrichment()
                 @test meta_exact["n_strong"] == 0
                 @test meta_exact["m_strong"] == 0
                 @test meta_exact["preprocessing"]["package"] == QUBOPREPROCESSING_SOLVER
+                @test haskey(meta_exact["preprocessing"], "coercive_fields")
+                @test meta_exact["preprocessing"]["coercive_fields"]["is_gauge_invariant"] == true
                 @test meta_repair["n_strong"] == 1
                 @test meta_repair["m_strong"] == 0
+                @test haskey(meta_repair["preprocessing"], "coercive_fields")
+                @test meta_repair["preprocessing"]["coercive_fields"]["is_gauge_invariant"] == false
+                @test isnothing(meta_repair["preprocessing"]["coercive_fields"]["coercive_l1_ratio"])
 
                 best_exact = QUBOLib.best_solution_record(index, inst_exact)
                 @test !isnothing(best_exact)
                 @test best_exact[:bitstring] == "10"
                 @test Bool(best_exact[:proven_optimal])
                 @test best_exact[:qubo_value] ≈ -1.0
+                exact_sol_obj = QUBOLib.load_solution(index, Int(best_exact[:solution]))
+                @test haskey(QUBOTools.metadata(exact_sol_obj), "field_alignment")
 
                 best_repair = QUBOLib.best_solution_record(index, inst_repair)
                 @test !isnothing(best_repair)
                 @test best_repair[:bitstring] == "001"
                 @test best_repair[:qubo_value] ≈ 1.0
+                repair_sol_obj = QUBOLib.load_solution(index, Int(best_repair[:solution]))
+                repair_meta = QUBOTools.metadata(repair_sol_obj)
+                @test haskey(repair_meta, "field_alignment")
+                @test haskey(repair_meta, "parent_field_alignment")
+                @test haskey(repair_meta, "field_alignment_improvement")
             end
         end
     end

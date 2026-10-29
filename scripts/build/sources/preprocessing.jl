@@ -7,6 +7,149 @@ function _qubopreprocessing_edge_count(model::QUBOTools.Model)
     return length(QUBOTools.quadratic_terms(model))
 end
 
+_to_exact_rational_qubolib(x::Rational) = Rational{BigInt}(numerator(x), denominator(x))
+_to_exact_rational_qubolib(x::Integer) = Rational{BigInt}(BigInt(x), BigInt(1))
+
+function _to_exact_rational_qubolib(x::AbstractFloat)
+    isfinite(x) || throw(ArgumentError("non-finite coefficient ($x) is not supported"))
+    return Rational{BigInt}(x)
+end
+
+function _to_exact_rational_qubolib(x::Real)
+    isfinite(x) || throw(ArgumentError("non-finite coefficient ($x) is not supported"))
+    try
+        return Rational{BigInt}(x)
+    catch e
+        e isa MethodError || rethrow()
+    end
+    y = Float64(x)
+    isfinite(y) || throw(ArgumentError("non-finite coefficient ($x) is not supported"))
+    return Rational{BigInt}(y)
+end
+
+function _exact_ising_fields_and_couplings(model::QUBOTools.Model)
+    n = QUBOTools.dimension(model)
+    n == 0 && return (Rational{BigInt}[], Rational{BigInt}[], Rational{BigInt}[])
+
+    is_bool = Symbol(QUBOTools.domain(model)) == :bool
+    lin_scale = is_bool ? (BigInt(1) // BigInt(2)) : (BigInt(1) // BigInt(1))
+    quad_h_scale = is_bool ? (BigInt(1) // BigInt(4)) : (BigInt(0) // BigInt(1))
+    quad_j_scale = is_bool ? (BigInt(1) // BigInt(4)) : (BigInt(1) // BigInt(1))
+
+    h = fill(BigInt(0) // BigInt(1), n)
+    l1 = fill(BigInt(0) // BigInt(1), n)
+    l2_sq = fill(BigInt(0) // BigInt(1), n)
+
+    for (i, v) in QUBOTools.linear_terms(model)
+        h[i] += lin_scale * _to_exact_rational_qubolib(v)
+    end
+
+    for ((i, j), v) in QUBOTools.quadratic_terms(model)
+        rv = _to_exact_rational_qubolib(v)
+        if i == j
+            is_bool && (h[i] += lin_scale * rv)
+        else
+            if is_bool
+                dh = quad_h_scale * rv
+                h[i] += dh
+                h[j] += dh
+            end
+            aj = abs(quad_j_scale * rv)
+            l1[i] += aj
+            l1[j] += aj
+            aj2 = aj * aj
+            l2_sq[i] += aj2
+            l2_sq[j] += aj2
+        end
+    end
+
+    return (h, l1, l2_sq)
+end
+
+function _coercive_field_summary_dict(model::QUBOTools.Model)
+    if isdefined(QUBOTools, :is_gauge_invariant) &&
+       isdefined(QUBOTools, :zero_field_fraction) &&
+       isdefined(QUBOTools, :trivial_dominance_fraction) &&
+       isdefined(QUBOTools, :coercive_field_ratio)
+        gi = Bool(QUBOTools.is_gauge_invariant(model))
+        zff = Float64(QUBOTools.zero_field_fraction(model))
+        tdf = Float64(QUBOTools.trivial_dominance_fraction(model))
+        l1r = Float64(QUBOTools.coercive_field_ratio(model; norm = 1))
+        l2r = Float64(QUBOTools.coercive_field_ratio(model; norm = 2))
+    else
+        h, l1, l2_sq = _exact_ising_fields_and_couplings(model)
+        n = length(h)
+        n_zero = count(iszero, h)
+        n_dom = count(i -> abs(h[i]) > l1[i], 1:n)
+        gi = (n_zero == n)
+        zff = n > 0 ? n_zero / n : 1.0
+        tdf = n > 0 ? n_dom / n : 0.0
+
+        sum_l1 = 0.0
+        cnt_l1 = 0
+        sum_l2 = 0.0
+        cnt_l2 = 0
+        for i in 1:n
+            if !iszero(l1[i])
+                sum_l1 += Float64(abs(h[i]) / l1[i])
+                cnt_l1 += 1
+            end
+            if !iszero(l2_sq[i])
+                sum_l2 += Float64(abs(h[i])) / sqrt(Float64(l2_sq[i]))
+                cnt_l2 += 1
+            end
+        end
+        l1r = cnt_l1 > 0 ? sum_l1 / cnt_l1 : NaN
+        l2r = cnt_l2 > 0 ? sum_l2 / cnt_l2 : NaN
+    end
+
+    return Dict{String,Any}(
+        "is_gauge_invariant"         => gi,
+        "zero_field_fraction"        => round(zff; digits = 6),
+        "trivial_dominance_fraction" => round(tdf; digits = 6),
+        "coercive_l1_ratio"          => isnan(l1r) ? nothing : round(l1r; digits = 6),
+        "coercive_l2_ratio"          => isnan(l2r) ? nothing : round(l2r; digits = 6),
+    )
+end
+
+function _field_alignment(
+    model::QUBOTools.Model,
+    state_domain::AbstractVector{<:Integer},
+)
+    n = QUBOTools.dimension(model)
+    length(state_domain) == n || throw(
+        DimensionMismatch(
+            "state length $(length(state_domain)) does not match model dimension $n",
+        ),
+    )
+    if isdefined(QUBOTools, :field_alignment)
+        fa = Float64(QUBOTools.field_alignment(model, collect(Int, state_domain)))
+        return isnan(fa) ? nothing : round(fa; digits = 6)
+    end
+
+    h, _, _ = _exact_ising_fields_and_couplings(model)
+    is_bool = Symbol(QUBOTools.domain(model)) == :bool
+    dir = Symbol(QUBOTools.sense(model)) == :max ? -1 : 1
+    aligned = 0
+    nonzero = 0
+    for i in 1:n
+        val = Int(state_domain[i])
+        if is_bool
+            (val == 0 || val == 1) ||
+                throw(ArgumentError("expected bool state in {0, 1} at index $i, got $val"))
+        else
+            (val == -1 || val == 1) ||
+                throw(ArgumentError("expected spin state in {-1, 1} at index $i, got $val"))
+        end
+        iszero(h[i]) && continue
+        nonzero += 1
+        s_i = is_bool ? (2 * val - 1) : val
+        fav_s = (dir * h[i] > 0) ? -1 : 1
+        s_i == fav_s && (aligned += 1)
+    end
+    return nonzero > 0 ? round(aligned / nonzero; digits = 6) : nothing
+end
+
 function _qubopreprocessing_summary_dict_from_runs(
     model::QUBOTools.Model,
     res_strong,
@@ -26,7 +169,7 @@ function _qubopreprocessing_summary_dict_from_runs(
     weak_var_red_pct = n_init > 0 ? 100.0 * (n_init - n_weak) / n_init : 0.0
     weak_edge_red_pct = m_init > 0 ? 100.0 * (m_init - m_weak) / m_init : 0.0
 
-    return Dict{String,Any}(
+    summary = Dict{String,Any}(
         "package"             => QUBOPREPROCESSING_SOLVER,
         "version"             => QUBOPREPROCESSING_VERSION,
         "repository"          => QUBOPREPROCESSING_REPOSITORY,
@@ -48,7 +191,44 @@ function _qubopreprocessing_summary_dict_from_runs(
         "weak_edge_red_pct"   => round(weak_edge_red_pct; digits = 4),
         "weak_certified"      => true,
         "weak_time_s"         => round(Float64(weak_time_s); digits = 4),
+        "coercive_fields"     => _coercive_field_summary_dict(model),
     )
+    if hasproperty(res_strong, :rules)
+        summary["strong_rules"] = res_strong.rules
+    end
+    if hasproperty(res_weak, :rules)
+        summary["weak_rules"] = res_weak.rules
+    end
+    return summary
+end
+
+function _load_coercive_metrics_tsv(path::AbstractString)
+    rows = Dict{Int,Dict{String,Any}}()
+    lines = readlines(path)
+    isempty(lines) && return rows
+
+    for line in lines[2:end]
+        isempty(strip(line)) && continue
+        parts = split(line, '\t')
+        inst_id = parse(Int, parts[1])
+        gi = lowercase(strip(parts[9])) == "true"
+        zff = parse(Float64, parts[10])
+        tdf = parse(Float64, parts[11])
+        l1_raw = strip(parts[12])
+        l2_raw = strip(parts[13])
+        l1r = (isempty(l1_raw) || lowercase(l1_raw) == "nan") ? NaN : parse(Float64, l1_raw)
+        l2r = (isempty(l2_raw) || lowercase(l2_raw) == "nan") ? NaN : parse(Float64, l2_raw)
+
+        rows[inst_id] = Dict{String,Any}(
+            "is_gauge_invariant"         => gi,
+            "zero_field_fraction"        => round(zff; digits = 6),
+            "trivial_dominance_fraction" => round(tdf; digits = 6),
+            "coercive_l1_ratio"          => isnan(l1r) ? nothing : round(l1r; digits = 6),
+            "coercive_l2_ratio"          => isnan(l2r) ? nothing : round(l2r; digits = 6),
+        )
+    end
+
+    return rows
 end
 
 function _load_preprocessing_summary_tsv(path::AbstractString)
@@ -191,8 +371,11 @@ end
 function _safe_materialize(preprocess_module::Module, ws)
     try
         return preprocess_module.materialize(ws; coefficient_type = Float64)
-    catch
-        return preprocess_module.materialize(ws; coefficient_type = Rational{BigInt})
+    catch e
+        if e isa InexactError || e isa OverflowError || e isa ArgumentError
+            return preprocess_module.materialize(ws; coefficient_type = Rational{BigInt})
+        end
+        rethrow()
     end
 end
 
@@ -210,19 +393,25 @@ function _run_qubopreprocessing_mode(
         m_init = ws._state.initial_edges
         dense_large = m_init > 30_000
 
-        preprocess_module.schedule_reductions!(
+        r1 = preprocess_module.schedule_reductions!(
             ws;
             allow_weak_dominance = allow_weak,
             allow_weak_relations = allow_weak,
             enable_star_triangle = true,
         )
+        dom_ded = r1.dominance_deductions
+        elim_ded = r1.elimination_deductions
+        star_ded = r1.star_triangle_deductions
+        rel_ded = r1.relation_deductions
+        fill_edges = r1.fill_edges
+        roof_ded = 0
+        submod_ded = 0
+        maxcut_ded = 0
+        probe_ded = 0
 
         if length(ws._state.fixes) < n_init && !dense_large
             r_rd = preprocess_module.apply_roof_duality!(ws)
-            roof_ded = length(r_rd.fixings)
-            submod_ded = 0
-            maxcut_ded = 0
-            probe_ded = 0
+            roof_ded += length(r_rd.fixings)
 
             if length(ws._state.fixes) < n_init
                 r_sc = preprocess_module.apply_submodular_cut!(ws)
@@ -231,44 +420,92 @@ function _run_qubopreprocessing_mode(
             if length(ws._state.fixes) < n_init
                 r_mc = preprocess_module.apply_maxcut!(ws; allow_weak = allow_weak)
                 maxcut_ded += r_mc.deductions
+                fill_edges += r_mc.fill_edges
             end
-            if m_init <= 5_000 && n_init <= 500 && length(ws._state.fixes) < n_init
-                mat0 = _safe_materialize(preprocess_module, ws)
-                is_bool = Symbol(QUBOTools.domain(model)) == :bool
-                n_free0 = n_init - length(ws._state.fixes)
-                w_state = preprocess_module.reconstruct(
-                    mat0,
-                    fill(is_bool ? 0 : -1, n_free0),
-                ).state
-                try
-                    r_pr = preprocess_module.probe_variables!(
-                        ws,
-                        w_state;
-                        max_candidates = min(n_init, 100),
-                        max_rounds = 1,
-                    )
-                    probe_ded += r_pr.deductions
-                catch
-                end
-            end
-            if (roof_ded + submod_ded + maxcut_ded + probe_ded) > 0 &&
+            if (roof_ded + submod_ded + maxcut_ded) > 0 &&
                length(ws._state.fixes) < n_init
-                preprocess_module.schedule_reductions!(
+                r2 = preprocess_module.schedule_reductions!(
                     ws;
                     allow_weak_dominance = allow_weak,
                     allow_weak_relations = allow_weak,
                     enable_star_triangle = true,
                 )
+                dom_ded += r2.dominance_deductions
+                elim_ded += r2.elimination_deductions
+                star_ded += r2.star_triangle_deductions
+                rel_ded += r2.relation_deductions
+                fill_edges += r2.fill_edges
+            end
+            if m_init <= 5_000 && n_init <= 500 && length(ws._state.fixes) < n_init
+                if isdefined(preprocess_module, :coercive_field_witness)
+                    r_pr = preprocess_module.probe_variables!(
+                        ws;
+                        max_candidates = min(n_init, 100),
+                        max_rounds = 1,
+                        max_trial_fixes = 64,
+                        max_work = 100_000,
+                        max_exact_work = 100_000,
+                        order = :coercive,
+                    )
+                    probe_ded += r_pr.deductions
+                else
+                    mat0 = _safe_materialize(preprocess_module, ws)
+                    red_m0 = preprocess_module.export_model(mat0)
+                    h0, _, _ = _exact_ising_fields_and_couplings(red_m0)
+                    is_bool = Symbol(QUBOTools.domain(model)) == :bool
+                    low_val = is_bool ? 0 : -1
+                    dir = Symbol(QUBOTools.sense(model)) == :max ? -1 : 1
+                    free0 = Int[
+                        iszero(h0[k]) ? low_val : ((dir * h0[k] > 0) ? low_val : 1) for
+                        k in eachindex(h0)
+                    ]
+                    w_state = _reconstruct_qubopreprocessing(preprocess_module, mat0, free0)
+                    r_pr = preprocess_module.probe_variables!(
+                        ws,
+                        w_state;
+                        max_candidates = min(n_init, 100),
+                        max_rounds = 1,
+                        max_trial_fixes = 64,
+                        max_work = 100_000,
+                        max_exact_work = 100_000,
+                    )
+                    probe_ded += r_pr.deductions
+                end
+            end
+            if probe_ded > 0 && length(ws._state.fixes) < n_init
+                r3 = preprocess_module.schedule_reductions!(
+                    ws;
+                    allow_weak_dominance = allow_weak,
+                    allow_weak_relations = allow_weak,
+                    enable_star_triangle = true,
+                )
+                dom_ded += r3.dominance_deductions
+                elim_ded += r3.elimination_deductions
+                star_ded += r3.star_triangle_deductions
+                rel_ded += r3.relation_deductions
+                fill_edges += r3.fill_edges
             end
         end
 
         mat = _safe_materialize(preprocess_module, ws)
         red_model = preprocess_module.export_model(mat)
         surviving = hasproperty(mat, :_free) ? collect(Int, mat._free) : collect(1:n_init)
+        rules = Dict{String,Any}(
+            "dominance"   => dom_ded,
+            "elimination" => elim_ded,
+            "star"        => star_ded,
+            "relations"   => rel_ded,
+            "roof"        => roof_ded,
+            "submodular"  => submod_ded,
+            "maxcut"      => maxcut_ded,
+            "probing"     => probe_ded,
+            "fill_edges"  => fill_edges,
+        )
         return (
             model = red_model,
             surviving_variables = surviving,
             trace = mat,
+            rules = rules,
         )
     else
         return preprocess_module.preprocess(model; mode = mode)
@@ -288,6 +525,7 @@ function enrich_preprocessing!(
     index::QUBOLib.LibraryIndex,
     preprocess_module::Module;
     summary_tsv::Union{AbstractString,Nothing} = nothing,
+    coercive_tsv::Union{AbstractString,Nothing} = nothing,
     repair_instance_ids::Union{AbstractSet{<:Integer},Nothing} = nothing,
 )
     _ensure_qubopreprocessing_solver!(index)
@@ -295,6 +533,8 @@ function enrich_preprocessing!(
 
     precomputed = isnothing(summary_tsv) ? Dict{Int,Dict{String,Any}}() :
                   _load_preprocessing_summary_tsv(summary_tsv)
+    precomputed_coercive = isnothing(coercive_tsv) ? Dict{Int,Dict{String,Any}}() :
+                           _load_coercive_metrics_tsv(coercive_tsv)
 
     instances_df = QUBOLib.DBInterface.execute(
         db,
@@ -326,19 +566,30 @@ function enrich_preprocessing!(
             end
 
             prep_info = if haskey(precomputed, inst_id)
-                precomputed[inst_id]
+                info = copy(precomputed[inst_id])
+                if haskey(precomputed_coercive, inst_id)
+                    info["coercive_fields"] = precomputed_coercive[inst_id]
+                elseif !haskey(info, "coercive_fields")
+                    model_c = QUBOLib.load_instance(index, inst_id)
+                    info["coercive_fields"] = _coercive_field_summary_dict(model_c)
+                end
+                info
             else
                 model = QUBOLib.load_instance(index, inst_id)
                 t_s = @elapsed res_s = _run_qubopreprocessing_mode(preprocess_module, model; mode = :strong)
                 t_w = @elapsed res_w = _run_qubopreprocessing_mode(preprocess_module, model; mode = :weak)
                 live_results[inst_id] = (model = model, strong = res_s, weak = res_w)
-                _qubopreprocessing_summary_dict_from_runs(
+                info = _qubopreprocessing_summary_dict_from_runs(
                     model,
                     res_s,
                     res_w;
                     strong_time_s = t_s,
                     weak_time_s = t_w,
                 )
+                if haskey(precomputed_coercive, inst_id)
+                    info["coercive_fields"] = precomputed_coercive[inst_id]
+                end
+                info
             end
 
             meta["n_strong"] = Int(prep_info["n_strong"])
@@ -437,6 +688,7 @@ function enrich_preprocessing!(
             "n_reduced"         => 0,
             "m_reduced"         => 0,
             "certified_offset"  => cert_val,
+            "field_alignment"   => _field_alignment(model, state_domain),
             "validation_status" => "validated",
         )
         sol = QUBOTools.SampleSet{Float64,Int}(model, [state_domain]; metadata = sol_meta)
@@ -522,6 +774,7 @@ function enrich_preprocessing!(
         orig_bits = QUBOLib._bitstring_state(bitstr)
         orig_state = _bool_vector_to_domain(orig_bits, domain)
         orig_val = Float64(QUBOTools.value(model, orig_state))
+        orig_fa = _field_alignment(model, orig_state)
 
         # Strong repair
         res_s = entry.strong
@@ -539,22 +792,27 @@ function enrich_preprocessing!(
                 context = "preprocessing-repair-strong-$rec_id",
             )
             hamming_s = count(i -> orig_bits[i] != rec_bits_s[i], eachindex(orig_bits))
+            rec_fa_s = _field_alignment(model, rec_state_s)
+            fa_imp_s = (isnothing(rec_fa_s) || isnothing(orig_fa)) ? nothing : round(rec_fa_s - orig_fa; digits = 6)
             sol_meta = Dict{String,Any}(
-                "solver"            => QUBOPREPROCESSING_SOLVER,
-                "solver_version"    => QUBOPREPROCESSING_VERSION,
-                "origin"            => "certified_solution_repair",
-                "repair_package"    => QUBOPREPROCESSING_SOLVER,
-                "repair_version"    => QUBOPREPROCESSING_VERSION,
-                "repair_mode"       => "strong",
-                "parent_record"     => rec_id,
-                "parent_solution"   => ismissing(rec[:solution]) ? nothing : Int(rec[:solution]),
-                "parent_submission" => ismissing(rec[:submission]) ? nothing : Int(rec[:submission]),
-                "parent_qubo_value" => orig_val,
-                "qubo_improvement"  => rec_val_s - orig_val,
-                "hamming_distance"  => hamming_s,
-                "n_init"            => QUBOTools.dimension(model),
-                "n_reduced"         => QUBOTools.dimension(res_s.model),
-                "validation_status" => "validated",
+                "solver"                      => QUBOPREPROCESSING_SOLVER,
+                "solver_version"              => QUBOPREPROCESSING_VERSION,
+                "origin"                      => "certified_solution_repair",
+                "repair_package"              => QUBOPREPROCESSING_SOLVER,
+                "repair_version"              => QUBOPREPROCESSING_VERSION,
+                "repair_mode"                 => "strong",
+                "parent_record"               => rec_id,
+                "parent_solution"             => ismissing(rec[:solution]) ? nothing : Int(rec[:solution]),
+                "parent_submission"           => ismissing(rec[:submission]) ? nothing : Int(rec[:submission]),
+                "parent_qubo_value"           => orig_val,
+                "qubo_improvement"            => rec_val_s - orig_val,
+                "hamming_distance"            => hamming_s,
+                "parent_field_alignment"      => orig_fa,
+                "field_alignment"             => rec_fa_s,
+                "field_alignment_improvement" => fa_imp_s,
+                "n_init"                      => QUBOTools.dimension(model),
+                "n_reduced"                   => QUBOTools.dimension(res_s.model),
+                "validation_status"           => "validated",
             )
             sol = QUBOTools.SampleSet{Float64,Int}(model, [rec_state_s]; metadata = sol_meta)
             QUBOLib.add_solution!(
@@ -593,22 +851,27 @@ function enrich_preprocessing!(
                 context = "preprocessing-repair-weak-$rec_id",
             )
             hamming_w = count(i -> orig_bits[i] != rec_bits_w[i], eachindex(orig_bits))
+            rec_fa_w = _field_alignment(model, rec_state_w)
+            fa_imp_w = (isnothing(rec_fa_w) || isnothing(orig_fa)) ? nothing : round(rec_fa_w - orig_fa; digits = 6)
             sol_meta = Dict{String,Any}(
-                "solver"            => QUBOPREPROCESSING_SOLVER,
-                "solver_version"    => QUBOPREPROCESSING_VERSION,
-                "origin"            => "certified_solution_repair",
-                "repair_package"    => QUBOPREPROCESSING_SOLVER,
-                "repair_version"    => QUBOPREPROCESSING_VERSION,
-                "repair_mode"       => "weak",
-                "parent_record"     => rec_id,
-                "parent_solution"   => ismissing(rec[:solution]) ? nothing : Int(rec[:solution]),
-                "parent_submission" => ismissing(rec[:submission]) ? nothing : Int(rec[:submission]),
-                "parent_qubo_value" => orig_val,
-                "qubo_improvement"  => rec_val_w - orig_val,
-                "hamming_distance"  => hamming_w,
-                "n_init"            => QUBOTools.dimension(model),
-                "n_reduced"         => QUBOTools.dimension(res_w.model),
-                "validation_status" => "validated",
+                "solver"                      => QUBOPREPROCESSING_SOLVER,
+                "solver_version"              => QUBOPREPROCESSING_VERSION,
+                "origin"                      => "certified_solution_repair",
+                "repair_package"              => QUBOPREPROCESSING_SOLVER,
+                "repair_version"              => QUBOPREPROCESSING_VERSION,
+                "repair_mode"                 => "weak",
+                "parent_record"               => rec_id,
+                "parent_solution"             => ismissing(rec[:solution]) ? nothing : Int(rec[:solution]),
+                "parent_submission"           => ismissing(rec[:submission]) ? nothing : Int(rec[:submission]),
+                "parent_qubo_value"           => orig_val,
+                "qubo_improvement"            => rec_val_w - orig_val,
+                "hamming_distance"            => hamming_w,
+                "parent_field_alignment"      => orig_fa,
+                "field_alignment"             => rec_fa_w,
+                "field_alignment_improvement" => fa_imp_w,
+                "n_init"                      => QUBOTools.dimension(model),
+                "n_reduced"                   => QUBOTools.dimension(res_w.model),
+                "validation_status"           => "validated",
             )
             sol = QUBOTools.SampleSet{Float64,Int}(model, [rec_state_w]; metadata = sol_meta)
             QUBOLib.add_solution!(
