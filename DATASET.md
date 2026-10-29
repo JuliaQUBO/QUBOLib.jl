@@ -7,38 +7,41 @@ machine-readable companion is [`DATASET.toml`](DATASET.toml).
 ## Selected artifact
 
 This repository's [`Artifacts.toml`](Artifacts.toml) selects
-[`v0.2.4-data+5`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B5)
+[`v0.2.4-data+6`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B6)
 for the package. Previously tagged package versions retain their original
 artifact pins; publishing a data release does not modify them.
 
 | Property | Recorded value |
 |:--|:--|
-| Release tag commit | `6fb487e1982857253afd7b20fc30868452b4d001` |
+| Release tag commit | `c4e62bd38850b84f4dcb7fdcd50ec69dee88028f` |
 | Asset | `qubolib.tar.gz` |
-| Compressed size | 102,931,361 bytes |
-| SHA-256 | `9061af4d8641efb42f040e74a471dcb8d04a4d8236ca57b740e8c7594e0d378c` |
-| Julia artifact tree hash | `4cba988f0e6c54fe87e2556bae60c95d46f80534` |
+| Compressed size | 103,238,667 bytes |
+| SHA-256 | `4e4719565b1798978868c71639928a2743a4b28c4a168e8cc4b3cff747f26c0e` |
+| Julia artifact tree hash | `76869737bbd7c2a3d1c6fafc14c55829db5a5863` |
 | Archive members | `archive.h5`, `index.db` |
-| Populated collections | 5 |
-| Instances | 6,263 |
-| Inventory date | 2026-10-28 |
+| Populated collections | 6 |
+| Instances | 6,292 |
+| Inventory date | 2026-10-29 |
 
 The SHA-256 was recomputed from the GitHub release asset. The inventory was
 queried from the asset's SQLite index. A Zenodo upload must use these exact
 bytes; rebuilding the database is not an equivalent archive. This release
-enriches `v0.2.4-data+4` with certified `QUBOPreprocessing.jl` v0.1.2 reduction
-metadata (`n_strong`, `m_strong`, `n_weak`, `m_weak`) across all 6,263
-instances, 5 exact ground states on instances reduced to zero residual
-variables, and 33 repaired solution records (including 5 improved `QPLIB`
-best-known incumbents), and is preserved unchanged in
-[Zenodo record 23745448](https://zenodo.org/records/23745448).
+updates `v0.2.4-data+5` with `0.5`-scaled `QPLIB` models and cross-referenced
+upstream optimality bounds, adds the `minlplib` collection of 29 pure binary
+QUBO instances (`42` upstream solution records), and enriches all 6,292
+instances with certified `QUBOPreprocessing.jl` v0.1.2 reduction metadata
+(`n_strong`, `m_strong`, `n_weak`, `m_weak`) and coercive local-field
+diagnostics (`coercive_fields`), 7 exact ground states on instances reduced to
+zero residual variables, and 31 repaired solution records, and is preserved
+unchanged in
+[Zenodo record 23757887](https://zenodo.org/records/23757887).
 
 | Zenodo identifier | Use |
 |:--|:--|
 | [10.5281/zenodo.23027943](https://doi.org/10.5281/zenodo.23027943) | Concept DOI for the corpus across versions |
-| [10.5281/zenodo.23745448](https://doi.org/10.5281/zenodo.23745448) | Version DOI for the exact `v0.2.4-data+5` archive |
+| [10.5281/zenodo.23757887](https://doi.org/10.5281/zenodo.23757887) | Version DOI for the exact `v0.2.4-data+6` archive |
 
-Published on 2026-10-28 (UTC) under CC BY 4.0, with collection-specific
+Published on 2026-10-29 (UTC) under CC BY 4.0, with collection-specific
 attribution and conversion notices. Both the draft download and the public
 download were compared byte-for-byte against an independent GitHub download;
 their compressed size, SHA-256, and extracted Julia tree hash match the table.
@@ -51,7 +54,7 @@ the recorded file identity and populated-collection counts with:
 
 ```bash
 audit_dir="$(mktemp -d)"
-gh release download 'v0.2.4-data+5' \
+gh release download 'v0.2.4-data+6' \
   --repo JuliaQUBO/QUBOLib.jl \
   --pattern qubolib.tar.gz \
   --dir "$audit_dir"
@@ -67,7 +70,7 @@ sqlite3 "$audit_dir/extracted/index.db" \
 ```
 
 The expected SHA-256 and tree hash are the values in the table above. The SQL
-query must return the same five collection counts recorded below.
+query must return the same six collection counts recorded below.
 
 ## September QOBLIB snapshot
 
@@ -134,6 +137,7 @@ automatic artifact fallback is not required for preservation.
 | `arXiv-2103-08464-3r3x` | 2,300 | Verified by rights-holder statement | CC-BY-4.0 verified | [10.1088/2058-9565/ac4d1b](https://doi.org/10.1088/2058-9565/ac4d1b) |
 | `qplib` | 23 | Verified at reconstructed source commit | CC-BY-4.0 verified | [10.1007/s12532-018-0147-4](https://doi.org/10.1007/s12532-018-0147-4) |
 | `qoblib` | 433 | Verified at pinned commit | CC-BY-4.0 verified | [10.1038/s43588-026-00991-1](https://doi.org/10.1038/s43588-026-00991-1) |
+| `minlplib` | 29 | Verified at pinned version | CC-BY-4.0 verified | [10.1287/ijoc.15.1.114.15159](https://doi.org/10.1287/ijoc.15.1.114.15159) |
 
 The three XORSAT mirror ZIPs contain instance files but no embedded license
 notice. Itay Hen subsequently supplied an
@@ -172,11 +176,22 @@ files found:
   `QPLIB_5721.sol`.
 
 QUBOLib redistributes a processed subset of QPLIB. The build selects the 23
-`QBB` instances, parses each `.qplib` model, uses the `.lp` variable names to
-map `.sol` entries, and stores the resulting models and solutions in the
-artifact's HDF5 and SQLite files. The dataset record must identify these
+`QBB` instances, parses each `.qplib` model with the `.qplib` specification's
+`0.5` quadratic objective scaling, uses the `.lp` variable names to map `.sol`
+entries, cross-references upstream `MINLPLib` and `BiqMac` optimality bounds
+(`11` proven optimal, `12` open), and stores the resulting models and solutions
+in the artifact's HDF5 and SQLite files. The dataset record must identify these
 changes, retain the QPLIB article and website attribution, and include the
 CC-BY-4.0 notice.
+
+[MINLPLib states that the library is CC-BY-4.0](https://www.minlplib.org/).
+QUBOLib selects the 29 pure binary unconstrained QUBO instances in MINLPLib
+version `9472b011` not already included in QPLIB (`2` `autocorr_bern`, `20`
+`chimera_*`, and `7` `sporttournament06..20` instances; `sporttournament14` is
+excluded because 70 of its 91 variables are continuous in MINLPLib), parses
+POLIP (`.pip`) models and 42 `.p*.sol` solution records, factors exact `0.1`
+scaling where applicable, and stores the resulting models and solutions in HDF5
+and SQLite.
 
 QOBLIB commit
 [`16a166ee67c24c112551c803aab5394743b815b5`](https://github.com/ZIB-AOPT/QOBLIB/tree/16a166ee67c24c112551c803aab5394743b815b5)
@@ -184,7 +199,7 @@ contains a CC-BY-4.0 data license. The dataset record must retain the QOBLIB
 attribution, source commit, and citation.
 
 The repository's MIT license covers QUBOLib software. It does not replace the
-collection-specific data terms above. All five included collections have
+collection-specific data terms above. All six included collections have
 verified CC-BY-4.0 terms, so the Zenodo license field can identify CC BY 4.0
 while retaining each collection's attribution and conversion notices. This
 does not grant rights to other upstream material or to future collections.
@@ -197,15 +212,15 @@ does not grant rights to other upstream material or to future collections.
 - Cite QUBOLib software using [`CITATION.cff`](CITATION.cff), and identify the
   package version used when reproducibility depends on it.
 - Cite the [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) for
-  the corpus across versions. For the exact `v0.2.4-data+5` bytes, cite the
-  [version DOI](https://doi.org/10.5281/zenodo.23745448). Also cite each source
+  the corpus across versions. For the exact `v0.2.4-data+6` bytes, cite the
+  [version DOI](https://doi.org/10.5281/zenodo.23757887). Also cite each source
   collection used. A dataset DOI does not identify the Julia package version.
 
 ## Zenodo publication gate
 
 `DATASET.toml` records this version as `published`. The public
-[record metadata](https://zenodo.org/api/records/23745448) identifies owner
-1784890 and the 15 verified related identifiers. Authenticated creation,
+[record metadata](https://zenodo.org/api/records/23757887) identifies owner
+1784890 and the 17 verified related identifiers. Authenticated creation,
 upload, and publication verified the designated owner's access. This record
 uses the single-owner exception, not a claim of two active managers.
 

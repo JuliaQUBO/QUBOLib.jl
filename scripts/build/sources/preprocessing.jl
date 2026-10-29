@@ -388,7 +388,12 @@ function _run_qubopreprocessing_mode(
        isdefined(preprocess_module, :schedule_reductions!) &&
        isdefined(preprocess_module, :materialize)
         allow_weak = (mode == :weak)
-        ws = preprocess_module.Workspace(model; rules = :mixed)
+        ws = try
+            preprocess_module.Workspace(model; rules = :mixed, integerize_scale = true)
+        catch e
+            e isa MethodError || rethrow()
+            preprocess_module.Workspace(model; rules = :mixed)
+        end
         n_init = length(preprocess_module.original_variables(ws))
         m_init = ws._state.initial_edges
         dense_large = m_init > 30_000
@@ -409,21 +414,29 @@ function _run_qubopreprocessing_mode(
         maxcut_ded = 0
         probe_ded = 0
 
-        if length(ws._state.fixes) < n_init && !dense_large
+        max_outer_rounds = (m_init <= 5_000 && n_init <= 500) ? 8 : 1
+        for _ in 1:max_outer_rounds
+            (length(ws._state.fixes) < n_init && !dense_large) || break
+            round_ded = 0
+
             r_rd = preprocess_module.apply_roof_duality!(ws)
-            roof_ded += length(r_rd.fixings)
+            rd_new = length(r_rd.fixings)
+            roof_ded += rd_new
+            round_ded += rd_new
 
             if length(ws._state.fixes) < n_init
                 r_sc = preprocess_module.apply_submodular_cut!(ws)
-                submod_ded += length(r_sc.fixings)
+                sc_new = length(r_sc.fixings)
+                submod_ded += sc_new
+                round_ded += sc_new
             end
             if length(ws._state.fixes) < n_init
                 r_mc = preprocess_module.apply_maxcut!(ws; allow_weak = allow_weak)
                 maxcut_ded += r_mc.deductions
+                round_ded += r_mc.deductions
                 fill_edges += r_mc.fill_edges
             end
-            if (roof_ded + submod_ded + maxcut_ded) > 0 &&
-               length(ws._state.fixes) < n_init
+            if round_ded > 0 && length(ws._state.fixes) < n_init
                 r2 = preprocess_module.schedule_reductions!(
                     ws;
                     allow_weak_dominance = allow_weak,
@@ -436,18 +449,19 @@ function _run_qubopreprocessing_mode(
                 rel_ded += r2.relation_deductions
                 fill_edges += r2.fill_edges
             end
+            pr_new = 0
             if m_init <= 5_000 && n_init <= 500 && length(ws._state.fixes) < n_init
                 if isdefined(preprocess_module, :coercive_field_witness)
                     r_pr = preprocess_module.probe_variables!(
                         ws;
                         max_candidates = min(n_init, 100),
-                        max_rounds = 1,
-                        max_trial_fixes = 64,
-                        max_work = 100_000,
-                        max_exact_work = 100_000,
+                        max_rounds = n_init <= 100 ? 4 : 1,
+                        max_trial_fixes = n_init <= 100 ? 512 : 64,
+                        max_work = n_init <= 100 ? 2_000_000 : 100_000,
+                        max_exact_work = n_init <= 100 ? 2_000_000 : 100_000,
                         order = :coercive,
                     )
-                    probe_ded += r_pr.deductions
+                    pr_new = r_pr.deductions
                 else
                     mat0 = _safe_materialize(preprocess_module, ws)
                     red_m0 = preprocess_module.export_model(mat0)
@@ -469,10 +483,12 @@ function _run_qubopreprocessing_mode(
                         max_work = 100_000,
                         max_exact_work = 100_000,
                     )
-                    probe_ded += r_pr.deductions
+                    pr_new = r_pr.deductions
                 end
+                probe_ded += pr_new
+                round_ded += pr_new
             end
-            if probe_ded > 0 && length(ws._state.fixes) < n_init
+            if pr_new > 0 && length(ws._state.fixes) < n_init
                 r3 = preprocess_module.schedule_reductions!(
                     ws;
                     allow_weak_dominance = allow_weak,
@@ -484,7 +500,9 @@ function _run_qubopreprocessing_mode(
                 star_ded += r3.star_triangle_deductions
                 rel_ded += r3.relation_deductions
                 fill_edges += r3.fill_edges
+                round_ded += r3.dominance_deductions + r3.elimination_deductions + r3.star_triangle_deductions + r3.relation_deductions
             end
+            round_ded > 0 || break
         end
 
         mat = _safe_materialize(preprocess_module, ws)
@@ -508,7 +526,12 @@ function _run_qubopreprocessing_mode(
             rules = rules,
         )
     else
-        return preprocess_module.preprocess(model; mode = mode)
+        return try
+            preprocess_module.preprocess(model; mode = mode, integerize_scale = true)
+        catch e
+            e isa MethodError || rethrow()
+            preprocess_module.preprocess(model; mode = mode)
+        end
     end
 end
 
@@ -663,7 +686,7 @@ function enrich_preprocessing!(
         state_domain = _reconstruct_qubopreprocessing(preprocess_module, res.trace, Int[])
         state_bool = _state_to_bool_vector(state_domain, domain)
         qubo_val = Float64(QUBOTools.value(model, state_domain))
-        cert_val = Float64(QUBOTools.offset(res.model))
+        cert_val = Float64(QUBOTools.scale(res.model)) * Float64(QUBOTools.offset(res.model))
         if !isapprox(qubo_val, cert_val; rtol = 1e-8, atol = 1e-8)
             error(
                 "[preprocessing] Certified offset ($cert_val) != evaluated QUBO value ($qubo_val) on instance $inst_id",

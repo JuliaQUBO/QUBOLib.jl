@@ -260,10 +260,14 @@ function test_dataset_collection_metadata()
 
         @test MINLPLIB_DATA["data_license"] == "CC-BY-4.0"
         @test MINLPLIB_DATA["metadata"]["source_commit"] == MINLPLIB_SOURCE_COMMIT
+        @test MINLPLIB_DATA["metadata"]["mirror_sha256"] == MINLPLIB_MIRROR_SHA256
         @test MINLPLIB_DATA["metadata"]["provenance_status"] == "verified"
         @test MINLPLIB_DATA["metadata"]["rights_status"] == "verified"
         @test MINLPLIB_DATA["metadata"]["imported_qubo_count"] == 29
         @test MINLPLIB_DATA["metadata"]["qplib_overlap_count"] == 18
+        @test inventory["minlplib"]["mirror_sha256"] == MINLPLIB_MIRROR_SHA256
+        @test inventory["minlplib"]["instances"] == 29
+        @test inventory["minlplib"]["data_license"] == MINLPLIB_DATA["data_license"]
 
         collection_data = [entry[:data] for entry in values(HEN_DATA)]
         append!(collection_data, [QPLIB_DATA, QOBLIB_DATA, MINLPLIB_DATA])

@@ -1,5 +1,7 @@
 const MINLPLIB_SOURCE_URL = "https://www.minlplib.org/"
 const MINLPLIB_SOURCE_COMMIT = "9472b011"
+const MINLPLIB_URL = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/minlplib.zip"
+const MINLPLIB_MIRROR_SHA256 = "0154d83f82b2bfb559b8b3542bad2379f5e3b68c4390997085c8f7ce2d3e33c4"
 const MINLPLIB_CITATION = """
 @article{Bussieck2003MINLPLib,
   title={MINLPLib---a collection of test models for mixed-integer nonlinear programming},
@@ -87,6 +89,8 @@ const MINLPLIB_DATA = Dict{String,Any}(
         "source_name"           => "MINLPLib",
         "source_url"            => MINLPLIB_SOURCE_URL,
         "source_commit"         => MINLPLIB_SOURCE_COMMIT,
+        "mirror_url"            => MINLPLIB_URL,
+        "mirror_sha256"         => MINLPLIB_MIRROR_SHA256,
         "citation_doi"          => "10.1287/ijoc.15.1.114.15159",
         "license_evidence_url"  => MINLPLIB_SOURCE_URL,
         "provenance_status"     => "verified",
