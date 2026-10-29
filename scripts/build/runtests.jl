@@ -1138,6 +1138,71 @@ function reconstruct(trace, reduced_state::AbstractVector{<:Integer})
 end
 end
 
+module _MockWorkspaceQUBOPreprocessing
+import QUBOTools
+
+mutable struct _MockState
+    initial_edges::Int
+    fixes::Vector{Int}
+end
+
+mutable struct Workspace
+    model::QUBOTools.Model
+    _state::_MockState
+    probed_orders::Vector{Symbol}
+    schedule_calls::Int
+end
+
+function Workspace(model::QUBOTools.Model; rules::Symbol = :mixed)
+    m_init = length(QUBOTools.quadratic_terms(model))
+    return Workspace(model, _MockState(m_init, Int[]), Symbol[], 0)
+end
+
+original_variables(ws::Workspace) = collect(1:QUBOTools.dimension(ws.model))
+
+function schedule_reductions!(ws::Workspace; kwargs...)
+    ws.schedule_calls += 1
+    return (
+        dominance_deductions = 0,
+        elimination_deductions = 0,
+        star_triangle_deductions = 0,
+        relation_deductions = 0,
+        fill_edges = 0,
+    )
+end
+
+apply_roof_duality!(ws::Workspace) = (fixings = Pair{Int,Int}[],)
+apply_submodular_cut!(ws::Workspace) = (fixings = Pair{Int,Int}[],)
+apply_maxcut!(ws::Workspace; kwargs...) = (deductions = 0, fill_edges = 0)
+coercive_field_witness(ws::Workspace; kwargs...) = ones(Int, QUBOTools.dimension(ws.model))
+
+function probe_variables!(ws::Workspace; order::Symbol = :index, kwargs...)
+    push!(ws.probed_orders, order)
+    push!(ws._state.fixes, 1)
+    return (deductions = 1,)
+end
+
+function materialize(ws::Workspace; coefficient_type = Float64)
+    n = QUBOTools.dimension(ws.model)
+    free = setdiff(collect(1:n), ws._state.fixes)
+    red = QUBOTools.Model{Int,Float64,Int}(
+        Set{Int}(1:length(free)),
+        Dict{Int,Float64}(i => -1.0 for i in 1:length(free)),
+        Dict{Tuple{Int,Int},Float64}();
+        offset = -1.0,
+        domain = :bool,
+        sense  = QUBOTools.sense(ws.model),
+    )
+    return (_free = free, _model = red, _ws = ws)
+end
+
+export_model(mat) = mat._model
+
+function reconstruct(mat, reduced_state::AbstractVector{<:Integer})
+    return (state = vcat([1], collect(Int, reduced_state)),)
+end
+end
+
 function test_preprocessing_enrichment()
     @testset "▶ QUBOPreprocessing enrichment" begin
         model_exact = QUBOTools.read_model(
@@ -1145,6 +1210,47 @@ function test_preprocessing_enrichment()
             QOBLIBQS(),
         )
         model_repair = QUBOTools.read_model(IOBuffer(_qoblib_fixture()), QOBLIBQS())
+
+        # Gauge-invariant 2-variable Max-Cut QUBO: 2*x1 + 2*x2 - 4*x1*x2 => h1 = h2 = 0
+        model_gi = QUBOTools.Model(
+            Dict(1 => 2.0, 2 => 2.0),
+            Dict((1, 2) => -4.0);
+            domain = :bool,
+            sense = :min,
+        )
+        cf_gi = _coercive_field_summary_dict(model_gi)
+        @test cf_gi["is_gauge_invariant"] == true
+        @test cf_gi["zero_field_fraction"] ≈ 1.0
+        @test cf_gi["trivial_dominance_fraction"] ≈ 0.0
+        @test cf_gi["coercive_l1_ratio"] ≈ 0.0
+        @test cf_gi["coercive_l2_ratio"] ≈ 0.0
+        @test isnothing(_field_alignment(model_gi, [1, 0]))
+
+        # Uncoupled 2-variable model: l1 = l2 = 0 => ratios are nothing (JSON-safe)
+        model_uncoupled = QUBOTools.Model(
+            Dict(1 => -2.0, 2 => 4.0),
+            Dict{Tuple{Int,Int},Float64}();
+            domain = :bool,
+            sense = :min,
+        )
+        cf_uncoupled = _coercive_field_summary_dict(model_uncoupled)
+        @test cf_uncoupled["is_gauge_invariant"] == false
+        @test cf_uncoupled["zero_field_fraction"] ≈ 0.0
+        @test cf_uncoupled["trivial_dominance_fraction"] ≈ 1.0
+        @test isnothing(cf_uncoupled["coercive_l1_ratio"])
+        @test isnothing(cf_uncoupled["coercive_l2_ratio"])
+        @test _field_alignment(model_uncoupled, [1, 0]) ≈ 1.0
+        @test _field_alignment(model_uncoupled, [0, 1]) ≈ 0.0
+
+        # Workspace-mode probing with coercive_field_witness and order = :coercive
+        ws_res = _run_qubopreprocessing_mode(
+            _MockWorkspaceQUBOPreprocessing,
+            model_exact;
+            mode = :strong,
+        )
+        @test ws_res.surviving_variables == [2]
+        @test ws_res.trace._ws.probed_orders == [:coercive]
+        @test ws_res.trace._ws.schedule_calls == 2
 
         mktempdir() do path
             QUBOLib.access(; path, clear = true) do index
@@ -1183,19 +1289,30 @@ function test_preprocessing_enrichment()
                 @test meta_exact["n_strong"] == 0
                 @test meta_exact["m_strong"] == 0
                 @test meta_exact["preprocessing"]["package"] == QUBOPREPROCESSING_SOLVER
+                @test haskey(meta_exact["preprocessing"], "coercive_fields")
+                @test meta_exact["preprocessing"]["coercive_fields"]["is_gauge_invariant"] == true
                 @test meta_repair["n_strong"] == 1
                 @test meta_repair["m_strong"] == 0
+                @test haskey(meta_repair["preprocessing"], "coercive_fields")
+                @test meta_repair["preprocessing"]["coercive_fields"]["is_gauge_invariant"] == false
 
                 best_exact = QUBOLib.best_solution_record(index, inst_exact)
                 @test !isnothing(best_exact)
                 @test best_exact[:bitstring] == "10"
                 @test Bool(best_exact[:proven_optimal])
                 @test best_exact[:qubo_value] ≈ -1.0
+                exact_sol_obj = QUBOLib.load_solution(index, Int(best_exact[:solution]))
+                @test haskey(QUBOTools.metadata(exact_sol_obj), "field_alignment")
 
                 best_repair = QUBOLib.best_solution_record(index, inst_repair)
                 @test !isnothing(best_repair)
                 @test best_repair[:bitstring] == "001"
                 @test best_repair[:qubo_value] ≈ 1.0
+                repair_sol_obj = QUBOLib.load_solution(index, Int(best_repair[:solution]))
+                repair_meta = QUBOTools.metadata(repair_sol_obj)
+                @test haskey(repair_meta, "field_alignment")
+                @test haskey(repair_meta, "parent_field_alignment")
+                @test haskey(repair_meta, "field_alignment_improvement")
             end
         end
     end
