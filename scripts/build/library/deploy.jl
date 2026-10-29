@@ -136,7 +136,7 @@ function qubolib_release_notes(
 
     QOBLIB contributes $(counts.instances) imported QUBO instances and $(counts.incumbents) validated incumbent records. The remaining $(counts.missing_incumbents) missing-incumbent cases are represented as `SolutionRecords` metadata instead of build failures.
 
-    All 6263 instances include certified `QUBOPreprocessing.jl` v0.1.2 reduction metadata (`n_strong`, `m_strong`, `n_weak`, `m_weak`), along with 5 instances solved completely to zero residual variables and 33 repaired solution records (including 5 improved `QPLIB` best-known incumbents).
+    All 6292 instances include certified `QUBOPreprocessing.jl` v0.1.2 reduction metadata (`n_strong`, `m_strong`, `n_weak`, `m_weak`) and coercive local-field diagnostics (`coercive_fields`), along with 7 instances solved completely to zero residual variables and 31 repaired solution records.
 
     QUBOLib remains QUBO-focused. Benchmark comparisons should use canonical QUBO-space `qubo_value`, which is evaluated from the stored model and mapped bitstring. Source objective values are preserved as provenance and may differ because of source formulation conventions, offsets, signs, penalties, or auxiliary variables.
 
