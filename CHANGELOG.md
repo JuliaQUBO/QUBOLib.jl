@@ -2,21 +2,23 @@
 
 ## Unreleased
 
+## v0.2.5 - 2026-10-29
+
 - Publish data release `v0.2.4-data+6` (Zenodo `10.5281/zenodo.23757887` under
   concept DOI `10.5281/zenodo.23027943`), applying the `0.5` quadratic scaling
   specification fix and cross-referenced `MINLPLib`/`BiqMac` optimality bounds
-  to the 23 `QPLIB` instances, adding the `minlplib` collection of 29 pure
-  binary unconstrained QUBO instances (`42` solution records), and enriching
-  all 6,292 instances across all 6 collections with `QUBOPreprocessing.jl`
-  `v0.1.2` reduction metadata (`n_strong`, `m_strong`, `n_weak`, `m_weak`),
-  coercive local-field diagnostics (`coercive_fields`), 7 exact zero-residual
-  ground states, and 31 repaired solution records.
+  to the 23 `QPLIB` instances (#88, #89), adding the `minlplib` collection of
+  29 pure binary unconstrained QUBO instances (`42` solution records) (#88,
+  #89), and enriching all 6,292 instances across all 6 collections with
+  `QUBOPreprocessing.jl` `v0.1.2` (`integerize_scale = true`) reduction
+  metadata (`n_strong`, `m_strong`, `n_weak`, `m_weak`), coercive local-field
+  diagnostics (`coercive_fields`, `field_alignment`), 7 exact zero-residual
+  ground states, and 31 repaired solution records (#86, #87, #90, #91).
 - Publish data release `v0.2.4-data+5` (Zenodo `10.5281/zenodo.23745448` under
   concept DOI `10.5281/zenodo.23027943`), enriching all 6,263 instances with
   certified `QUBOPreprocessing.jl` `v0.1.2` reduction metadata (`n_strong`,
   `m_strong`, `n_weak`, `m_weak`) and adding 5 exact zero-residual ground
-  states plus 33 repaired solution records (including 5 improved `QPLIB`
-  best-known incumbents).
+  states plus 33 repaired solution records (#85).
 - Fix `DBInterface.execute` queries in `src/library/solvers.jl`.
 - Pin the data importer to QOBLIB `16a166ee67c24c112551c803aab5394743b815b5`,
   including the merged Parallel ILS submission and later benchmark updates.

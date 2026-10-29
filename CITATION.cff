@@ -11,8 +11,8 @@ authors:
 repository-code: "https://github.com/JuliaQUBO/QUBOLib.jl"
 url: "https://juliaqubo.github.io/QUBOLib.jl"
 license: MIT
-version: "0.2.4"
-date-released: "2026-06-26"
+version: "0.2.5"
+date-released: "2026-10-29"
 keywords:
   - "binary optimization"
   - "benchmark dataset"
