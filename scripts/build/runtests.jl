@@ -258,8 +258,15 @@ function test_dataset_collection_metadata()
         @test inventory["qoblib"]["source_commit"] == QOBLIB_SOURCE_COMMIT
         @test inventory["qoblib"]["data_license"] == QOBLIB_DATA["data_license"]
 
+        @test MINLPLIB_DATA["data_license"] == "CC-BY-4.0"
+        @test MINLPLIB_DATA["metadata"]["source_commit"] == MINLPLIB_SOURCE_COMMIT
+        @test MINLPLIB_DATA["metadata"]["provenance_status"] == "verified"
+        @test MINLPLIB_DATA["metadata"]["rights_status"] == "verified"
+        @test MINLPLIB_DATA["metadata"]["imported_qubo_count"] == 29
+        @test MINLPLIB_DATA["metadata"]["qplib_overlap_count"] == 18
+
         collection_data = [entry[:data] for entry in values(HEN_DATA)]
-        append!(collection_data, [QPLIB_DATA, QOBLIB_DATA])
+        append!(collection_data, [QPLIB_DATA, QOBLIB_DATA, MINLPLIB_DATA])
 
         for data in collection_data
             decoded = QUBOLib.JSON.parse(QUBOLib.JSON.json(data))
@@ -1366,12 +1373,266 @@ function test_preprocessing_enrichment()
     return nothing
 end
 
+function test_qplib_parser_and_crossref()
+    @testset "▶ QPLIB parser 0.5 scaling & MINLPLib/BiqMac cross-reference" begin
+        @test length(QPLIB_INSTANCE_METADATA) == 23
+        @test count(v -> v.origin == "MINLPLib", values(QPLIB_INSTANCE_METADATA)) == 18
+        @test count(v -> v.origin == "BiqMac", values(QPLIB_INSTANCE_METADATA)) == 5
+        @test count(v -> v.proven_optimal, values(QPLIB_INSTANCE_METADATA)) == 11
+
+        # QPLIB stores 0.5 * x' * Q^0 * x + b^0 * x + q^0 with lower-triangular entries (i >= j)
+        qplib_text = """
+        QPLIB_3852
+        QBB
+        maximize
+        2 # number of variables
+        1 # number of quadratic terms in objective
+        2 1 -8.0
+        0.0 # default value for linear coefficients in objective
+        2 # number of non-default linear coefficients in objective
+        1 2.0
+        2 2.0
+        10.0 # objective constant
+        1e20 # value for infinity
+        0.0 # default variable primal value in starting point
+        0 # number of non-default variable primal values in starting point
+        0.0 # default variable bound dual value in starting point
+        0 # number of non-default variable bound dual values in starting point
+        0 # number of non-default variable names
+        0 # number of non-default constraint names
+        """
+        model = QUBOTools.read_model(IOBuffer(qplib_text), Format(:qplib))
+        @test QUBOTools.dimension(model) == 2
+        @test String(QUBOTools.sense(model)) == "max"
+        @test String(QUBOTools.domain(model)) == "bool"
+        @test QUBOTools.offset(model) ≈ 10.0
+        @test Dict(QUBOTools.linear_terms(model)) == Dict(1 => 2.0, 2 => 2.0)
+        @test Dict(QUBOTools.quadratic_terms(model)) == Dict((1, 2) => -4.0)
+        @test QUBOTools.value(model, [1, 0]) ≈ 12.0
+        @test QUBOTools.value(model, [1, 1]) ≈ 10.0
+
+        # Verify QBN header is also accepted
+        qbn_text = replace(qplib_text, "\nQBB\n" => "\nQBN\n")
+        model_qbn = QUBOTools.read_model(IOBuffer(qbn_text), Format(:qplib))
+        @test Dict(QUBOTools.quadratic_terms(model_qbn)) == Dict((1, 2) => -4.0)
+
+        mktempdir() do root
+            qplib_file = joinpath(root, "QPLIB_3852.qplib")
+            lp_file = joinpath(root, "QPLIB_3852.lp")
+            sol_file = joinpath(root, "QPLIB_3852.sol")
+
+            write(qplib_file, replace(qplib_text, "10.0 # objective constant" => "232.0 # objective constant"))
+            write(lp_file, "Maximize\n obj: 2 b1 + 2 b2 + [ - 8 b1 * b2 ] / 2 + 232\nBinary\n b1 b2\nEnd\n")
+            write(sol_file, "objvar 234.0\nb1 1\nb2 0\n")
+
+            @test _is_qplib_qubo(qplib_file)
+
+            mktempdir() do path
+                QUBOLib.access(; path, clear = true) do index
+                    build_qplib!(index; source_path = root, codes = ["QPLIB_3852"])
+                    @test QUBOLib.collection_size(index, "qplib") == 1
+
+                    inst_df = QUBOLib.DBInterface.execute(
+                        QUBOLib.database(index),
+                        "SELECT instance, name, source_name, metadata FROM Instances WHERE collection = 'qplib';",
+                    ) |> QUBOLib.DataFrame
+                    @test size(inst_df, 1) == 1
+                    @test inst_df[1, :name] == "QPLIB_3852.qplib"
+                    @test inst_df[1, :source_name] == "sporttournament22"
+                    inst_meta = QUBOLib.JSON.parse(inst_df[1, :metadata])
+                    @test inst_meta["origin"] == "MINLPLib"
+                    @test inst_meta["minlplib_name"] == "sporttournament22"
+                    @test inst_meta["proven_optimal"] == true
+
+                    best_rec = QUBOLib.best_solution_record(index, Int(inst_df[1, :instance]))
+                    @test !isnothing(best_rec)
+                    @test best_rec[:qubo_value] ≈ 234.0
+                    @test best_rec[:source_value] ≈ 234.0
+                    @test Bool(best_rec[:proven_optimal])
+                    @test best_rec[:validation_status] == "validated"
+                end
+            end
+        end
+    end
+
+    return nothing
+end
+
+function test_minlplib_pip_parser_and_build()
+    @testset "▶ MINLPLib PIP parser & QUBO collection build" begin
+        @test length(MINLPLIB_QUBO_INSTANCES) == 29
+        @test length(MINLPLIB_QPLIB_OVERLAP) == 18
+        @test count(e -> e.proven_optimal, MINLPLIB_QUBO_INSTANCES) == 18
+        @test isempty(intersect(
+            Set(e.name for e in MINLPLIB_QUBO_INSTANCES),
+            Set(e.minlplib_name for e in MINLPLIB_QPLIB_OVERLAP),
+        ))
+
+        # 1. Direct BQP with tenths coefficients + floating-point export noise (chimera style)
+        pip_chimera = """
+        \\* Source Model Name: chimera_fixture *\\
+
+        Maximize
+          obj: +0.9 b1 +0.9 b2 -1.7999999999999998 b1 b2
+
+        Subject To
+
+        Bounds
+         0 <= b1 <= 1
+         0 <= b2 <= 1
+
+        Binary
+          b1
+          b2
+        End
+        """
+        m_chimera = QUBOTools.read_model(IOBuffer(pip_chimera), Format(:minlplib_pip))
+        @test QUBOTools.dimension(m_chimera) == 2
+        @test String(QUBOTools.sense(m_chimera)) == "max"
+        @test String(QUBOTools.domain(m_chimera)) == "bool"
+        @test QUBOTools.scale(m_chimera) ≈ 0.1
+        @test QUBOTools.value(m_chimera, [1, 0]) ≈ 0.9
+        @test QUBOTools.value(m_chimera, [1, 1]) ≈ 0.0
+        cf_chimera = _coercive_field_summary_dict(m_chimera)
+        @test cf_chimera["is_gauge_invariant"] == true
+        @test cf_chimera["zero_field_fraction"] ≈ 1.0
+
+        # 2. Epigraph MBQCP maximization (sporttournament style: -Q(b) + objvar <= C)
+        pip_sport = """
+        Maximize
+          obj: 0 b1 + 0 b2 + objvar
+
+        Subject To
+          e1: -2 b1 -2 b2 + objvar + 4 b1 b2 <= 10
+
+        Bounds
+         objvar Free
+
+        Binary
+          b1
+          b2
+        End
+        """
+        m_sport = QUBOTools.read_model(IOBuffer(pip_sport), Format(:minlplib_pip))
+        @test QUBOTools.dimension(m_sport) == 2
+        @test String(QUBOTools.sense(m_sport)) == "max"
+        @test QUBOTools.offset(m_sport) ≈ 10.0
+        @test QUBOTools.value(m_sport, [1, 0]) ≈ 12.0
+        @test QUBOTools.value(m_sport, [1, 1]) ≈ 10.0
+        cf_sport = _coercive_field_summary_dict(m_sport)
+        @test cf_sport["is_gauge_invariant"] == true
+
+        # 3. Epigraph MBQCP minimization (autocorr_bern style: Q(b) - objvar <= 0)
+        pip_autocorr = """
+        Minimize
+          obj: 0 b1 + 0 b2 + objvar
+
+        Subject To
+          e1: 2 b1 + 2 b2 - objvar - 4 b1 b2 <= 0
+
+        Bounds
+         objvar Free
+
+        Binary
+          b1
+          b2
+        End
+        """
+        m_autocorr = QUBOTools.read_model(IOBuffer(pip_autocorr), Format(:minlplib_pip))
+        @test QUBOTools.dimension(m_autocorr) == 2
+        @test String(QUBOTools.sense(m_autocorr)) == "min"
+        @test QUBOTools.offset(m_autocorr) ≈ 0.0
+        @test QUBOTools.value(m_autocorr, [1, 0]) ≈ 2.0
+        @test QUBOTools.value(m_autocorr, [0, 0]) ≈ 0.0
+        cf_autocorr = _coercive_field_summary_dict(m_autocorr)
+        @test cf_autocorr["is_gauge_invariant"] == true
+
+        # 4. Reject malformed epigraph objectives, wrong objvar sign, and non-contiguous/invalid binary sections
+        @test_throws QUBOTools.SyntaxError QUBOTools.read_model(
+            IOBuffer(replace(pip_sport, "0 b1 + 0 b2 + objvar" => "1 b1 + objvar")),
+            Format(:minlplib_pip),
+        )
+        @test_throws QUBOTools.SyntaxError QUBOTools.read_model(
+            IOBuffer(replace(pip_sport, "+ objvar +" => "- objvar +")),
+            Format(:minlplib_pip),
+        )
+        @test_throws QUBOTools.SyntaxError QUBOTools.read_model(
+            IOBuffer(replace(pip_sport, "Binary\n  b1\n  b2" => "Binary\n  b1\n  x2")),
+            Format(:minlplib_pip),
+        )
+        @test_throws QUBOTools.SyntaxError QUBOTools.read_model(
+            IOBuffer(replace(pip_sport, "Binary\n  b1\n  b2" => "Binary\n  b1\n  b3")),
+            Format(:minlplib_pip),
+        )
+        @test_throws QUBOTools.SyntaxError QUBOTools.read_model(
+            IOBuffer(replace(pip_chimera, "+0.9 b2" => "+0.9 b3")),
+            Format(:minlplib_pip),
+        )
+
+        fixture_instances = [
+            (
+                name = "sporttournament06",
+                family = "sporttournament",
+                formulation = "mbqcp_epigraph",
+                dimension = 2,
+                sense = :max,
+                primal_bound = 12.0,
+                dual_bound = 12.0,
+                gap = 0.0,
+                proven_optimal = true,
+                best_point = "p1",
+                points = ["p1"],
+            ),
+        ]
+
+        mktempdir() do root
+            write(joinpath(root, "sporttournament06.pip"), pip_sport)
+            write(
+                joinpath(root, "sporttournament06.p1.sol"),
+                "objvar 12\nb1 1\nb2 0\n",
+            )
+
+            mktempdir() do path
+                QUBOLib.access(; path, clear = true) do index
+                    build_minlplib!(
+                        index;
+                        root      = root,
+                        instances = fixture_instances,
+                    )
+                    @test QUBOLib.collection_size(index, "minlplib") == 1
+
+                    inst_df = QUBOLib.DBInterface.execute(
+                        QUBOLib.database(index),
+                        "SELECT instance, name, problem_class, formulation, metadata FROM Instances WHERE collection = 'minlplib';",
+                    ) |> QUBOLib.DataFrame
+                    @test size(inst_df, 1) == 1
+                    @test inst_df[1, :name] == "sporttournament06.pip"
+                    @test inst_df[1, :problem_class] == "Max-Cut (Sport Tournament)"
+                    @test inst_df[1, :formulation] == "mbqcp_epigraph"
+
+                    best_rec = QUBOLib.best_solution_record(index, Int(inst_df[1, :instance]))
+                    @test !isnothing(best_rec)
+                    @test best_rec[:bitstring] == "10"
+                    @test best_rec[:qubo_value] ≈ 12.0
+                    @test best_rec[:source_value] ≈ 12.0
+                    @test Bool(best_rec[:proven_optimal])
+                    @test best_rec[:validation_status] == "validated"
+                end
+            end
+        end
+    end
+
+    return nothing
+end
+
 function test_main()
     @testset "♦ QUBOLib.jl/scripts/build test suite ♦" verbose = true begin
         test_tags()
         test_hen_importer_compatibility()
         test_dataset_collection_metadata()
         test_deploy_qubolib_outputs()
+        test_qplib_parser_and_crossref()
+        test_minlplib_pip_parser_and_build()
         test_qoblib_qs_parser()
         test_qoblib_portfolio_positions()
         test_qoblib_submission_bit_formats()

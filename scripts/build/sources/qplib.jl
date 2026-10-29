@@ -32,7 +32,7 @@ function QUBOTools.read_model(io::IO, ::Format{:qplib})
     # Read the header
     code = _read_qplib_line(io)
 
-    @assert !isnothing(match(r"(QBB)", _read_qplib_line(io)))
+    @assert !isnothing(match(r"^(QBB|QBN)$", _read_qplib_line(io)))
 
     sense = _read_qplib_line(io)
 
@@ -87,7 +87,10 @@ function QUBOTools.read_model(io::IO, ::Format{:qplib})
             j = parse(Int, m[2])
             c = parse(Float64, m[3])
 
-            Q[(i, j)] = c
+            # QPLIB defines the quadratic objective as 0.5 * x' * Q^0 * x + b^0 * x + q^0,
+            # storing the lower-left triangle of Q^0 (i >= j).
+            key = i <= j ? (i, j) : (j, i)
+            Q[key] = get(Q, key, 0.0) + 0.5 * c
         end
     end
 
@@ -208,10 +211,10 @@ function _is_qplib_qubo(path::AbstractString)
     @assert isfile(path) && endswith(path, ".qplib")
 
     return open(path, "r") do io
-        ____ = readline(io)
-        type = readline(io)
+        ____ = _read_qplib_line(io)
+        type = _read_qplib_line(io)
 
-        return (type == "QBB")
+        return type in ("QBB", "QBN")
     end
 end
 
@@ -292,7 +295,199 @@ const QPLIB_DATA = Dict{String,Any}(
     ),
 )
 
-function build_qplib!(index::QUBOLib.LibraryIndex; cache::Bool = true)
+const QPLIB_INSTANCE_METADATA = Dict{String,NamedTuple}(
+    "QPLIB_3506" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament32",
+        minlplib_name = "sporttournament32",
+        primal_bound = 478.0,
+        dual_bound = 484.0,
+        proven_optimal = false,
+    ),
+    "QPLIB_3565" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament24",
+        minlplib_name = "sporttournament24",
+        primal_bound = 282.0,
+        dual_bound = 282.0,
+        proven_optimal = true,
+    ),
+    "QPLIB_3642" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament46",
+        minlplib_name = "sporttournament46",
+        primal_bound = 1034.0,
+        dual_bound = 1070.944598,
+        proven_optimal = false,
+    ),
+    "QPLIB_3650" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament44",
+        minlplib_name = "sporttournament44",
+        primal_bound = 922.0,
+        dual_bound = 956.3308189,
+        proven_optimal = false,
+    ),
+    "QPLIB_3693" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament48",
+        minlplib_name = "sporttournament48",
+        primal_bound = 1154.0,
+        dual_bound = 1200.414098,
+        proven_optimal = false,
+    ),
+    "QPLIB_3705" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament28",
+        minlplib_name = "sporttournament28",
+        primal_bound = 384.0,
+        dual_bound = 384.0,
+        proven_optimal = true,
+    ),
+    "QPLIB_3706" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament38",
+        minlplib_name = "sporttournament38",
+        primal_bound = 682.0,
+        dual_bound = 699.029604,
+        proven_optimal = false,
+    ),
+    "QPLIB_3738" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament30",
+        minlplib_name = "sporttournament30",
+        primal_bound = 422.0,
+        dual_bound = 425.0489482,
+        proven_optimal = false,
+    ),
+    "QPLIB_3745" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament26",
+        minlplib_name = "sporttournament26",
+        primal_bound = 334.0,
+        dual_bound = 334.0,
+        proven_optimal = true,
+    ),
+    "QPLIB_3822" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament42",
+        minlplib_name = "sporttournament42",
+        primal_bound = 850.0,
+        dual_bound = 878.5122339,
+        proven_optimal = false,
+    ),
+    "QPLIB_3832" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament34",
+        minlplib_name = "sporttournament34",
+        primal_bound = 554.0,
+        dual_bound = 563.0,
+        proven_optimal = false,
+    ),
+    "QPLIB_3838" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament40",
+        minlplib_name = "sporttournament40",
+        primal_bound = 746.0,
+        dual_bound = 775.0633203,
+        proven_optimal = false,
+    ),
+    "QPLIB_3850" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament50",
+        minlplib_name = "sporttournament50",
+        primal_bound = 1198.0,
+        dual_bound = 1249.748958,
+        proven_optimal = false,
+    ),
+    "QPLIB_3852" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament22",
+        minlplib_name = "sporttournament22",
+        primal_bound = 234.0,
+        dual_bound = 234.0,
+        proven_optimal = true,
+    ),
+    "QPLIB_3877" => (
+        origin = "MINLPLib",
+        original_name = "sporttournament36",
+        minlplib_name = "sporttournament36",
+        primal_bound = 602.0,
+        dual_bound = 611.5425502,
+        proven_optimal = false,
+    ),
+    "QPLIB_5721" => (
+        origin = "MINLPLib",
+        original_name = "ising2_5-300_5555",
+        minlplib_name = "ising2_5-300_5555",
+        primal_bound = 8579363.0,
+        dual_bound = 8656028.328,
+        proven_optimal = false,
+    ),
+    "QPLIB_5725" => (
+        origin = "MINLPLib",
+        original_name = "toroidal3g7_6666",
+        minlplib_name = "toroidal3g7_6666",
+        primal_bound = 33611981.0,
+        dual_bound = 33611981.0,
+        proven_optimal = true,
+    ),
+    "QPLIB_5755" => (
+        origin = "MINLPLib",
+        original_name = "toroidal2g20_5555",
+        minlplib_name = "toroidal2g20_5555",
+        primal_bound = 24838942.0,
+        dual_bound = 24838942.0,
+        proven_optimal = true,
+    ),
+    "QPLIB_5875" => (
+        origin = "BiqMac",
+        original_name = "be200.8.4",
+        minlplib_name = nothing,
+        primal_bound = 43757.0,
+        dual_bound = 43757.0,
+        proven_optimal = true,
+    ),
+    "QPLIB_5881" => (
+        origin = "BiqMac",
+        original_name = "be120.3.1",
+        minlplib_name = nothing,
+        primal_bound = 13067.0,
+        dual_bound = 13067.0,
+        proven_optimal = true,
+    ),
+    "QPLIB_5882" => (
+        origin = "BiqMac",
+        original_name = "be150.8.9",
+        minlplib_name = nothing,
+        primal_bound = 25388.0,
+        dual_bound = 25388.0,
+        proven_optimal = true,
+    ),
+    "QPLIB_5909" => (
+        origin = "BiqMac",
+        original_name = "bqp250-8",
+        minlplib_name = nothing,
+        primal_bound = 35726.0,
+        dual_bound = 35726.0,
+        proven_optimal = true,
+    ),
+    "QPLIB_5922" => (
+        origin = "BiqMac",
+        original_name = "bqp500-2",
+        minlplib_name = nothing,
+        primal_bound = 128339.0,
+        dual_bound = 128339.0,
+        proven_optimal = true,
+    ),
+)
+
+function build_qplib!(
+    index::QUBOLib.LibraryIndex;
+    cache::Bool = true,
+    source_path::Union{AbstractString,Nothing} = nothing,
+    codes = nothing,
+)
     if QUBOLib.has_collection(index, "qplib")
         @info "[qplib] Collection already exists"
 
@@ -307,11 +502,21 @@ function build_qplib!(index::QUBOLib.LibraryIndex; cache::Bool = true)
 
     QUBOLib.add_collection!(index, "qplib", QPLIB_DATA)
 
-    code_list = load_qplib!(index)
+    data_path, code_list = if isnothing(source_path)
+        loaded_codes = load_qplib!(index)
+        (
+            QUBOLib.cache_data_path(index, "qplib"),
+            isnothing(codes) ? loaded_codes : collect(String, codes),
+        )
+    else
+        dir = String(source_path)
+        found_codes = [
+            first(splitext(f)) for f in sort!(filter(endswith(".qplib"), readdir(dir)))
+        ]
+        (dir, isnothing(codes) ? found_codes : collect(String, codes))
+    end
 
     @info "[qplib] Building index"
-
-    data_path = QUBOLib.cache_data_path(index, "qplib")
 
     for code in code_list
         mod_path = joinpath(data_path, "$(code).qplib")
@@ -319,7 +524,27 @@ function build_qplib!(index::QUBOLib.LibraryIndex; cache::Bool = true)
         sol_path = joinpath(data_path, "$(code).sol")
 
         model = QUBOTools.read_model(mod_path, Format(:qplib))
-        mod_i = QUBOLib.add_instance!(index, model, "qplib"; name = basename(mod_path))
+        info = get(QPLIB_INSTANCE_METADATA, code, nothing)
+        inst_meta = if isnothing(info)
+            nothing
+        else
+            Dict{String,Any}(
+                "origin"                => info.origin,
+                "original_name"         => info.original_name,
+                "minlplib_name"         => info.minlplib_name,
+                "upstream_primal_bound" => info.primal_bound,
+                "dual_bound"            => info.dual_bound,
+                "proven_optimal"        => info.proven_optimal,
+            )
+        end
+        mod_i = QUBOLib.add_instance!(
+            index,
+            model,
+            "qplib";
+            name         = basename(mod_path),
+            source_name  = isnothing(info) ? nothing : info.original_name,
+            metadata     = inst_meta,
+        )
 
         if isfile(sol_path)
             var_map = _get_qplib_var_map(var_path)
@@ -327,7 +552,22 @@ function build_qplib!(index::QUBOLib.LibraryIndex; cache::Bool = true)
             sol = _read_qplib_solution(sol_path, model, var_map)
 
             if !isnothing(sol)
-                QUBOLib.add_solution!(index, mod_i, sol)
+                ψ = QUBOTools.state(sol, 1)
+                λ = QUBOTools.value(sol, 1)
+                eval_val = QUBOTools.value(model, ψ)
+                is_opt = !isnothing(info) && info.proven_optimal && isapprox(eval_val, info.primal_bound; atol = 1e-6)
+                QUBOLib.add_solution!(
+                    index,
+                    mod_i,
+                    sol;
+                    qubo_value        = eval_val,
+                    source_value      = λ,
+                    source_objective  = λ,
+                    objective_bound   = isnothing(info) ? nothing : info.primal_bound,
+                    dual_bound        = isnothing(info) ? nothing : info.dual_bound,
+                    proven_optimal    = is_opt,
+                    validation_status = isapprox(eval_val, λ; atol = 1e-6) ? "validated" : "evaluated",
+                )
             else
                 @warn "[qplib] Failed to read solution for instance '$code'"
             end
