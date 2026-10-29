@@ -1547,6 +1547,28 @@ function test_minlplib_pip_parser_and_build()
         cf_autocorr = _coercive_field_summary_dict(m_autocorr)
         @test cf_autocorr["is_gauge_invariant"] == true
 
+        # 4. Reject malformed epigraph objectives, wrong objvar sign, and non-contiguous/invalid binary sections
+        @test_throws QUBOTools.SyntaxError QUBOTools.read_model(
+            IOBuffer(replace(pip_sport, "0 b1 + 0 b2 + objvar" => "1 b1 + objvar")),
+            Format(:minlplib_pip),
+        )
+        @test_throws QUBOTools.SyntaxError QUBOTools.read_model(
+            IOBuffer(replace(pip_sport, "+ objvar +" => "- objvar +")),
+            Format(:minlplib_pip),
+        )
+        @test_throws QUBOTools.SyntaxError QUBOTools.read_model(
+            IOBuffer(replace(pip_sport, "Binary\n  b1\n  b2" => "Binary\n  b1\n  x2")),
+            Format(:minlplib_pip),
+        )
+        @test_throws QUBOTools.SyntaxError QUBOTools.read_model(
+            IOBuffer(replace(pip_sport, "Binary\n  b1\n  b2" => "Binary\n  b1\n  b3")),
+            Format(:minlplib_pip),
+        )
+        @test_throws QUBOTools.SyntaxError QUBOTools.read_model(
+            IOBuffer(replace(pip_chimera, "+0.9 b2" => "+0.9 b3")),
+            Format(:minlplib_pip),
+        )
+
         fixture_instances = [
             (
                 name = "sporttournament06",

@@ -168,6 +168,15 @@ function QUBOTools.read_model(io::IO, ::Format{:minlplib_pip})
 
     sub_txt = strip(sub_m.captures[1])
     if !isempty(sub_txt)
+        L_obj, Q_obj, off_obj = _parse_minlplib_pip_expr(obj_m.captures[1])
+        has_valid_epigraph_obj =
+            get(L_obj, "objvar", 0.0) == 1.0 &&
+            all(iszero(v) for (k, v) in L_obj if k != "objvar") &&
+            all(iszero, values(Q_obj)) &&
+            iszero(off_obj)
+        has_valid_epigraph_obj ||
+            QUBOTools.syntax_error("Epigraph PIP objective must be +1 objvar")
+
         m_eq = match(r"^e1:\s*(.*?)\s*<=\s*([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)$"s, sub_txt)
         isnothing(m_eq) &&
             QUBOTools.syntax_error("Unsupported constraint in MINLPLib QUBO PIP: $(sub_txt)")
@@ -177,6 +186,10 @@ function QUBOTools.read_model(io::IO, ::Format{:minlplib_pip})
         haskey(L_raw, "objvar") ||
             QUBOTools.syntax_error("Missing objvar in epigraph constraint")
         c_obj = pop!(L_raw, "objvar")
+        ((sense == :max && c_obj > 0) || (sense == :min && c_obj < 0)) ||
+            QUBOTools.syntax_error(
+                "Epigraph constraint coefficient on objvar ($c_obj) does not bound $sense objective",
+            )
         scale_obj = -1.0 / c_obj
         L = Dict{Int,Float64}()
         for (k, v) in L_raw
@@ -209,12 +222,18 @@ function QUBOTools.read_model(io::IO, ::Format{:minlplib_pip})
 
     V = Set{Int}()
     for tok in split(bin_m.captures[1])
-        if startswith(tok, "b")
-            idx = parse(Int, tok[2:end])
-            push!(V, idx)
-            get!(L, idx, 0.0)
-        end
+        m_bin = match(r"^b([1-9][0-9]*)$", tok)
+        isnothing(m_bin) &&
+            QUBOTools.syntax_error("Invalid binary variable token '$tok' in PIP Binary section")
+        idx = parse(Int, m_bin.captures[1])
+        push!(V, idx)
+        get!(L, idx, 0.0)
     end
+
+    (!isempty(V) && V == Set{Int}(1:length(V))) ||
+        QUBOTools.syntax_error("Binary variable indices in PIP must be contiguous 1..n")
+    (all(i -> i in V, keys(L)) && all(((i, j),) -> (i in V && j in V), keys(Q))) ||
+        QUBOTools.syntax_error("PIP expression references variable outside Binary section")
 
     all_vals = Iterators.flatten((values(L), values(Q), (offset,)))
     model_scale = 1.0
