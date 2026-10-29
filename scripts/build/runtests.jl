@@ -1242,6 +1242,26 @@ function test_preprocessing_enrichment()
         @test _field_alignment(model_uncoupled, [1, 0]) ≈ 1.0
         @test _field_alignment(model_uncoupled, [0, 1]) ≈ 0.0
 
+        # Spin / Max model: h = [3, -1], J12 = 1 => l1 = [1, 1], l2 = [1, 1]
+        # Under :max, favorable spins are s_i = sign(h_i) => [+1, -1]
+        model_spin_max = QUBOTools.Model(
+            Dict(1 => 3.0, 2 => -1.0),
+            Dict((1, 2) => 1.0);
+            domain = :spin,
+            sense = :max,
+        )
+        cf_spin = _coercive_field_summary_dict(model_spin_max)
+        @test cf_spin["is_gauge_invariant"] == false
+        @test cf_spin["zero_field_fraction"] ≈ 0.0
+        @test cf_spin["trivial_dominance_fraction"] ≈ 0.5
+        @test cf_spin["coercive_l1_ratio"] ≈ 2.0
+        @test cf_spin["coercive_l2_ratio"] ≈ 2.0
+        @test _field_alignment(model_spin_max, [1, -1]) ≈ 1.0
+        @test _field_alignment(model_spin_max, [1, 1]) ≈ 0.5
+        @test _field_alignment(model_spin_max, [-1, 1]) ≈ 0.0
+        @test_throws ArgumentError _field_alignment(model_spin_max, [1, 0])
+        @test_throws DimensionMismatch _field_alignment(model_spin_max, [1])
+
         # Workspace-mode probing with coercive_field_witness and order = :coercive
         ws_res = _run_qubopreprocessing_mode(
             _MockWorkspaceQUBOPreprocessing,
@@ -1251,8 +1271,29 @@ function test_preprocessing_enrichment()
         @test ws_res.surviving_variables == [2]
         @test ws_res.trace._ws.probed_orders == [:coercive]
         @test ws_res.trace._ws.schedule_calls == 2
+        @test ws_res.rules["probing"] == 1
 
         mktempdir() do path
+            coercive_tsv = joinpath(path, "coercive_metrics.tsv")
+            write(
+                coercive_tsv,
+                join(
+                    [
+                        "instance\tcollection\tclass\tname\tdimension\tedges\tsense\tdomain\tis_gauge_invariant\tzero_field_fraction\ttrivial_dominance_fraction\tcoercive_l1_ratio\tcoercive_l2_ratio",
+                        "1\tqoblib\tMIS\texact.qs\t2\t1\tmin\tbool\ttrue\t1.0\t0.0\t0.0\t0.0",
+                        "2\tqoblib\tMIS\trepair.qs\t3\t2\tmin\tbool\tfalse\t0.333333\t0.666667\tNaN\t",
+                    ],
+                    "\n",
+                ) * "\n",
+            )
+            loaded_coercive = _load_coercive_metrics_tsv(coercive_tsv)
+            @test loaded_coercive[1]["is_gauge_invariant"] == true
+            @test loaded_coercive[1]["coercive_l1_ratio"] ≈ 0.0
+            @test loaded_coercive[2]["is_gauge_invariant"] == false
+            @test loaded_coercive[2]["zero_field_fraction"] ≈ 0.333333
+            @test isnothing(loaded_coercive[2]["coercive_l1_ratio"])
+            @test isnothing(loaded_coercive[2]["coercive_l2_ratio"])
+
             QUBOLib.access(; path, clear = true) do index
                 inst_exact = QUBOLib.add_instance!(index, model_exact; name = "exact.qs")
                 inst_repair = QUBOLib.add_instance!(index, model_repair; name = "repair.qs")
@@ -1272,7 +1313,11 @@ function test_preprocessing_enrichment()
                     validation_status = "validated",
                 )
 
-                stats = enrich_preprocessing!(index, _MockQUBOPreprocessing)
+                stats = enrich_preprocessing!(
+                    index,
+                    _MockQUBOPreprocessing;
+                    coercive_tsv = coercive_tsv,
+                )
 
                 @test stats.exact_count == 1
                 @test stats.repaired_strong_count == 1
@@ -1295,6 +1340,7 @@ function test_preprocessing_enrichment()
                 @test meta_repair["m_strong"] == 0
                 @test haskey(meta_repair["preprocessing"], "coercive_fields")
                 @test meta_repair["preprocessing"]["coercive_fields"]["is_gauge_invariant"] == false
+                @test isnothing(meta_repair["preprocessing"]["coercive_fields"]["coercive_l1_ratio"])
 
                 best_exact = QUBOLib.best_solution_record(index, inst_exact)
                 @test !isnothing(best_exact)
