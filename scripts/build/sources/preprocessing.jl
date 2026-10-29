@@ -415,7 +415,8 @@ function _run_qubopreprocessing_mode(
         probe_ded = 0
 
         max_outer_rounds = (m_init <= 5_000 && n_init <= 500) ? 8 : 1
-        for _ in 1:max_outer_rounds
+        post_probe_ded = 0
+        for iter in 1:max_outer_rounds
             (length(ws._state.fixes) < n_init && !dense_large) || break
             round_ded = 0
 
@@ -449,13 +450,17 @@ function _run_qubopreprocessing_mode(
                 rel_ded += r2.relation_deductions
                 fill_edges += r2.fill_edges
             end
+            if iter > 1 && round_ded == 0 && post_probe_ded == 0
+                break
+            end
             pr_new = 0
+            post_probe_ded = 0
             if m_init <= 5_000 && n_init <= 500 && length(ws._state.fixes) < n_init
                 if isdefined(preprocess_module, :coercive_field_witness)
                     r_pr = preprocess_module.probe_variables!(
                         ws;
                         max_candidates = min(n_init, 100),
-                        max_rounds = n_init <= 100 ? 4 : 1,
+                        max_rounds = n_init <= 100 ? 8 : 1,
                         max_trial_fixes = n_init <= 100 ? 512 : 64,
                         max_work = n_init <= 100 ? 2_000_000 : 100_000,
                         max_exact_work = n_init <= 100 ? 2_000_000 : 100_000,
@@ -500,7 +505,12 @@ function _run_qubopreprocessing_mode(
                 star_ded += r3.star_triangle_deductions
                 rel_ded += r3.relation_deductions
                 fill_edges += r3.fill_edges
-                round_ded += r3.dominance_deductions + r3.elimination_deductions + r3.star_triangle_deductions + r3.relation_deductions
+                post_probe_ded =
+                    r3.dominance_deductions +
+                    r3.elimination_deductions +
+                    r3.star_triangle_deductions +
+                    r3.relation_deductions
+                round_ded += post_probe_ded
             end
             round_ded > 0 || break
         end

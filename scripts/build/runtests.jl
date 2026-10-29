@@ -1189,8 +1189,11 @@ coercive_field_witness(ws::Workspace; kwargs...) = ones(Int, QUBOTools.dimension
 
 function probe_variables!(ws::Workspace; order::Symbol = :index, kwargs...)
     push!(ws.probed_orders, order)
-    push!(ws._state.fixes, 1)
-    return (deductions = 1,)
+    if !(1 in ws._state.fixes)
+        push!(ws._state.fixes, 1)
+        return (deductions = 1,)
+    end
+    return (deductions = 0,)
 end
 
 function materialize(ws::Workspace; coefficient_type = Float64)
