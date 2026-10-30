@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+## v0.2.6 - 2026-10-30
+
+- Publish data release `v0.2.4-data+7` (Zenodo `10.5281/zenodo.23824873` under
+  concept DOI `10.5281/zenodo.23027943`), adding the `mqlib` standard benchmark
+  collection of 210 instances (`71` Stanford `G-set` Max-Cut, `60` `Beasley`
+  QUBO, `45` `GKA` QUBO, `30` `spin-glass` Max-Cut, and `4` DIMACS `torus`
+  Max-Cut, plus `21` deferred dense synthetic `Palubeckis` inventory entries),
+  210 validated heuristic bitstring solutions, and 37 heuristic solver
+  submissions from `MQLib/MQLib` commit
+  `585496274af5abb0849d0d47e135496b4688680b` (#92, #93).
+- Enrich all 6,502 instances across all 7 collections with
+  `QUBOPreprocessing.jl` `v0.1.4` reduction metadata (`n_strong`, `m_strong`,
+  `n_weak`, `m_weak`) and coercive local-field diagnostics (`coercive_fields`,
+  `field_alignment`), solving 15 additional MQLib standard instances
+  (`be50.1..10`, `gka.1a`, `gka.2a`, `gka.4a`, `gka.7c`, `gka.8a`) completely
+  to zero residual variables (22 exact zero-residual ground states total) and
+  repairing the `BURER2002` heuristic bitstring on `G70` ($n=10{,}000$,
+  improving the Max-Cut objective from `9,492` to `9,500`; 32 repaired solution
+  records total) (#92, #93).
+- Add `Format(:mqlib_maxcut)`, `Format(:mqlib_qubo_maxcut)`,
+  `Format(:mqlib_qubo)`, `load_mqlib!`, `build_mqlib!`, and `deploy_mqlib!` in
+  `scripts/build/sources/mqlib.jl`.
+
 ## v0.2.5 - 2026-10-29
 
 - Publish data release `v0.2.4-data+6` (Zenodo `10.5281/zenodo.23757887` under

@@ -1,5 +1,5 @@
 const QUBOPREPROCESSING_SOLVER = "QUBOPreprocessing.jl"
-const QUBOPREPROCESSING_VERSION = "0.1.2"
+const QUBOPREPROCESSING_VERSION = "0.1.4"
 const QUBOPREPROCESSING_REPOSITORY = "JuliaQUBO/QUBOPreprocessing.jl"
 const QUBOPREPROCESSING_URL = "https://github.com/JuliaQUBO/QUBOPreprocessing.jl"
 
@@ -398,12 +398,23 @@ function _run_qubopreprocessing_mode(
         m_init = ws._state.initial_edges
         dense_large = m_init > 30_000
 
-        r1 = preprocess_module.schedule_reductions!(
-            ws;
-            allow_weak_dominance = allow_weak,
-            allow_weak_relations = allow_weak,
-            enable_star_triangle = true,
-        )
+        has_blocks = isdefined(preprocess_module, :apply_block_equivalence!)
+        r1 = if has_blocks
+            preprocess_module.schedule_reductions!(
+                ws;
+                allow_weak_dominance = allow_weak,
+                allow_weak_relations = allow_weak,
+                enable_star_triangle = true,
+                enable_blocks = true,
+            )
+        else
+            preprocess_module.schedule_reductions!(
+                ws;
+                allow_weak_dominance = allow_weak,
+                allow_weak_relations = allow_weak,
+                enable_star_triangle = true,
+            )
+        end
         dom_ded = r1.dominance_deductions
         elim_ded = r1.elimination_deductions
         star_ded = r1.star_triangle_deductions
@@ -438,12 +449,22 @@ function _run_qubopreprocessing_mode(
                 fill_edges += r_mc.fill_edges
             end
             if round_ded > 0 && length(ws._state.fixes) < n_init
-                r2 = preprocess_module.schedule_reductions!(
-                    ws;
-                    allow_weak_dominance = allow_weak,
-                    allow_weak_relations = allow_weak,
-                    enable_star_triangle = true,
-                )
+                r2 = if has_blocks
+                    preprocess_module.schedule_reductions!(
+                        ws;
+                        allow_weak_dominance = allow_weak,
+                        allow_weak_relations = allow_weak,
+                        enable_star_triangle = true,
+                        enable_blocks = true,
+                    )
+                else
+                    preprocess_module.schedule_reductions!(
+                        ws;
+                        allow_weak_dominance = allow_weak,
+                        allow_weak_relations = allow_weak,
+                        enable_star_triangle = true,
+                    )
+                end
                 dom_ded += r2.dominance_deductions
                 elim_ded += r2.elimination_deductions
                 star_ded += r2.star_triangle_deductions
@@ -494,12 +515,22 @@ function _run_qubopreprocessing_mode(
                 round_ded += pr_new
             end
             if pr_new > 0 && length(ws._state.fixes) < n_init
-                r3 = preprocess_module.schedule_reductions!(
-                    ws;
-                    allow_weak_dominance = allow_weak,
-                    allow_weak_relations = allow_weak,
-                    enable_star_triangle = true,
-                )
+                r3 = if has_blocks
+                    preprocess_module.schedule_reductions!(
+                        ws;
+                        allow_weak_dominance = allow_weak,
+                        allow_weak_relations = allow_weak,
+                        enable_star_triangle = true,
+                        enable_blocks = true,
+                    )
+                else
+                    preprocess_module.schedule_reductions!(
+                        ws;
+                        allow_weak_dominance = allow_weak,
+                        allow_weak_relations = allow_weak,
+                        enable_star_triangle = true,
+                    )
+                end
                 dom_ded += r3.dominance_deductions
                 elim_ded += r3.elimination_deductions
                 star_ded += r3.star_triangle_deductions
