@@ -201,7 +201,7 @@ function add_instance!(
 
     group = HDF5.create_group(h5["instances"], string(i))
 
-    QUBOTools.write_model(group, model, _qubin_format())
+    _write_model(group, model, _qubin_format())
     _write_instance_source!(
         group;
         source_format,

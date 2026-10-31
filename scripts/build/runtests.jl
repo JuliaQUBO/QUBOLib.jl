@@ -274,11 +274,13 @@ function test_dataset_collection_metadata()
         @test MQLIB_DATA["metadata"]["mirror_sha256"] == MQLIB_MIRROR_SHA256
         @test MQLIB_DATA["metadata"]["provenance_status"] == "verified"
         @test MQLIB_DATA["metadata"]["rights_status"] == "verified"
-        @test MQLIB_DATA["metadata"]["imported_standard_instances"] == 210
-        @test MQLIB_DATA["metadata"]["deferred_palubeckis_instances"] == 21
+        @test MQLIB_DATA["metadata"]["imported_standard_instances"] == 231
+        @test MQLIB_DATA["metadata"]["imported_tier2_instances"] == 2771
+        @test MQLIB_DATA["metadata"]["imported_total_instances"] == 3002
+        @test MQLIB_DATA["metadata"]["deferred_palubeckis_instances"] == 0
         @test MQLIB_DATA["metadata"]["total_standard_csv_instances"] == 231
         @test inventory["mqlib"]["mirror_sha256"] == MQLIB_MIRROR_SHA256
-        @test inventory["mqlib"]["instances"] == 210
+        @test inventory["mqlib"]["instances"] == 3002
         @test inventory["mqlib"]["data_license"] == MQLIB_DATA["data_license"]
 
         collection_data = [entry[:data] for entry in values(HEN_DATA)]
@@ -1645,9 +1647,9 @@ function test_minlplib_pip_parser_and_build()
 end
 
 function test_mqlib_parsers_and_build()
-    @testset "▶ MQLib parsers & standard collection build" begin
-        @test length(MQLIB_HEURISTICS) == 37
-        @test length(MQLIB_PALUBECKIS_DEFERRED) == 21
+    @testset "▶ MQLib parsers & standard/tier2 collection build" begin
+        @test length(MQLIB_HEURISTICS) == 38
+        @test length(MQLIB_PALUBECKIS_DEFERRED) == 0
         @test length(MQLIB_QPLIB_OVERLAP) == 2
         @test MQLIB_QPLIB_OVERLAP["be250.8"]["qplib_source_name"] == "QPLIB_5909"
         @test MQLIB_QPLIB_OVERLAP["be500.2"]["qplib_source_name"] == "QPLIB_5922"
@@ -1706,7 +1708,14 @@ function test_mqlib_parsers_and_build()
                 graphname,source,problem,optimal,optimalSource
                 G55.zip,G-set,MAX-CUT,,
                 be250.8.zip,Beasley,QUBO,6.0,BiqMac
-                p3000_1.zip,Palubeckis,QUBO,,
+                p3000_2.zip,Palubeckis,QUBO,,
+                """,
+            )
+            write(
+                joinpath(root, "catalog_tier2.csv"),
+                """
+                graphname,source,problem,n,m,comment
+                imgseg_100080.zip,ImageSeg,MAX-CUT,2,1,ImageSegmentation100080
                 """,
             )
             write(
@@ -1715,6 +1724,7 @@ function test_mqlib_parsers_and_build()
                 graphname,deg_mean,percent_pos
                 G55.zip,1.0,1.0
                 be250.8.zip,1.5,0.666
+                imgseg_100080.zip,1.0,1.0
                 """,
             )
             write(
@@ -1723,6 +1733,7 @@ function test_mqlib_parsers_and_build()
                 graphname,heuristic,best_objective,seed,limit,timestamp
                 G55.zip,BURER2002,4.0,144,1.0,2016-07-10 00:00:00
                 be250.8.zip,PALUBECKIS2004bMST2,6.0,144,1.0,2016-07-10 00:00:00
+                imgseg_100080.zip,DESOUSA2013,3.0,144,1.0,2016-07-10 00:00:00
                 """,
             )
             write(joinpath(root, "G55.txt"), mc_text)
@@ -1735,26 +1746,32 @@ function test_mqlib_parsers_and_build()
                 joinpath(root, "be250.8.sol"),
                 "# heuristic=PALUBECKIS2004bMST2 seed=144 objective=6.0 runtime=0.1 paper_best=6.0\n11\n",
             )
+            write(joinpath(root, "imgseg_100080.txt"), mc_text)
 
             mktempdir() do path
                 QUBOLib.access(; path, clear = true) do index
                     build_mqlib!(index; root = root)
-                    @test QUBOLib.collection_size(index, "mqlib") == 2
+                    @test QUBOLib.collection_size(index, "mqlib") == 3
                     @test QUBOLib.has_solver(index, "MQLib::BURER2002")
                     @test QUBOLib.has_solver(index, "MQLib::PALUBECKIS2004bMST2")
+                    @test QUBOLib.has_solver(index, "MQLib::DESOUSA2013")
 
                     inst_df = QUBOLib.DBInterface.execute(
                         QUBOLib.database(index),
                         "SELECT instance, name, source_name, problem_class, formulation, metadata FROM Instances WHERE collection = 'mqlib' ORDER BY instance;",
                     ) |> QUBOLib.DataFrame
-                    @test size(inst_df, 1) == 2
+                    @test size(inst_df, 1) == 3
                     @test inst_df[1, :name] == "G55.txt"
                     @test inst_df[1, :problem_class] == "Max-Cut (Stanford G-set)"
                     @test inst_df[2, :name] == "be250.8.txt"
                     @test inst_df[2, :problem_class] == "Binary Quadratic Programming (Beasley OR-Library)"
+                    @test inst_df[3, :name] == "imgseg_100080.txt"
+                    @test inst_df[3, :problem_class] == "Max-Cut (Berkeley Image Segmentation)"
                     meta2 = QUBOLib.JSON.parse(inst_df[2, :metadata])
                     @test meta2["qplib_equivalent"]["qplib_source_name"] == "QPLIB_5909"
                     @test meta2["proven_optimal"] == true
+                    meta3 = QUBOLib.JSON.parse(inst_df[3, :metadata])
+                    @test meta3["mqlib_tier"] == "tier2"
 
                     # G55 has both a validated bitstring solution (3.0) and a value-only paper_best record (4.0),
                     # and best_solution_record still selects the validated bitstring solution!
@@ -1769,6 +1786,13 @@ function test_mqlib_parsers_and_build()
                     @test best_be[:bitstring] == "11"
                     @test best_be[:qubo_value] ≈ 6.0
                     @test Bool(best_be[:proven_optimal])
+
+                    # Tier 2 instance without .sol has a value-only paper-best heuristic record
+                    recs_img = QUBOLib.list_solution_records(index, Int(inst_df[3, :instance]))
+                    @test size(recs_img, 1) == 1
+                    @test ismissing(recs_img[1, :bitstring])
+                    @test recs_img[1, :qubo_value] ≈ 3.0
+                    @test recs_img[1, :validation_status] == "unavailable"
                 end
             end
         end

@@ -451,6 +451,76 @@ function test_library_access()
                 )
             end
         end
+
+        @testset "HDF5 dataset compression and repack_archive!" begin
+            mktempdir() do path
+                _create_legacy_index(path)
+
+                L = Dict{Int,Float64}(i => Float64(i % 7) for i in 1:64)
+                Q = Dict{Tuple{Int,Int},Float64}((i, i + 1) => -2.0 for i in 1:63)
+                model = QUBOTools.Model{Int,Float64,Int}(L, Q; sense = :max, domain = :bool)
+                state = [i % 2 for i in 1:64]
+                sol = QUBOTools.SampleSet{Float64,Int}(
+                    model,
+                    [state];
+                    metadata = Dict{String,Any}("solver" => "comp_solver", "status" => "optimal"),
+                )
+
+                inst_id = 0
+                sol_id = 0
+                QUBOLib.access(; path) do index
+                    QUBOLib.add_solver!(
+                        index,
+                        "comp_solver",
+                        Dict("version" => "1.0", "description" => "Compression test solver"),
+                    )
+                    inst_id = QUBOLib.add_instance!(index, model; name = "comp_instance")
+                    sol_id = QUBOLib.add_solution!(index, inst_id, sol)
+
+                    h5 = QUBOLib.archive(index)
+                    qi_dset = h5["instances"][string(inst_id)]["model"]["form"]["quadratic"]["i"]
+                    st_dset = h5["solutions"][string(sol_id)]["solution"]["data"]["state"]
+                    @test QUBOLib.HDF5.ischunked(qi_dset)
+                    @test QUBOLib.HDF5.ischunked(st_dset)
+                    @test QUBOLib.HDF5.API.h5d_get_storage_size(qi_dset.id) < sizeof(read(qi_dset))
+                    @test QUBOLib.HDF5.API.h5d_get_storage_size(st_dset.id) < sizeof(read(st_dset))
+
+                    loaded_model = QUBOLib.load_instance(index, inst_id)
+                    loaded_sol = QUBOLib.load_solution(index, sol_id)
+                    @test QUBOTools.dimension(loaded_model) == 64
+                    @test Dict(QUBOTools.quadratic_terms(loaded_model)) == Q
+                    @test collect(QUBOTools.state(first(loaded_sol))) == state
+                end
+
+                # Write an uncompressed dataset into archive.h5 and verify repack_archive! compresses it
+                h5_path = QUBOLib.archive_path(QUBOLib.library_path(path))
+                QUBOLib.HDF5.h5open(h5_path, "cw") do h5
+                    raw_vec = collect(Int, 1:1000)
+                    QUBOLib.write(
+                        QUBOLib.HDF5.create_dataset(h5["instances"], "raw_test_vec", Int, size(raw_vec)),
+                        raw_vec,
+                    )
+                    QUBOLib.HDF5.attrs(h5["instances"]["raw_test_vec"])["tag"] = "preserved"
+                end
+
+                QUBOLib.repack_archive!(h5_path)
+
+                QUBOLib.HDF5.h5open(h5_path, "r") do h5
+                    dset = h5["instances"]["raw_test_vec"]
+                    @test QUBOLib.HDF5.ischunked(dset)
+                    @test read(dset) == collect(Int, 1:1000)
+                    @test QUBOLib.HDF5.read_attribute(dset, "tag") == "preserved"
+                    @test QUBOLib.HDF5.API.h5d_get_storage_size(dset.id) < 1000 * sizeof(Int)
+                end
+
+                QUBOLib.access(; path) do index
+                    loaded_model = QUBOLib.load_instance(index, inst_id)
+                    loaded_sol = QUBOLib.load_solution(index, sol_id)
+                    @test QUBOTools.dimension(loaded_model) == 64
+                    @test collect(QUBOTools.state(first(loaded_sol))) == state
+                end
+            end
+        end
     end
 
     return nothing

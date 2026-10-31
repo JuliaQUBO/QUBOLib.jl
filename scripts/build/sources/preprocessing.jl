@@ -1,5 +1,5 @@
 const QUBOPREPROCESSING_SOLVER = "QUBOPreprocessing.jl"
-const QUBOPREPROCESSING_VERSION = "0.1.4"
+const QUBOPREPROCESSING_VERSION = "0.1.5"
 const QUBOPREPROCESSING_REPOSITORY = "JuliaQUBO/QUBOPreprocessing.jl"
 const QUBOPREPROCESSING_URL = "https://github.com/JuliaQUBO/QUBOPreprocessing.jl"
 
@@ -66,42 +66,101 @@ function _exact_ising_fields_and_couplings(model::QUBOTools.Model)
     return (h, l1, l2_sq)
 end
 
+function _fast_float_ising_fields_and_couplings(model::QUBOTools.Model)
+    n = QUBOTools.dimension(model)
+    n == 0 && return (Float64[], Float64[], Float64[])
+
+    is_bool = Symbol(QUBOTools.domain(model)) == :bool
+    lin_scale = is_bool ? 0.5 : 1.0
+    quad_h_scale = is_bool ? 0.25 : 0.0
+    quad_j_scale = is_bool ? 0.25 : 1.0
+
+    h = zeros(Float64, n)
+    l1 = zeros(Float64, n)
+    l2_sq = zeros(Float64, n)
+
+    for (i, v) in QUBOTools.linear_terms(model)
+        fv = Float64(v)
+        @inbounds h[i] += lin_scale * fv
+    end
+
+    for ((i, j), v) in QUBOTools.quadratic_terms(model)
+        fv = Float64(v)
+        if i == j
+            is_bool && (@inbounds h[i] += lin_scale * fv)
+        else
+            if is_bool
+                dh = quad_h_scale * fv
+                @inbounds h[i] += dh
+                @inbounds h[j] += dh
+            end
+            aj = abs(quad_j_scale * fv)
+            @inbounds l1[i] += aj
+            @inbounds l1[j] += aj
+            aj2 = aj * aj
+            @inbounds l2_sq[i] += aj2
+            @inbounds l2_sq[j] += aj2
+        end
+    end
+
+    return (h, l1, l2_sq)
+end
+
 function _coercive_field_summary_dict(model::QUBOTools.Model)
-    if isdefined(QUBOTools, :is_gauge_invariant) &&
-       isdefined(QUBOTools, :zero_field_fraction) &&
-       isdefined(QUBOTools, :trivial_dominance_fraction) &&
-       isdefined(QUBOTools, :coercive_field_ratio)
-        gi = Bool(QUBOTools.is_gauge_invariant(model))
-        zff = Float64(QUBOTools.zero_field_fraction(model))
-        tdf = Float64(QUBOTools.trivial_dominance_fraction(model))
-        l1r = Float64(QUBOTools.coercive_field_ratio(model; norm = 1))
-        l2r = Float64(QUBOTools.coercive_field_ratio(model; norm = 2))
-    else
-        h, l1, l2_sq = _exact_ising_fields_and_couplings(model)
-        n = length(h)
-        n_zero = count(iszero, h)
-        n_dom = count(i -> abs(h[i]) > l1[i], 1:n)
+    if _qubopreprocessing_edge_count(model) > 5_000
+        hf, l1f, l2_sqf = _fast_float_ising_fields_and_couplings(model)
+        n = length(hf)
+        n_zero = count(x -> abs(x) <= 1e-12, hf)
+        n_dom = count(i -> abs(hf[i]) > l1f[i] + 1e-12, 1:n)
         gi = (n_zero == n)
         zff = n > 0 ? n_zero / n : 1.0
         tdf = n > 0 ? n_dom / n : 0.0
-
-        sum_l1 = 0.0
-        cnt_l1 = 0
-        sum_l2 = 0.0
-        cnt_l2 = 0
-        for i in 1:n
-            if !iszero(l1[i])
-                sum_l1 += Float64(abs(h[i]) / l1[i])
+        sum_l1 = 0.0; cnt_l1 = 0
+        sum_l2 = 0.0; cnt_l2 = 0
+        @inbounds for i in 1:n
+            if l1f[i] > 1e-12
+                sum_l1 += abs(hf[i]) / l1f[i]
                 cnt_l1 += 1
             end
-            if !iszero(l2_sq[i])
-                sum_l2 += Float64(abs(h[i])) / sqrt(Float64(l2_sq[i]))
+            if l2_sqf[i] > 1e-24
+                sum_l2 += abs(hf[i]) / sqrt(l2_sqf[i])
                 cnt_l2 += 1
             end
         end
         l1r = cnt_l1 > 0 ? sum_l1 / cnt_l1 : NaN
         l2r = cnt_l2 > 0 ? sum_l2 / cnt_l2 : NaN
+        return Dict{String,Any}(
+            "is_gauge_invariant"         => gi,
+            "zero_field_fraction"        => round(zff; digits = 6),
+            "trivial_dominance_fraction" => round(tdf; digits = 6),
+            "coercive_l1_ratio"          => isnan(l1r) ? nothing : round(l1r; digits = 6),
+            "coercive_l2_ratio"          => isnan(l2r) ? nothing : round(l2r; digits = 6),
+        )
     end
+    h, l1, l2_sq = _exact_ising_fields_and_couplings(model)
+    n = length(h)
+    n_zero = count(iszero, h)
+    n_dom = count(i -> abs(h[i]) > l1[i], 1:n)
+    gi = (n_zero == n)
+    zff = n > 0 ? n_zero / n : 1.0
+    tdf = n > 0 ? n_dom / n : 0.0
+
+    sum_l1 = 0.0
+    cnt_l1 = 0
+    sum_l2 = 0.0
+    cnt_l2 = 0
+    for i in 1:n
+        if !iszero(l1[i])
+            sum_l1 += Float64(abs(h[i]) / l1[i])
+            cnt_l1 += 1
+        end
+        if !iszero(l2_sq[i])
+            sum_l2 += Float64(abs(h[i])) / sqrt(Float64(l2_sq[i]))
+            cnt_l2 += 1
+        end
+    end
+    l1r = cnt_l1 > 0 ? sum_l1 / cnt_l1 : NaN
+    l2r = cnt_l2 > 0 ? sum_l2 / cnt_l2 : NaN
 
     return Dict{String,Any}(
         "is_gauge_invariant"         => gi,
@@ -392,14 +451,16 @@ function _run_qubopreprocessing_mode(
        isdefined(preprocess_module, :materialize)
         allow_weak = (mode == :weak)
         ws = try
-            preprocess_module.Workspace(model; rules = :mixed, integerize_scale = true)
+            preprocess_module.Workspace(model; rules = :mixed, integerize_scale = true, max_decimals = 14)
         catch e
             e isa MethodError || rethrow()
             preprocess_module.Workspace(model; rules = :mixed)
         end
         n_init = length(preprocess_module.original_variables(ws))
         m_init = ws._state.initial_edges
-        dense_large = m_init > 30_000
+        dense_large = m_init > 10_000 && n_init > 500
+        rel_budget = n_init <= 500 ? typemax(Int) : (m_init > 15_000 ? 25_000 : (m_init > 5_000 ? 75_000 : typemax(Int)))
+        use_blocks = isdefined(preprocess_module, :apply_block_equivalence!) && n_init <= 1_500 && m_init <= 10_000
 
         has_blocks = isdefined(preprocess_module, :apply_block_equivalence!)
         r1 = if has_blocks
@@ -408,7 +469,8 @@ function _run_qubopreprocessing_mode(
                 allow_weak_dominance = allow_weak,
                 allow_weak_relations = allow_weak,
                 enable_star_triangle = true,
-                enable_blocks = true,
+                enable_blocks = use_blocks,
+                relation_work_budget = rel_budget,
             )
         else
             preprocess_module.schedule_reductions!(
@@ -416,6 +478,7 @@ function _run_qubopreprocessing_mode(
                 allow_weak_dominance = allow_weak,
                 allow_weak_relations = allow_weak,
                 enable_star_triangle = true,
+                relation_work_budget = rel_budget,
             )
         end
         dom_ded = r1.dominance_deductions
@@ -458,7 +521,8 @@ function _run_qubopreprocessing_mode(
                         allow_weak_dominance = allow_weak,
                         allow_weak_relations = allow_weak,
                         enable_star_triangle = true,
-                        enable_blocks = true,
+                        enable_blocks = use_blocks,
+                        relation_work_budget = rel_budget,
                     )
                 else
                     preprocess_module.schedule_reductions!(
@@ -466,6 +530,7 @@ function _run_qubopreprocessing_mode(
                         allow_weak_dominance = allow_weak,
                         allow_weak_relations = allow_weak,
                         enable_star_triangle = true,
+                        relation_work_budget = rel_budget,
                     )
                 end
                 dom_ded += r2.dominance_deductions
@@ -524,7 +589,8 @@ function _run_qubopreprocessing_mode(
                         allow_weak_dominance = allow_weak,
                         allow_weak_relations = allow_weak,
                         enable_star_triangle = true,
-                        enable_blocks = true,
+                        enable_blocks = use_blocks,
+                        relation_work_budget = rel_budget,
                     )
                 else
                     preprocess_module.schedule_reductions!(
@@ -532,6 +598,7 @@ function _run_qubopreprocessing_mode(
                         allow_weak_dominance = allow_weak,
                         allow_weak_relations = allow_weak,
                         enable_star_triangle = true,
+                        relation_work_budget = rel_budget,
                     )
                 end
                 dom_ded += r3.dominance_deductions

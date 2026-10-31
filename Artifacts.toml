@@ -1,7 +1,7 @@
 [qubolib]
-git-tree-sha1 = "99fa1397501190a1448b9ca0035c865acfc3ffef"
+git-tree-sha1 = "db23630c10bf992c60033093eb46067fad78ccaa"
 lazy          = true
 
     [[qubolib.download]]
-    url    = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.4-data+7/qubolib.tar.gz"
-    sha256 = "4581a82255d2132487f8930c870e219abfb55ef5a9c8d3705dbe5929bf80beec"
+    url    = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.4-data+8/qubolib.tar.gz"
+    sha256 = "2470f3b1b8b3ba4f718987883f56f8a47554a54e8735a262b268881dd1904bfc"

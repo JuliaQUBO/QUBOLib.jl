@@ -2,26 +2,29 @@
 
 ## Unreleased
 
-## v0.2.6 - 2026-10-30
+## v0.2.6 - 2026-10-31
 
-- Publish data release `v0.2.4-data+7` (Zenodo `10.5281/zenodo.23824873` under
-  concept DOI `10.5281/zenodo.23027943`), adding the `mqlib` standard benchmark
-  collection of 210 instances (`71` Stanford `G-set` Max-Cut, `60` `Beasley`
-  QUBO, `45` `GKA` QUBO, `30` `spin-glass` Max-Cut, and `4` DIMACS `torus`
-  Max-Cut, plus `21` deferred dense synthetic `Palubeckis` inventory entries),
-  210 validated heuristic bitstring solutions, and 37 heuristic solver
-  submissions from `MQLib/MQLib` commit
-  `585496274af5abb0849d0d47e135496b4688680b` (#93, #94).
-- Enrich all 6,502 instances across all 7 collections with
-  `QUBOPreprocessing.jl` `v0.1.4` reduction metadata (`n_strong`, `m_strong`,
+- Publish data release `v0.2.4-data+8` (Zenodo `10.5281/zenodo.23839797` under
+  concept DOI `10.5281/zenodo.23027943`), expanding the `mqlib` benchmark
+  collection to **3,002 instances** across all 18 source families (`100%` of
+  `data/standard.csv` `231 / 231` including all `21` `Palubeckis` instances
+  `p3000_1`–`p7000_3` plus `2,771` Tier 2 instances across `SteinLib`, `Rudy`,
+  `Color02`, `BiqMac`, `ImageSegmentation`, `NetworkX`, `TSP`, `CrossGrid`,
+  `Culberson`, `MarketSplit`, `MaxCut`, `Pardalos`, `Fortran`, `SpinGlass`,
+  `GlasgowIsomorphism`, and `Dharwadker`), with 246 heuristic
+  bitstring solutions and 2,825 value-only heuristic benchmark records across 38
+  heuristic solver submissions from `MQLib/MQLib` commit
+  `585496274af5abb0849d0d47e135496b4688680b`, and enabling chunked HDF5
+  `deflate` compression (`level = 3`) in `src/library/qubotools.jl` (#93, #94, #95, #96).
+- Enrich all 9,294 instances across all 7 collections with
+  `QUBOPreprocessing.jl` `v0.1.5` reduction metadata (`n_strong`, `m_strong`,
   `n_weak`, `m_weak`) and coercive local-field diagnostics (`coercive_fields`,
-  `field_alignment`), solving 15 additional MQLib standard instances
-  (`be50.1..10`, `gka.1a`, `gka.2a`, `gka.4a`, `gka.7c`, `gka.8a`) completely
-  to zero residual variables (22 exact zero-residual ground states total: `5`
-  on `qoblib`, `2` on `minlplib`, and `15` on `mqlib`) and
-  repairing the `BURER2002` heuristic bitstring on `G70` ($n=10{,}000$,
-  improving the Max-Cut objective from `9,492` to `9,500`; 32 repaired solution
-  records total) (#93, #94).
+  `field_alignment`), solving 343 instances completely to zero residual
+  variables (`333` on `mqlib`, `6` on `qoblib`, `3` on `minlplib`, and `1` on
+  `qplib`, plus `6` additional strong-mode zero-residual ground states on
+  `mqlib` and `QPLIB_5721.qplib` on `qplib`) and certifying 51 repaired solution
+  records (`32` on `qoblib`, `16` on `mqlib` across `14` instances, and `3` on
+  `minlplib`).
 - Add `Format(:mqlib_maxcut)`, `Format(:mqlib_qubo_maxcut)`,
   `Format(:mqlib_qubo)`, `load_mqlib!`, `build_mqlib!`, and `deploy_mqlib!` in
   `scripts/build/sources/mqlib.jl`.
