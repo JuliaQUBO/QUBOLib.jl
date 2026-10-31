@@ -11,8 +11,8 @@ authors:
 repository-code: "https://github.com/JuliaQUBO/QUBOLib.jl"
 url: "https://juliaqubo.github.io/QUBOLib.jl"
 license: MIT
-version: "0.2.5"
-date-released: "2026-10-29"
+version: "0.2.6"
+date-released: "2026-10-30"
 keywords:
   - "binary optimization"
   - "benchmark dataset"
@@ -26,9 +26,9 @@ references:
         family-names: "Maciel Xavier"
       - given-names: "David E."
         family-names: "Bernal Neira"
-    doi: "10.5281/zenodo.23757887"
-    url: "https://zenodo.org/records/23757887"
-    version: "v0.2.4-data+6"
+    doi: "10.5281/zenodo.23824873"
+    url: "https://zenodo.org/records/23824873"
+    version: "v0.2.4-data+7"
     year: 2026
 preferred-citation:
   type: article

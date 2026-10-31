@@ -7,41 +7,45 @@ machine-readable companion is [`DATASET.toml`](DATASET.toml).
 ## Selected artifact
 
 This repository's [`Artifacts.toml`](Artifacts.toml) selects
-[`v0.2.4-data+6`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B6)
+[`v0.2.4-data+7`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B7)
 for the package. Previously tagged package versions retain their original
 artifact pins; publishing a data release does not modify them.
 
 | Property | Recorded value |
 |:--|:--|
-| Release tag commit | `c4e62bd38850b84f4dcb7fdcd50ec69dee88028f` |
+| Release tag commit | `17114be7c66d5a7f794a72e041fc8abb87d77adb` |
 | Asset | `qubolib.tar.gz` |
-| Compressed size | 103,238,667 bytes |
-| SHA-256 | `4e4719565b1798978868c71639928a2743a4b28c4a168e8cc4b3cff747f26c0e` |
-| Julia artifact tree hash | `76869737bbd7c2a3d1c6fafc14c55829db5a5863` |
+| Compressed size | 120,534,626 bytes |
+| SHA-256 | `4581a82255d2132487f8930c870e219abfb55ef5a9c8d3705dbe5929bf80beec` |
+| Julia artifact tree hash | `99fa1397501190a1448b9ca0035c865acfc3ffef` |
 | Archive members | `archive.h5`, `index.db` |
-| Populated collections | 6 |
-| Instances | 6,292 |
-| Inventory date | 2026-10-29 |
+| Populated collections | 7 |
+| Instances | 6,502 |
+| Inventory date | 2026-10-30 |
 
 The SHA-256 was recomputed from the GitHub release asset. The inventory was
 queried from the asset's SQLite index. A Zenodo upload must use these exact
 bytes; rebuilding the database is not an equivalent archive. This release
-updates `v0.2.4-data+5` with `0.5`-scaled `QPLIB` models and cross-referenced
-upstream optimality bounds, adds the `minlplib` collection of 29 pure binary
-QUBO instances (`42` upstream solution records), and enriches all 6,292
-instances with certified `QUBOPreprocessing.jl` v0.1.2 reduction metadata
-(`n_strong`, `m_strong`, `n_weak`, `m_weak`) and coercive local-field
-diagnostics (`coercive_fields`), 7 exact ground states on instances reduced to
-zero residual variables, and 31 repaired solution records, and is preserved
-unchanged in
-[Zenodo record 23757887](https://zenodo.org/records/23757887).
+updates `v0.2.4-data+6` by adding the `mqlib` collection of 210 standard
+literature benchmark instances (`71` Stanford `G-set`, `60` `Beasley`, `45`
+`GKA`, `30` `spin-glass`, and `4` `torus` instances, with `210` validated
+heuristic bitstring solutions and `37` heuristic solver submissions from
+[`MQLib/MQLib`](https://github.com/MQLib/MQLib) commit
+`585496274af5abb0849d0d47e135496b4688680b`), and enriches all 6,502 instances
+with certified `QUBOPreprocessing.jl` v0.1.4 reduction metadata (`n_strong`,
+`m_strong`, `n_weak`, `m_weak`) and coercive local-field diagnostics
+(`coercive_fields`), 22 exact ground states on instances reduced to zero
+residual variables (`5` on `qoblib`, `2` on `minlplib`, and `15` on `mqlib`), and 32 repaired
+solution records (`28` on `qoblib`, `3` on `minlplib`, and `1` on `mqlib`
+`G70`), and is preserved unchanged in
+[Zenodo record 23824873](https://zenodo.org/records/23824873).
 
 | Zenodo identifier | Use |
 |:--|:--|
 | [10.5281/zenodo.23027943](https://doi.org/10.5281/zenodo.23027943) | Concept DOI for the corpus across versions |
-| [10.5281/zenodo.23757887](https://doi.org/10.5281/zenodo.23757887) | Version DOI for the exact `v0.2.4-data+6` archive |
+| [10.5281/zenodo.23824873](https://doi.org/10.5281/zenodo.23824873) | Version DOI for the exact `v0.2.4-data+7` archive |
 
-Published on 2026-10-29 (UTC) under CC BY 4.0, with collection-specific
+Published on 2026-10-30 (UTC) under CC BY 4.0 and MIT per-collection terms, with collection-specific
 attribution and conversion notices. Both the draft download and the public
 download were compared byte-for-byte against an independent GitHub download;
 their compressed size, SHA-256, and extracted Julia tree hash match the table.
@@ -54,7 +58,7 @@ the recorded file identity and populated-collection counts with:
 
 ```bash
 audit_dir="$(mktemp -d)"
-gh release download 'v0.2.4-data+6' \
+gh release download 'v0.2.4-data+7' \
   --repo JuliaQUBO/QUBOLib.jl \
   --pattern qubolib.tar.gz \
   --dir "$audit_dir"
@@ -70,7 +74,7 @@ sqlite3 "$audit_dir/extracted/index.db" \
 ```
 
 The expected SHA-256 and tree hash are the values in the table above. The SQL
-query must return the same six collection counts recorded below.
+query must return the same seven collection counts recorded below.
 
 ## September QOBLIB snapshot
 
@@ -138,6 +142,7 @@ automatic artifact fallback is not required for preservation.
 | `qplib` | 23 | Verified at reconstructed source commit | CC-BY-4.0 verified | [10.1007/s12532-018-0147-4](https://doi.org/10.1007/s12532-018-0147-4) |
 | `qoblib` | 433 | Verified at pinned commit | CC-BY-4.0 verified | [10.1038/s43588-026-00991-1](https://doi.org/10.1038/s43588-026-00991-1) |
 | `minlplib` | 29 | Verified at pinned version | CC-BY-4.0 verified | [10.1287/ijoc.15.1.114.15159](https://doi.org/10.1287/ijoc.15.1.114.15159) |
+| `mqlib` | 210 | Verified at pinned commit | MIT verified | [10.1287/ijoc.2017.0798](https://doi.org/10.1287/ijoc.2017.0798) |
 
 The three XORSAT mirror ZIPs contain instance files but no embedded license
 notice. Itay Hen subsequently supplied an
@@ -198,9 +203,20 @@ QOBLIB commit
 contains a CC-BY-4.0 data license. The dataset record must retain the QOBLIB
 attribution, source commit, and citation.
 
+[MQLib commit `585496274af5abb0849d0d47e135496b4688680b`](https://github.com/MQLib/MQLib/tree/585496274af5abb0849d0d47e135496b4688680b)
+is MIT-licensed (`Copyright (c) 2015-2016 Iain Dunning, Swati Gupta, and John
+Silberholz`). QUBOLib imports the 210 standard literature benchmark instances
+from `data/standard.csv` (`71` Stanford `G-set` Max-Cut, `60` `Beasley` QUBO,
+`45` `GKA` QUBO, `30` `spin-glass` Max-Cut, and `4` DIMACS `torus` Max-Cut),
+converts Max-Cut and master-node QUBO edge lists to canonical `:bool`/`:max`
+QUBO models, attaches 210 validated heuristic bitstring solutions and 37
+heuristic solver submissions from `data/results.zip`, and records the 21
+ultra-dense synthetic `Palubeckis` instances (`p3000_1`–`p7000_3`) in
+`palubeckis_deferred_inventory`.
+
 The repository's MIT license covers QUBOLib software. It does not replace the
-collection-specific data terms above. All six included collections have
-verified CC-BY-4.0 terms, so the Zenodo license field can identify CC BY 4.0
+collection-specific data terms above. All seven included collections have
+verified CC-BY-4.0 or MIT terms, so the Zenodo license field can identify CC BY 4.0
 while retaining each collection's attribution and conversion notices. This
 does not grant rights to other upstream material or to future collections.
 
@@ -212,15 +228,15 @@ does not grant rights to other upstream material or to future collections.
 - Cite QUBOLib software using [`CITATION.cff`](CITATION.cff), and identify the
   package version used when reproducibility depends on it.
 - Cite the [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) for
-  the corpus across versions. For the exact `v0.2.4-data+6` bytes, cite the
-  [version DOI](https://doi.org/10.5281/zenodo.23757887). Also cite each source
+  the corpus across versions. For the exact `v0.2.4-data+7` bytes, cite the
+  [version DOI](https://doi.org/10.5281/zenodo.23824873). Also cite each source
   collection used. A dataset DOI does not identify the Julia package version.
 
 ## Zenodo publication gate
 
 `DATASET.toml` records this version as `published`. The public
-[record metadata](https://zenodo.org/api/records/23757887) identifies owner
-1784890 and the 17 verified related identifiers. Authenticated creation,
+[record metadata](https://zenodo.org/api/records/23824873) identifies owner
+1784890 and the 19 verified related identifiers. Authenticated creation,
 upload, and publication verified the designated owner's access. This record
 uses the single-owner exception, not a claim of two active managers.
 

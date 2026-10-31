@@ -1,5 +1,5 @@
 const QUBOPREPROCESSING_SOLVER = "QUBOPreprocessing.jl"
-const QUBOPREPROCESSING_VERSION = "0.1.2"
+const QUBOPREPROCESSING_VERSION = "0.1.4"
 const QUBOPREPROCESSING_REPOSITORY = "JuliaQUBO/QUBOPreprocessing.jl"
 const QUBOPREPROCESSING_URL = "https://github.com/JuliaQUBO/QUBOPreprocessing.jl"
 
@@ -122,16 +122,7 @@ function _field_alignment(
             "state length $(length(state_domain)) does not match model dimension $n",
         ),
     )
-    if isdefined(QUBOTools, :field_alignment)
-        fa = Float64(QUBOTools.field_alignment(model, collect(Int, state_domain)))
-        return isnan(fa) ? nothing : round(fa; digits = 6)
-    end
-
-    h, _, _ = _exact_ising_fields_and_couplings(model)
     is_bool = Symbol(QUBOTools.domain(model)) == :bool
-    dir = Symbol(QUBOTools.sense(model)) == :max ? -1 : 1
-    aligned = 0
-    nonzero = 0
     for i in 1:n
         val = Int(state_domain[i])
         if is_bool
@@ -141,6 +132,18 @@ function _field_alignment(
             (val == -1 || val == 1) ||
                 throw(ArgumentError("expected spin state in {-1, 1} at index $i, got $val"))
         end
+    end
+    if isdefined(QUBOTools, :field_alignment)
+        fa = Float64(QUBOTools.field_alignment(model, collect(Int, state_domain)))
+        return isnan(fa) ? nothing : round(fa; digits = 6)
+    end
+
+    h, _, _ = _exact_ising_fields_and_couplings(model)
+    dir = Symbol(QUBOTools.sense(model)) == :max ? -1 : 1
+    aligned = 0
+    nonzero = 0
+    for i in 1:n
+        val = Int(state_domain[i])
         iszero(h[i]) && continue
         nonzero += 1
         s_i = is_bool ? (2 * val - 1) : val
@@ -398,12 +401,23 @@ function _run_qubopreprocessing_mode(
         m_init = ws._state.initial_edges
         dense_large = m_init > 30_000
 
-        r1 = preprocess_module.schedule_reductions!(
-            ws;
-            allow_weak_dominance = allow_weak,
-            allow_weak_relations = allow_weak,
-            enable_star_triangle = true,
-        )
+        has_blocks = isdefined(preprocess_module, :apply_block_equivalence!)
+        r1 = if has_blocks
+            preprocess_module.schedule_reductions!(
+                ws;
+                allow_weak_dominance = allow_weak,
+                allow_weak_relations = allow_weak,
+                enable_star_triangle = true,
+                enable_blocks = true,
+            )
+        else
+            preprocess_module.schedule_reductions!(
+                ws;
+                allow_weak_dominance = allow_weak,
+                allow_weak_relations = allow_weak,
+                enable_star_triangle = true,
+            )
+        end
         dom_ded = r1.dominance_deductions
         elim_ded = r1.elimination_deductions
         star_ded = r1.star_triangle_deductions
@@ -438,12 +452,22 @@ function _run_qubopreprocessing_mode(
                 fill_edges += r_mc.fill_edges
             end
             if round_ded > 0 && length(ws._state.fixes) < n_init
-                r2 = preprocess_module.schedule_reductions!(
-                    ws;
-                    allow_weak_dominance = allow_weak,
-                    allow_weak_relations = allow_weak,
-                    enable_star_triangle = true,
-                )
+                r2 = if has_blocks
+                    preprocess_module.schedule_reductions!(
+                        ws;
+                        allow_weak_dominance = allow_weak,
+                        allow_weak_relations = allow_weak,
+                        enable_star_triangle = true,
+                        enable_blocks = true,
+                    )
+                else
+                    preprocess_module.schedule_reductions!(
+                        ws;
+                        allow_weak_dominance = allow_weak,
+                        allow_weak_relations = allow_weak,
+                        enable_star_triangle = true,
+                    )
+                end
                 dom_ded += r2.dominance_deductions
                 elim_ded += r2.elimination_deductions
                 star_ded += r2.star_triangle_deductions
@@ -494,12 +518,22 @@ function _run_qubopreprocessing_mode(
                 round_ded += pr_new
             end
             if pr_new > 0 && length(ws._state.fixes) < n_init
-                r3 = preprocess_module.schedule_reductions!(
-                    ws;
-                    allow_weak_dominance = allow_weak,
-                    allow_weak_relations = allow_weak,
-                    enable_star_triangle = true,
-                )
+                r3 = if has_blocks
+                    preprocess_module.schedule_reductions!(
+                        ws;
+                        allow_weak_dominance = allow_weak,
+                        allow_weak_relations = allow_weak,
+                        enable_star_triangle = true,
+                        enable_blocks = true,
+                    )
+                else
+                    preprocess_module.schedule_reductions!(
+                        ws;
+                        allow_weak_dominance = allow_weak,
+                        allow_weak_relations = allow_weak,
+                        enable_star_triangle = true,
+                    )
+                end
                 dom_ded += r3.dominance_deductions
                 elim_ded += r3.elimination_deductions
                 star_ded += r3.star_triangle_deductions

@@ -269,8 +269,20 @@ function test_dataset_collection_metadata()
         @test inventory["minlplib"]["instances"] == 29
         @test inventory["minlplib"]["data_license"] == MINLPLIB_DATA["data_license"]
 
+        @test MQLIB_DATA["data_license"] == "MIT"
+        @test MQLIB_DATA["metadata"]["source_commit"] == MQLIB_SOURCE_COMMIT
+        @test MQLIB_DATA["metadata"]["mirror_sha256"] == MQLIB_MIRROR_SHA256
+        @test MQLIB_DATA["metadata"]["provenance_status"] == "verified"
+        @test MQLIB_DATA["metadata"]["rights_status"] == "verified"
+        @test MQLIB_DATA["metadata"]["imported_standard_instances"] == 210
+        @test MQLIB_DATA["metadata"]["deferred_palubeckis_instances"] == 21
+        @test MQLIB_DATA["metadata"]["total_standard_csv_instances"] == 231
+        @test inventory["mqlib"]["mirror_sha256"] == MQLIB_MIRROR_SHA256
+        @test inventory["mqlib"]["instances"] == 210
+        @test inventory["mqlib"]["data_license"] == MQLIB_DATA["data_license"]
+
         collection_data = [entry[:data] for entry in values(HEN_DATA)]
-        append!(collection_data, [QPLIB_DATA, QOBLIB_DATA, MINLPLIB_DATA])
+        append!(collection_data, [QPLIB_DATA, QOBLIB_DATA, MINLPLIB_DATA, MQLIB_DATA])
 
         for data in collection_data
             decoded = QUBOLib.JSON.parse(QUBOLib.JSON.json(data))
@@ -1632,6 +1644,139 @@ function test_minlplib_pip_parser_and_build()
     return nothing
 end
 
+function test_mqlib_parsers_and_build()
+    @testset "▶ MQLib parsers & standard collection build" begin
+        @test length(MQLIB_HEURISTICS) == 37
+        @test length(MQLIB_PALUBECKIS_DEFERRED) == 21
+        @test length(MQLIB_QPLIB_OVERLAP) == 2
+        @test MQLIB_QPLIB_OVERLAP["be250.8"]["qplib_source_name"] == "QPLIB_5909"
+        @test MQLIB_QPLIB_OVERLAP["be500.2"]["qplib_source_name"] == "QPLIB_5922"
+
+        # 1. Max-Cut edge list: 2 vertices, edge (1, 2) weight 3.0 => 3*(x1 + x2 - 2*x1*x2)
+        mc_text = """
+        # Comment line
+        2 1
+        1 2 3.0
+        """
+        m_mc = QUBOTools.read_model(IOBuffer(mc_text), Format(:mqlib_maxcut))
+        @test QUBOTools.dimension(m_mc) == 2
+        @test String(QUBOTools.sense(m_mc)) == "max"
+        @test String(QUBOTools.domain(m_mc)) == "bool"
+        @test Dict(QUBOTools.linear_terms(m_mc)) == Dict(1 => 3.0, 2 => 3.0)
+        @test Dict(QUBOTools.quadratic_terms(m_mc)) == Dict((1, 2) => -6.0)
+        @test QUBOTools.value(m_mc, [1, 0]) ≈ 3.0
+        @test QUBOTools.value(m_mc, [1, 1]) ≈ 0.0
+
+        # 2. QUBO converted to Max-Cut with master node (n_mc = n_qubo + 1 = 3):
+        #    edge (1, 2) w = -2.0 => -2*(x1 + x2 - 2*x1*x2) = -2*x1 - 2*x2 + 4*x1*x2
+        #    edge (1, 3) w = 5.0  => +5*x1 (master node 3 at x3 = 0)
+        #    edge (2, 3) w = 1.0  => +1*x2
+        #    Net QUBO: 3*x1 - 1*x2 + 4*x1*x2
+        qmc_text = """
+        # Converted to a MAX-CUT problem
+        3 3
+        1 2 -2.0
+        1 3 5.0
+        2 3 1.0
+        """
+        m_qmc = QUBOTools.read_model(IOBuffer(qmc_text), Format(:mqlib_qubo_maxcut))
+        @test QUBOTools.dimension(m_qmc) == 2
+        @test Dict(QUBOTools.linear_terms(m_qmc)) == Dict(1 => 3.0, 2 => -1.0)
+        @test Dict(QUBOTools.quadratic_terms(m_qmc)) == Dict((1, 2) => 4.0)
+        @test QUBOTools.value(m_qmc, [1, 1]) ≈ 6.0
+        @test QUBOTools.value(m_qmc, [1, 0]) ≈ 3.0
+
+        # 3. Direct MQLib QUBO format (diagonal = linear, off-diagonal doubled per PopulateFromAssignments)
+        qd_text = """
+        2 3
+        1 1 3.0
+        2 2 -1.0
+        1 2 2.0
+        """
+        m_qd = QUBOTools.read_model(IOBuffer(qd_text), Format(:mqlib_qubo))
+        @test QUBOTools.dimension(m_qd) == 2
+        @test Dict(QUBOTools.linear_terms(m_qd)) == Dict(1 => 3.0, 2 => -1.0)
+        @test Dict(QUBOTools.quadratic_terms(m_qd)) == Dict((1, 2) => 4.0)
+        @test QUBOTools.value(m_qd, [1, 1]) ≈ 6.0
+
+        mktempdir() do root
+            write(
+                joinpath(root, "standard.csv"),
+                """
+                graphname,source,problem,optimal,optimalSource
+                G55.zip,G-set,MAX-CUT,,
+                be250.8.zip,Beasley,QUBO,6.0,BiqMac
+                p3000_1.zip,Palubeckis,QUBO,,
+                """,
+            )
+            write(
+                joinpath(root, "metrics_standard.csv"),
+                """
+                graphname,deg_mean,percent_pos
+                G55.zip,1.0,1.0
+                be250.8.zip,1.5,0.666
+                """,
+            )
+            write(
+                joinpath(root, "results_standard.csv"),
+                """
+                graphname,heuristic,best_objective,seed,limit,timestamp
+                G55.zip,BURER2002,4.0,144,1.0,2016-07-10 00:00:00
+                be250.8.zip,PALUBECKIS2004bMST2,6.0,144,1.0,2016-07-10 00:00:00
+                """,
+            )
+            write(joinpath(root, "G55.txt"), mc_text)
+            write(
+                joinpath(root, "G55.sol"),
+                "# heuristic=BURER2002 seed=144 objective=3.0 runtime=0.1 paper_best=4.0\n10\n",
+            )
+            write(joinpath(root, "be250.8.txt"), qmc_text)
+            write(
+                joinpath(root, "be250.8.sol"),
+                "# heuristic=PALUBECKIS2004bMST2 seed=144 objective=6.0 runtime=0.1 paper_best=6.0\n11\n",
+            )
+
+            mktempdir() do path
+                QUBOLib.access(; path, clear = true) do index
+                    build_mqlib!(index; root = root)
+                    @test QUBOLib.collection_size(index, "mqlib") == 2
+                    @test QUBOLib.has_solver(index, "MQLib::BURER2002")
+                    @test QUBOLib.has_solver(index, "MQLib::PALUBECKIS2004bMST2")
+
+                    inst_df = QUBOLib.DBInterface.execute(
+                        QUBOLib.database(index),
+                        "SELECT instance, name, source_name, problem_class, formulation, metadata FROM Instances WHERE collection = 'mqlib' ORDER BY instance;",
+                    ) |> QUBOLib.DataFrame
+                    @test size(inst_df, 1) == 2
+                    @test inst_df[1, :name] == "G55.txt"
+                    @test inst_df[1, :problem_class] == "Max-Cut (Stanford G-set)"
+                    @test inst_df[2, :name] == "be250.8.txt"
+                    @test inst_df[2, :problem_class] == "Binary Quadratic Programming (Beasley OR-Library)"
+                    meta2 = QUBOLib.JSON.parse(inst_df[2, :metadata])
+                    @test meta2["qplib_equivalent"]["qplib_source_name"] == "QPLIB_5909"
+                    @test meta2["proven_optimal"] == true
+
+                    # G55 has both a validated bitstring solution (3.0) and a value-only paper_best record (4.0),
+                    # and best_solution_record still selects the validated bitstring solution!
+                    recs_g55 = QUBOLib.list_solution_records(index, Int(inst_df[1, :instance]))
+                    @test size(recs_g55, 1) == 2
+                    best_g55 = QUBOLib.best_solution_record(index, Int(inst_df[1, :instance]))
+                    @test best_g55[:bitstring] == "10"
+                    @test best_g55[:qubo_value] ≈ 3.0
+                    @test !isnothing(QUBOLib.load_best_solution(index, Int(inst_df[1, :instance])))
+
+                    best_be = QUBOLib.best_solution_record(index, Int(inst_df[2, :instance]))
+                    @test best_be[:bitstring] == "11"
+                    @test best_be[:qubo_value] ≈ 6.0
+                    @test Bool(best_be[:proven_optimal])
+                end
+            end
+        end
+    end
+
+    return nothing
+end
+
 function test_main()
     @testset "♦ QUBOLib.jl/scripts/build test suite ♦" verbose = true begin
         test_tags()
@@ -1640,6 +1785,7 @@ function test_main()
         test_deploy_qubolib_outputs()
         test_qplib_parser_and_crossref()
         test_minlplib_pip_parser_and_build()
+        test_mqlib_parsers_and_build()
         test_qoblib_qs_parser()
         test_qoblib_portfolio_positions()
         test_qoblib_submission_bit_formats()

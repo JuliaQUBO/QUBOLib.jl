@@ -17,6 +17,7 @@ include("sources/hen.jl")
 include("sources/qplib.jl")
 include("sources/qoblib.jl")
 include("sources/minlplib.jl")
+include("sources/mqlib.jl")
 include("sources/preprocessing.jl")
 
 function build_qubolib!(
@@ -55,6 +56,10 @@ function build_qubolib!(
         build_minlplib!(index)
     end
 
+    QUBOLib.access(; path) do index
+        build_mqlib!(index)
+    end
+
     @info "[QUBOLib] Build done!"
 
     if deploy
@@ -66,6 +71,7 @@ function build_qubolib!(
             deploy_qplib!(index)
             deploy_qoblib!(index)
             deploy_minlplib!(index)
+            deploy_mqlib!(index)
         end
     end
 
