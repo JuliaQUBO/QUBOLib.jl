@@ -35,7 +35,7 @@ heuristic bitstring solutions and `37` heuristic solver submissions from
 with certified `QUBOPreprocessing.jl` v0.1.4 reduction metadata (`n_strong`,
 `m_strong`, `n_weak`, `m_weak`) and coercive local-field diagnostics
 (`coercive_fields`), 22 exact ground states on instances reduced to zero
-residual variables (`7` on `qoblib` and `15` on `mqlib`), and 32 repaired
+residual variables (`5` on `qoblib`, `2` on `minlplib`, and `15` on `mqlib`), and 32 repaired
 solution records (`28` on `qoblib`, `3` on `minlplib`, and `1` on `mqlib`
 `G70`), and is preserved unchanged in
 [Zenodo record 23824873](https://zenodo.org/records/23824873).
