@@ -11,11 +11,11 @@
   `p3000_1`–`p7000_3` plus `2,771` Tier 2 instances across `SteinLib`, `Rudy`,
   `Color02`, `BiqMac`, `ImageSegmentation`, `NetworkX`, `TSP`, `CrossGrid`,
   `Culberson`, `MarketSplit`, `MaxCut`, `Pardalos`, `Fortran`, `SpinGlass`,
-  `GlasgowIsomorphism`, and `Dharwadker`), with 231 validated heuristic
-  bitstring solutions and 3,022 value-only heuristic benchmark records across 37
+  `GlasgowIsomorphism`, and `Dharwadker`), with 246 heuristic
+  bitstring solutions and 2,825 value-only heuristic benchmark records across 38
   heuristic solver submissions from `MQLib/MQLib` commit
   `585496274af5abb0849d0d47e135496b4688680b`, and enabling chunked HDF5
-  `deflate` compression (`level = 3`) in `src/library/qubotools.jl` (#93, #94).
+  `deflate` compression (`level = 3`) in `src/library/qubotools.jl` (#93, #94, #95, #96).
 - Enrich all 9,294 instances across all 7 collections with
   `QUBOPreprocessing.jl` `v0.1.5` reduction metadata (`n_strong`, `m_strong`,
   `n_weak`, `m_weak`) and coercive local-field diagnostics (`coercive_fields`,

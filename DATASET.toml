@@ -207,8 +207,8 @@ mirror_files = 3252
 qplib_overlap_count = 2
 deferred_palubeckis_count = 0
 validated_solution_records = 246
-unavailable_solution_records = 2805
-proven_optimal_instances = 44
+unavailable_solution_records = 2825
+proven_optimal_instances = 29
 provenance_status = "verified"
 provenance_evidence_status = "verified-public-evidence"
 provenance_evidence_url = "https://github.com/MQLib/MQLib/tree/585496274af5abb0849d0d47e135496b4688680b"
@@ -216,5 +216,5 @@ rights_status = "verified"
 rights_evidence_status = "verified-public-evidence"
 data_license = "MIT"
 license_evidence_url = "https://github.com/MQLib/MQLib/blob/585496274af5abb0849d0d47e135496b4688680b/LICENSE.md"
-transformation_note = "QUBOLib imports 3,002 MQLib benchmark instances (88.4% of the 3,396-instance MQLib corpus): all 231 classic literature instances from data/standard.csv (71 G-set, 60 Beasley, 45 GKA, 30 Spin-Glass, 21 Palubeckis p3000_1..p7000_3, and 4 DIMACS Torus) plus 2,771 Tier 2 instances from data/instance_header_info.csv and data/results_imgseg.zip (1,376 SteinLib up to n = 38,418, 312 BiqMac, 224 Rudy random graphs up to n = 35,960, 105 OR-Library, 100 Berkeley Image Segmentation up to n = 28,552, 113 Glasgow/Dharwadker, 104 DIMACS/Coloring/Market, 11 TSPLIB95, and 526 Culberson & NetworkX random graphs with m <= 250,000, including all 30 largest-n instances with n >= 15,000), converts Max-Cut and master-node QUBO edge lists to canonical :bool/:max QUBO models with chunked HDF5 shuffle+deflate compression, and attaches 246 validated heuristic bitstring solutions and 38 heuristic solver submissions from MQLib data/results.zip and data/results_imgseg.zip."
+transformation_note = "QUBOLib imports 3,002 MQLib benchmark instances (88.4% of the 3,396-instance MQLib corpus): all 231 classic literature instances from data/standard.csv (71 G-set, 60 Beasley, 45 GKA, 30 Spin-Glass, 21 Palubeckis p3000_1..p7000_3, and 4 DIMACS Torus) plus 2,771 Tier 2 instances from data/instance_header_info.csv and data/results_imgseg.zip (1,376 SteinLib up to n = 38,418, 312 BiqMac, 224 Rudy random graphs up to n = 35,960, 105 OR-Library, 100 Berkeley Image Segmentation up to n = 28,552, 113 Glasgow/Dharwadker, 104 DIMACS/Coloring/Market, 11 TSPLIB95, and 526 Culberson & NetworkX random graphs with m <= 250,000, including all 30 largest-n instances with n >= 15,000), converts Max-Cut and master-node QUBO edge lists to canonical :bool/:max QUBO models with chunked HDF5 deflate compression (level = 3), and attaches 246 heuristic bitstring solutions and 2,825 value-only benchmark records across 38 heuristic solver submissions from MQLib data/results.zip and data/results_imgseg.zip."
 required_action = "Preserve the MQLib article and repository attribution, MIT copyright notice, and QUBOLib processing statement."

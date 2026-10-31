@@ -29,8 +29,8 @@ bytes; rebuilding the database is not an equivalent archive. This release
 updates `v0.2.4-data+7` by expanding the `mqlib` collection from 210 to 3,002
 benchmark instances across all 18 source families (`100%` of `data/standard.csv`
 `231 / 231` including all `21` `Palubeckis` instances `p3000_1`–`p7000_3` plus
-`2,771` Tier 2 instances, with `231` validated heuristic bitstring solutions and
-`3,022` value-only heuristic benchmark records across `37` heuristic solver
+`2,771` Tier 2 instances, with `246` heuristic bitstring solutions and
+`2,825` value-only heuristic benchmark records across `38` heuristic solver
 submissions from [`MQLib/MQLib`](https://github.com/MQLib/MQLib) commit
 `585496274af5abb0849d0d47e135496b4688680b`), enabling chunked HDF5 `deflate`
 compression (`level = 3`), and enriching all 9,294 instances
@@ -211,10 +211,10 @@ Silberholz`). QUBOLib imports 3,002 benchmark instances across all 18 source
 families (`100%` of `data/standard.csv` `231 / 231` including all `21`
 `Palubeckis` instances `p3000_1`–`p7000_3` plus `2,771` Tier 2 instances),
 converts Max-Cut and master-node QUBO edge lists to canonical `:bool`/`:max`
-QUBO models with chunked HDF5 `deflate` compression (`level = 3`), attaches 231
-validated heuristic bitstring solutions and 3,022 value-only benchmark records
-across 37 heuristic solver submissions from `data/results.zip`, and records the
-394 remaining ultra-dense Tier 2 instances in `tier2_deferred_inventory`.
+QUBO models with chunked HDF5 `deflate` compression (`level = 3`), attaches 246
+heuristic bitstring solutions and 2,825 value-only benchmark records
+across 38 heuristic solver submissions from `data/results.zip` and `data/results_imgseg.zip`, and records the
+394 remaining ultra-dense Tier 2 instances in `deferred_synthetic_instances` (`deferred_total_instances = 394`).
 
 The repository's MIT license covers QUBOLib software. It does not replace the
 collection-specific data terms above. All seven included collections have
