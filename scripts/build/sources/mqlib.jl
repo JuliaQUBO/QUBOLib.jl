@@ -13,7 +13,7 @@ const MQLIB_SOURCE_COMMIT = "585496274af5abb0849d0d47e135496b4688680b"
 const MQLIB_CITATION_DOI  = "10.1287/ijoc.2017.0798"
 const MQLIB_S3_BASE_URL   = "https://mqlibinstances.s3.amazonaws.com"
 const MQLIB_MIRROR_URL    = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/mqlib.zip"
-const MQLIB_MIRROR_SHA256 = "af63f5fe3951b6e287bdb6a83fbcf1765f087c208ce832d2229d966ddeeb6c90"
+const MQLIB_MIRROR_SHA256 = "2d4845f55587fb590304df4425f485acfb3fd039b20a53cd399cb29e32ec1bfc"
 
 const MQLIB_QPLIB_OVERLAP = Dict{String,Dict{String,Any}}(
     "be250.8" => Dict{String,Any}(
@@ -28,35 +28,14 @@ const MQLIB_QPLIB_OVERLAP = Dict{String,Dict{String,Any}}(
     ),
 )
 
-const MQLIB_PALUBECKIS_DEFERRED = [
-    (name = "p3000_1", graphname = "p3000_1.zip", n = 3000, m = 2241426, best_objective = 3931583.0, best_heuristic = "BEASLEY1998TS", seed = 144),
-    (name = "p3000_2", graphname = "p3000_2.zip", n = 3000, m = 3582791, best_objective = 5193073.0, best_heuristic = "BEASLEY1998TS", seed = 144),
-    (name = "p3000_3", graphname = "p3000_3.zip", n = 3000, m = 3583951, best_objective = 5111533.0, best_heuristic = "BEASLEY1998TS", seed = 144),
-    (name = "p3000_4", graphname = "p3000_4.zip", n = 3000, m = 4478917, best_objective = 5761822.0, best_heuristic = "BEASLEY1998TS", seed = 144),
-    (name = "p3000_5", graphname = "p3000_5.zip", n = 3000, m = 4479174, best_objective = 5675625.0, best_heuristic = "GLOVER2010", seed = 144),
-    (name = "p4000_1", graphname = "p4000_1.zip", n = 4000, m = 3981235, best_objective = 6181830.0, best_heuristic = "BEASLEY1998TS", seed = 144),
-    (name = "p4000_2", graphname = "p4000_2.zip", n = 4000, m = 6370117, best_objective = 7801355.0, best_heuristic = "BEASLEY1998TS", seed = 144),
-    (name = "p4000_3", graphname = "p4000_3.zip", n = 4000, m = 6370285, best_objective = 7741685.0, best_heuristic = "GLOVER2010", seed = 144),
-    (name = "p4000_4", graphname = "p4000_4.zip", n = 4000, m = 7962266, best_objective = 8711822.0, best_heuristic = "BEASLEY1998TS", seed = 144),
-    (name = "p4000_5", graphname = "p4000_5.zip", n = 4000, m = 7961953, best_objective = 8908979.0, best_heuristic = "GLOVER2010", seed = 144),
-    (name = "p5000_1", graphname = "p5000_1.zip", n = 5000, m = 6221004, best_objective = 8559680.0, best_heuristic = "GLOVER2010", seed = 244),
-    (name = "p5000_2", graphname = "p5000_2.zip", n = 5000, m = 9952714, best_objective = 10836019.0, best_heuristic = "GLOVER2010", seed = 144),
-    (name = "p5000_3", graphname = "p5000_3.zip", n = 5000, m = 9954506, best_objective = 10489137.0, best_heuristic = "GLOVER2010", seed = 344),
-    (name = "p5000_4", graphname = "p5000_4.zip", n = 5000, m = 12440170, best_objective = 12252318.0, best_heuristic = "GLOVER2010", seed = 544),
-    (name = "p5000_5", graphname = "p5000_5.zip", n = 5000, m = 12440523, best_objective = 12731803.0, best_heuristic = "GLOVER2010", seed = 144),
-    (name = "p6000_1", graphname = "p6000_1.zip", n = 6000, m = 8959998, best_objective = 11384976.0, best_heuristic = "GLOVER2010", seed = 144),
-    (name = "p6000_2", graphname = "p6000_2.zip", n = 6000, m = 14329431, best_objective = 14333855.0, best_heuristic = "GLOVER2010", seed = 244),
-    (name = "p6000_3", graphname = "p6000_3.zip", n = 6000, m = 17913567, best_objective = 16132915.0, best_heuristic = "GLOVER2010", seed = 144),
-    (name = "p7000_1", graphname = "p7000_1.zip", n = 7000, m = 12197427, best_objective = 14478676.0, best_heuristic = "LU2010", seed = 344),
-    (name = "p7000_2", graphname = "p7000_2.zip", n = 7000, m = 19505601, best_objective = 18249948.0, best_heuristic = "GLOVER2010", seed = 244),
-    (name = "p7000_3", graphname = "p7000_3.zip", n = 7000, m = 24381626, best_objective = 20446407.0, best_heuristic = "GLOVER2010", seed = 144),
-]
+const MQLIB_PALUBECKIS_DEFERRED = NamedTuple{(:name, :graphname, :n, :m, :best_objective, :best_heuristic, :seed),Tuple{String,String,Int,Int,Float64,String,Int}}[]
 
 const MQLIB_HEURISTICS = Dict{String,NamedTuple{(:domain, :description),Tuple{String,String}}}(
     "ALKHAMIS1998"       => (domain = "QUBO",    description = "Simulated annealing (Alkhamis et al. 1998)"),
     "BEASLEY1998SA"      => (domain = "QUBO",    description = "Simulated annealing (Beasley 1998)"),
     "BEASLEY1998TS"      => (domain = "QUBO",    description = "Tabu search (Beasley 1998)"),
     "BURER2002"          => (domain = "MAX-CUT", description = "Rank-2 relaxation of Goemans-Williamson algorithm with local search (Burer et al. 2002)"),
+    "DESOUSA2013"        => (domain = "MAX-CUT", description = "Estimation of distribution algorithm for Max-Cut (de Sousa et al. 2013)"),
     "DUARTE2005"         => (domain = "MAX-CUT", description = "Genetic algorithm with VNS local search (Duarte et al. 2005)"),
     "FESTA2002G"         => (domain = "MAX-CUT", description = "GRASP with local search (Festa et al. 2002)"),
     "FESTA2002GPR"       => (domain = "MAX-CUT", description = "GRASP with path-relinking (Festa et al. 2002)"),
@@ -96,7 +75,7 @@ const MQLIB_DATA = Dict{String,Any}(
     "name"         => "MQLib: Library of Max-Cut and QUBO Heuristics",
     "author"       => ["Iain Dunning", "Swati Gupta", "John Silberholz"],
     "year"         => 2018,
-    "description"  => "Standard Max-Cut and QUBO benchmark instances (G-set, Beasley, Glover-Kochenberger-Alidaee, Spin-Glass, and DIMACS Torus), validated heuristic bitstrings, and 37-heuristic evaluation records from MQLib",
+    "description"  => "Max-Cut and QUBO benchmark instances from MQLib (Standard Library, SteinLib, BiqMac, OR-Library, Berkeley Image Segmentation, TSPLIB95, DIMACS, Glasgow/Dharwadker, Rudy, Culberson, and NetworkX random graphs), validated heuristic bitstrings, and 38-heuristic evaluation records",
     "url"          => "https://github.com/MQLib/MQLib",
     "license"      => "MIT",
     "data_license" => "MIT",
@@ -111,10 +90,15 @@ const MQLIB_DATA = Dict{String,Any}(
         "mirror_sha256"                 => MQLIB_MIRROR_SHA256,
         "provenance_status"             => "verified",
         "rights_status"                 => "verified",
-        "imported_standard_instances"   => 210,
-        "deferred_palubeckis_instances" => 21,
+        "imported_standard_instances"   => 231,
+        "imported_tier2_instances"      => 2771,
+        "imported_total_instances"      => 3002,
+        "deferred_palubeckis_instances" => 0,
+        "deferred_synthetic_instances"  => 394,
+        "deferred_total_instances"      => 394,
         "total_standard_csv_instances"  => 231,
-        "transformation_note"           => "QUBOLib imports the 210 standard literature benchmark instances from MQLib data/standard.csv (71 G-set Max-Cut, 60 Beasley QUBO, 45 GKA QUBO, 30 Spin-Glass Max-Cut, and 4 DIMACS Torus Max-Cut), converts Max-Cut and master-node QUBO edge lists to canonical :bool/:max QUBO models, attaches 210 validated heuristic bitstring solutions and 37 heuristic solver submissions from MQLib data/results.zip, and records the 21 ultra-dense synthetic Palubeckis instances (p3000..p7000) in palubeckis_deferred_inventory.",
+        "total_corpus_instances"        => 3396,
+        "transformation_note"           => "QUBOLib imports 3,002 instances (88.4%) from the 3,396-instance MQLib corpus: all 231 standard.csv instances (71 G-set, 60 Beasley, 45 GKA, 30 Spin-Glass, 21 Palubeckis p3000_1..p7000_3, and 4 DIMACS Torus) plus 2,771 Tier 2 instances covering 100% of all remaining literature and application benchmarks (1,376 SteinLib up to n=38,418, 312 BiqMac, 105 OR-Library, 100 Berkeley Image Segmentation up to n=28,552, 113 Glasgow/Dharwadker, 104 DIMACS/Coloring/Market, 11 TSPLIB95), 100% of all 224 Rudy random graphs (up to n=35,960), and all 531 Culberson and NetworkX random graphs with m <= 250,000. The remaining 394 ultra-dense synthetic instances (5 duplicate g0* Palubeckis copies and 389 NetworkX/Culberson graphs with m > 250,000, totaling 1.11B edges) are cataloged as deferred dense synthetic instances.",
         "qplib_overlap"                 => MQLIB_QPLIB_OVERLAP,
         "palubeckis_deferred_inventory" => [
             Dict{String,Any}(
@@ -128,7 +112,7 @@ const MQLIB_DATA = Dict{String,Any}(
                 "best_heuristic_objective" => item.best_objective,
                 "best_heuristic"           => item.best_heuristic,
                 "seed"                     => item.seed,
-                "disposition"              => "deferred_tier2_dense_synthetic",
+                "disposition"              => "deferred_ultra_dense_synthetic",
             ) for item in MQLIB_PALUBECKIS_DEFERRED
         ],
     ),
@@ -166,9 +150,13 @@ end
 
 function _read_mqlib_edge_list(io::IO; mode::Symbol)
     n_header = 0
+    m_header = 0
+    n_final  = 0
     header_parsed = false
-    L = Dict{Int,Float64}()
-    Q = Dict{Tuple{Int,Int},Float64}()
+    L_vec = Float64[]
+    qi = Int[]
+    qj = Int[]
+    qv = Float64[]
 
     for raw_line in eachline(io)
         line = strip(raw_line)
@@ -177,8 +165,17 @@ function _read_mqlib_edge_list(io::IO; mode::Symbol)
         if !header_parsed
             length(parts) >= 2 || QUBOTools.syntax_error("Invalid MQLib header line: '$line'")
             n_parsed = tryparse(Int, parts[1])
-            isnothing(n_parsed) && QUBOTools.syntax_error("Invalid MQLib dimension in header: '$line'")
+            m_parsed = tryparse(Int, parts[2])
+            (isnothing(n_parsed) || isnothing(m_parsed)) &&
+                QUBOTools.syntax_error("Invalid MQLib dimension in header: '$line'")
             n_header = n_parsed
+            m_header = max(0, m_parsed)
+            n_final = (mode == :qubo_master_node) ? (n_header - 1) : n_header
+            n_final >= 0 || QUBOTools.syntax_error("Invalid MQLib final dimension: $n_final")
+            L_vec = zeros(Float64, n_final)
+            sizehint!(qi, m_header)
+            sizehint!(qj, m_header)
+            sizehint!(qv, m_header)
             header_parsed = true
             continue
         end
@@ -195,31 +192,36 @@ function _read_mqlib_edge_list(io::IO; mode::Symbol)
                 QUBOTools.syntax_error("MQLib Max-Cut vertex out of range 1..$n_header: ($u, $v)")
             u == v && continue
             i, j = minmax(u, v)
-            L[i] = get(L, i, 0.0) + w
-            L[j] = get(L, j, 0.0) + w
-            Q[(i, j)] = get(Q, (i, j), 0.0) - 2.0 * w
+            L_vec[i] += w
+            L_vec[j] += w
+            push!(qi, i)
+            push!(qj, j)
+            push!(qv, -2.0 * w)
         elseif mode == :qubo_master_node
-            n_qubo = n_header - 1
             (1 <= u <= n_header && 1 <= v <= n_header) ||
                 QUBOTools.syntax_error("MQLib QUBO-MaxCut vertex out of range 1..$n_header: ($u, $v)")
             u == v && continue
             if u == n_header || v == n_header
                 idx = (u == n_header) ? v : u
-                L[idx] = get(L, idx, 0.0) + w
+                L_vec[idx] += w
             else
                 i, j = minmax(u, v)
-                L[i] = get(L, i, 0.0) + w
-                L[j] = get(L, j, 0.0) + w
-                Q[(i, j)] = get(Q, (i, j), 0.0) - 2.0 * w
+                L_vec[i] += w
+                L_vec[j] += w
+                push!(qi, i)
+                push!(qj, j)
+                push!(qv, -2.0 * w)
             end
         elseif mode == :qubo_direct
             (1 <= u <= n_header && 1 <= v <= n_header) ||
                 QUBOTools.syntax_error("MQLib QUBO vertex out of range 1..$n_header: ($u, $v)")
             if u == v
-                L[u] = get(L, u, 0.0) + w
+                L_vec[u] += w
             else
                 i, j = minmax(u, v)
-                Q[(i, j)] = get(Q, (i, j), 0.0) + 2.0 * w
+                push!(qi, i)
+                push!(qj, j)
+                push!(qv, 2.0 * w)
             end
         else
             error("Unsupported MQLib mode: $mode")
@@ -227,25 +229,41 @@ function _read_mqlib_edge_list(io::IO; mode::Symbol)
     end
 
     header_parsed || QUBOTools.syntax_error("Empty MQLib input")
-    n_final = (mode == :qubo_master_node) ? (n_header - 1) : n_header
-    V = Set{Int}(1:n_final)
 
-    for (k, val) in collect(L)
-        abs(val) <= 1e-12 && delete!(L, k)
-    end
-    for (k, val) in collect(Q)
-        abs(val) <= 1e-12 && delete!(Q, k)
+    li = Int[]
+    lv = Float64[]
+    for idx in 1:n_final
+        val = L_vec[idx]
+        if abs(val) > 1e-12
+            push!(li, idx)
+            push!(lv, val)
+        end
     end
 
-    return QUBOTools.Model{Int,Float64,Int}(
-        V,
-        L,
-        Q;
-        scale  = 1.0,
-        offset = 0.0,
-        domain = :bool,
-        sense  = :max,
+    L_sp = QUBOTools.SparseArrays.sparsevec(li, lv, n_final)
+    Q_sp = QUBOTools.SparseArrays.sparse(qi, qj, qv, n_final, n_final)
+    for k in eachindex(Q_sp.nzval)
+        if abs(Q_sp.nzval[k]) <= 1e-12
+            Q_sp.nzval[k] = 0.0
+        end
+    end
+    QUBOTools.SparseArrays.dropzeros!(L_sp)
+    QUBOTools.SparseArrays.dropzeros!(Q_sp)
+
+    L_form = QUBOTools.SparseLinearForm(L_sp)
+    Q_form = QUBOTools.SparseQuadraticForm(Q_sp)
+    form   = QUBOTools.Form{Float64}(
+        n_final,
+        L_form,
+        Q_form,
+        1.0,
+        0.0;
+        sense  = QUBOTools.sense(:max),
+        domain = QUBOTools.domain(:bool),
     )
+    vmap = QUBOTools.VariableMap{Int}(collect(1:n_final))
+
+    return QUBOTools.Model{Int,Float64,Int}(vmap, form)
 end
 
 function _read_mqlib_solution(
@@ -331,6 +349,32 @@ function _mqlib_problem_class(problem::AbstractString, source::AbstractString)
             return "Max-Cut (Spin-Glass)"
         elseif source == "torus"
             return "Max-Cut (DIMACS Torus)"
+        elseif source == "SteinLib"
+            return "Max-Cut (SteinLib Steiner Tree)"
+        elseif source == "BiqMac"
+            return "Max-Cut (BiqMac Library)"
+        elseif source == "OR-Library"
+            return "Max-Cut (OR-Library BQP/GKA Graph)"
+        elseif source == "ImageSegmentation" || source == "ImageSeg"
+            return "Max-Cut (Berkeley Image Segmentation)"
+        elseif source == "Culberson"
+            return "Max-Cut (Culberson Quasi-Random Coloring)"
+        elseif source == "Rudy"
+            return "Max-Cut (Rudy Random Graph)"
+        elseif source == "NetworkX"
+            return "Max-Cut (NetworkX Random Graph)"
+        elseif source == "TSPLIB95"
+            return "Max-Cut (TSPLIB95)"
+        elseif source == "StanfordGraphBase"
+            return "Max-Cut (Stanford GraphBase)"
+        elseif source == "MarketGraphs"
+            return "Max-Cut (Boginski Market Graph)"
+        elseif source == "GlasgowIsomorphism"
+            return "Max-Cut (Glasgow Graph Isomorphism)"
+        elseif source == "Dharwadker"
+            return "Max-Cut (Dharwadker Benchmark Graph)"
+        elseif source == "DIMACS"
+            return "Max-Cut (DIMACS Graph)"
         else
             return "Max-Cut ($(source))"
         end
@@ -339,6 +383,8 @@ function _mqlib_problem_class(problem::AbstractString, source::AbstractString)
             return "Binary Quadratic Programming (Beasley OR-Library)"
         elseif source == "GKA"
             return "Binary Quadratic Programming (Glover-Kochenberger-Alidaee)"
+        elseif source == "Palubeckis"
+            return "Binary Quadratic Programming (Palubeckis)"
         else
             return "Binary Quadratic Programming ($(source))"
         end
@@ -384,7 +430,22 @@ function load_mqlib!(
     end
 
     std_rows = _parse_mqlib_csv(joinpath(data_path, "standard.csv"))
-    return filter(r -> r["source"] != "Palubeckis", std_rows)
+    selected = filter(
+        r -> r["source"] != "Palubeckis" || r["graphname"] == "p3000_1.zip",
+        std_rows,
+    )
+    tier2_path = joinpath(data_path, "catalog_tier2.csv")
+    if isfile(tier2_path)
+        append!(selected, _parse_mqlib_csv(tier2_path))
+    end
+    append!(
+        selected,
+        filter(
+            r -> r["source"] == "Palubeckis" && r["graphname"] != "p3000_1.zip",
+            std_rows,
+        ),
+    )
+    return selected
 end
 
 function build_mqlib!(
@@ -402,13 +463,13 @@ function build_mqlib!(
         end
     end
 
-    @info "[mqlib] Building MQLib standard collection"
+    @info "[mqlib] Building MQLib collection"
 
     QUBOLib.add_collection!(index, MQLIB_COLLECTION, MQLIB_DATA)
     selected = load_mqlib!(index; root)
     data_path = QUBOLib.cache_data_path(index, MQLIB_COLLECTION)
 
-    # Register 37 MQLib heuristic solvers and submissions
+    # Register 38 MQLib heuristic solvers and submissions
     heuristic_submissions = Dict{String,Int}()
     for heur in sort(collect(keys(MQLIB_HEURISTICS)))
         hinfo = MQLIB_HEURISTICS[heur]
@@ -434,8 +495,8 @@ function build_mqlib!(
             runs              = 5,
             feasible_runs     = 5,
             hardware          = "Amazon EC2 m3.medium (Intel Xeon E5-2670 v2, single core)",
-            remarks           = "MQLib systematic evaluation across 37 heuristics (5 random seeds per instance)",
-            source_path       = "data/results.zip!results.csv",
+            remarks           = "MQLib systematic evaluation across 38 heuristics (5 random seeds per instance)",
+            source_path       = heur == "DESOUSA2013" ? "data/results_imgseg.zip!results_imgseg.csv" : "data/results.zip!results.csv",
             metadata          = Dict{String,Any}(
                 "heuristic_code"    => heur,
                 "native_domain"     => hinfo.domain,
@@ -497,9 +558,17 @@ function build_mqlib!(
         opt_val = has_proven_opt ? parse(Float64, opt_str) : nothing
 
         txt_path = joinpath(data_path, "$(base).txt")
-        isfile(txt_path) || continue
+        zip_inst_path = joinpath(data_path, graphname)
         fmt = problem == "MAX-CUT" ? Format(:mqlib_maxcut) : Format(:mqlib_qubo_maxcut)
-        model = QUBOTools.read_model(txt_path, fmt)
+        model = if isfile(txt_path)
+            QUBOTools.read_model(txt_path, fmt)
+        elseif isfile(zip_inst_path)
+            open(`unzip -p $zip_inst_path`, "r") do io
+                QUBOTools.read_model(io, fmt)
+            end
+        else
+            continue
+        end
 
         paper_best_info = get(best_result_by_graph, graphname, nothing)
         primal_bound = !isnothing(opt_val) ? opt_val : (!isnothing(paper_best_info) ? paper_best_info.objective : nothing)
@@ -508,8 +577,11 @@ function build_mqlib!(
             "family"          => source_family,
             "mqlib_problem"   => problem,
             "mqlib_graphname" => graphname,
+            "mqlib_tier"      => haskey(row, "optimal") ? "standard" : "tier2",
             "proven_optimal"  => has_proven_opt,
         )
+        comment_str = strip(get(row, "comment", ""))
+        !isempty(comment_str) && (inst_meta["header_comment"] = comment_str)
         !isnothing(primal_bound) && (inst_meta["upstream_primal_bound"] = primal_bound)
         if has_proven_opt
             inst_meta["dual_bound"] = opt_val
@@ -592,7 +664,7 @@ function build_mqlib!(
                     feasibility_status  = "unavailable",
                     validation_status   = "unavailable",
                     incumbent_candidate = false,
-                    source_path         = "data/results.zip!results.csv",
+                    source_path         = startswith(base, "imgseg_") ? "data/results_imgseg.zip!results_imgseg.csv" : "data/results.zip!results.csv",
                     metadata            = Dict{String,Any}(
                         "origin"         => "MQLib",
                         "heuristic"      => paper_best_info.heuristic,
@@ -603,6 +675,33 @@ function build_mqlib!(
                     ),
                 )
             end
+        elseif !isnothing(paper_best_info)
+            p_sub_id = get(heuristic_submissions, paper_best_info.heuristic, nothing)
+            p_is_opt = has_proven_opt && isapprox(paper_best_info.objective, opt_val; atol = 1e-6)
+            QUBOLib.add_solution_record!(
+                index,
+                mod_i;
+                submission          = p_sub_id,
+                qubo_value          = paper_best_info.objective,
+                source_value        = paper_best_info.objective,
+                source_objective    = paper_best_info.objective,
+                objective_bound     = has_proven_opt ? opt_val : paper_best_info.objective,
+                dual_bound          = has_proven_opt ? opt_val : nothing,
+                source_feasible     = true,
+                proven_optimal      = p_is_opt,
+                feasibility_status  = "unavailable",
+                validation_status   = "unavailable",
+                incumbent_candidate = false,
+                source_path         = startswith(base, "imgseg_") ? "data/results_imgseg.zip!results_imgseg.csv" : "data/results.zip!results.csv",
+                metadata            = Dict{String,Any}(
+                    "origin"         => "MQLib",
+                    "heuristic"      => paper_best_info.heuristic,
+                    "seed"           => paper_best_info.seed,
+                    "limit_s"        => paper_best_info.limit,
+                    "timestamp"      => paper_best_info.timestamp,
+                    "reason"         => "value_only_benchmark_record",
+                ),
+            )
         end
     end
 
@@ -616,7 +715,7 @@ function deploy_mqlib!(index::QUBOLib.LibraryIndex)
     dst_path = mkpath(joinpath(QUBOLib.build_path(index), "mirror"))
     zip_path = joinpath(dst_path, "mqlib.zip")
 
-    run(`zip -q -j -r $zip_path $src_path`)
+    run(`zip -q -1 -n .zip -j -r $zip_path $src_path`)
 
     return nothing
 end

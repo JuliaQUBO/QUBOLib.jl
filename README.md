@@ -104,9 +104,9 @@ identify the package version used.
 
 For the benchmark data, cite the
 [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) across versions,
-or [version DOI 10.5281/zenodo.23824873](https://doi.org/10.5281/zenodo.23824873)
-for the exact `v0.2.4-data+7` archive. The
-[Zenodo record](https://zenodo.org/records/23824873) preserves the distributed
+or [version DOI 10.5281/zenodo.23839797](https://doi.org/10.5281/zenodo.23839797)
+for the exact `v0.2.4-data+8` archive. The
+[Zenodo record](https://zenodo.org/records/23839797) preserves the distributed
 archive unchanged. Also cite each source collection used. Previously tagged
 package versions retain their original artifact pins; check `Artifacts.toml`
 at the package version used before choosing a dataset citation.

@@ -39,9 +39,9 @@ function _write_solution_data(
         end
     end
 
-    write(HDF5.create_dataset(fp["solution"]["data"], "state", U, size(states)), states)
-    write(HDF5.create_dataset(fp["solution"]["data"], "value", T, size(values)), values)
-    write(HDF5.create_dataset(fp["solution"]["data"], "reads", Int, size(reads)), reads)
+    _write_compressed_dataset!(fp["solution"]["data"], "state", U, states)
+    _write_compressed_dataset!(fp["solution"]["data"], "value", T, values)
+    _write_compressed_dataset!(fp["solution"]["data"], "reads", Int, reads)
 
     return nothing
 end
