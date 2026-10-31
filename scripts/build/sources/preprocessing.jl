@@ -122,16 +122,7 @@ function _field_alignment(
             "state length $(length(state_domain)) does not match model dimension $n",
         ),
     )
-    if isdefined(QUBOTools, :field_alignment)
-        fa = Float64(QUBOTools.field_alignment(model, collect(Int, state_domain)))
-        return isnan(fa) ? nothing : round(fa; digits = 6)
-    end
-
-    h, _, _ = _exact_ising_fields_and_couplings(model)
     is_bool = Symbol(QUBOTools.domain(model)) == :bool
-    dir = Symbol(QUBOTools.sense(model)) == :max ? -1 : 1
-    aligned = 0
-    nonzero = 0
     for i in 1:n
         val = Int(state_domain[i])
         if is_bool
@@ -141,6 +132,18 @@ function _field_alignment(
             (val == -1 || val == 1) ||
                 throw(ArgumentError("expected spin state in {-1, 1} at index $i, got $val"))
         end
+    end
+    if isdefined(QUBOTools, :field_alignment)
+        fa = Float64(QUBOTools.field_alignment(model, collect(Int, state_domain)))
+        return isnan(fa) ? nothing : round(fa; digits = 6)
+    end
+
+    h, _, _ = _exact_ising_fields_and_couplings(model)
+    dir = Symbol(QUBOTools.sense(model)) == :max ? -1 : 1
+    aligned = 0
+    nonzero = 0
+    for i in 1:n
+        val = Int(state_domain[i])
         iszero(h[i]) && continue
         nonzero += 1
         s_i = is_bool ? (2 * val - 1) : val
