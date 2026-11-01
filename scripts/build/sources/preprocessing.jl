@@ -212,6 +212,15 @@ function _field_alignment(
     return nonzero > 0 ? round(aligned / nonzero; digits = 6) : nothing
 end
 
+function _is_result_certified(res)::Bool
+    if hasproperty(res, :certified)
+        return Bool(getproperty(res, :certified))
+    elseif res isa AbstractDict || applicable(get, res, :certified, false)
+        return Bool(get(res, :certified, false))
+    end
+    return false
+end
+
 function _qubopreprocessing_summary_dict_from_runs(
     model::QUBOTools.Model,
     res_strong,
@@ -243,7 +252,7 @@ function _qubopreprocessing_summary_dict_from_runs(
         "strong_edges_removed" => m_init - m_strong,
         "strong_var_red_pct"  => round(strong_var_red_pct; digits = 4),
         "strong_edge_red_pct" => round(strong_edge_red_pct; digits = 4),
-        "strong_certified"    => Bool(get(res_strong, :certified, false)),
+        "strong_certified"    => _is_result_certified(res_strong),
         "strong_time_s"       => round(Float64(strong_time_s); digits = 4),
         "n_weak"              => n_weak,
         "m_weak"              => m_weak,
@@ -251,7 +260,7 @@ function _qubopreprocessing_summary_dict_from_runs(
         "weak_edges_removed"  => m_init - m_weak,
         "weak_var_red_pct"    => round(weak_var_red_pct; digits = 4),
         "weak_edge_red_pct"   => round(weak_edge_red_pct; digits = 4),
-        "weak_certified"      => Bool(get(res_weak, :certified, false)),
+        "weak_certified"      => _is_result_certified(res_weak),
         "weak_time_s"         => round(Float64(weak_time_s); digits = 4),
         "coercive_fields"     => _coercive_field_summary_dict(model),
     )
@@ -605,14 +614,15 @@ function _ensure_fallback_certified(
     model::QUBOTools.Model,
     res,
 )
+    surviving =
+        hasproperty(res, :surviving_variables) ?
+        collect(Int, res.surviving_variables) :
+        collect(1:QUBOTools.dimension(res.model))
     certified = if isdefined(preprocess_module, :export_certificate) &&
                    isdefined(preprocess_module, :verify_certificate)
         target = hasproperty(res, :workspace) ? res.workspace : res.trace
         cert = preprocess_module.export_certificate(target)
         if isnothing(cert)
-            surviving =
-                hasproperty(res, :surviving_variables) ? res.surviving_variables :
-                collect(1:QUBOTools.dimension(res.model))
             _is_identity_reduction(
                 preprocess_module,
                 model,
@@ -632,7 +642,16 @@ function _ensure_fallback_certified(
     else
         false
     end
-    return res isa NamedTuple ? merge(res, (certified = certified,)) : res
+    if res isa NamedTuple
+        return merge(res, (certified = certified,))
+    end
+    base = (
+        model = res.model,
+        surviving_variables = surviving,
+        trace = res.trace,
+        certified = certified,
+    )
+    return hasproperty(res, :rules) ? merge(base, (rules = res.rules,)) : base
 end
 
 function _run_qubopreprocessing_mode(
@@ -1004,11 +1023,11 @@ function enrich_preprocessing!(
             isnothing(prep_meta) ? true : (get(prep_meta, "weak_certified", false) == true)
         strong_ok =
             QUBOTools.dimension(entry.strong.model) == 0 &&
-            Bool(get(entry.strong, :certified, false)) &&
+            _is_result_certified(entry.strong) &&
             strong_meta_cert
         weak_ok =
             QUBOTools.dimension(entry.weak.model) == 0 &&
-            Bool(get(entry.weak, :certified, false)) &&
+            _is_result_certified(entry.weak) &&
             weak_meta_cert
         if strong_ok
             mode_sym = :strong
@@ -1143,7 +1162,7 @@ function enrich_preprocessing!(
 
         # Strong repair
         res_s = entry.strong
-        strong_certified = Bool(get(res_s, :certified, false)) && strong_meta_cert
+        strong_certified = _is_result_certified(res_s) && strong_meta_cert
         red_state_s = [orig_state[v] for v in res_s.surviving_variables]
         rec_state_s = _reconstruct_qubopreprocessing(preprocess_module, res_s.trace, red_state_s)
         rec_val_s = Float64(QUBOTools.value(model, rec_state_s))
@@ -1201,7 +1220,7 @@ function enrich_preprocessing!(
 
         # Weak repair: add if strictly better than both original and strong repair
         res_w = entry.weak
-        weak_certified = Bool(get(res_w, :certified, false)) && weak_meta_cert
+        weak_certified = _is_result_certified(res_w) && weak_meta_cert
         red_state_w = [orig_state[v] for v in res_w.surviving_variables]
         rec_state_w = _reconstruct_qubopreprocessing(preprocess_module, res_w.trace, red_state_w)
         rec_val_w = Float64(QUBOTools.value(model, rec_state_w))
