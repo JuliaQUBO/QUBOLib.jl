@@ -1120,7 +1120,11 @@ end
 module _MockQUBOPreprocessing
 import QUBOTools
 
-function preprocess(model::QUBOTools.Model; mode::Symbol = :strong)
+function preprocess(
+    model::QUBOTools.Model;
+    mode::Symbol = :strong,
+    integerize_scale::Bool = false,
+)
     if QUBOTools.dimension(model) == 2
         reduced = QUBOTools.Model{Int,Float64,Int}(
             Set{Int}(),
@@ -1133,7 +1137,7 @@ function preprocess(model::QUBOTools.Model; mode::Symbol = :strong)
         return (
             model = reduced,
             surviving_variables = Int[],
-            trace = (:exact_two_var, mode),
+            trace = (:exact_two_var, mode, integerize_scale),
         )
     else
         reduced = QUBOTools.Model{Int,Float64,Int}(
@@ -1147,13 +1151,16 @@ function preprocess(model::QUBOTools.Model; mode::Symbol = :strong)
         return (
             model = reduced,
             surviving_variables = [1],
-            trace = (:repair_three_var, mode),
+            trace = (:repair_three_var, mode, integerize_scale),
         )
     end
 end
 
+export_certificate(trace) = (steps = [trace[1]],)
+verify_certificate(::QUBOTools.Model, cert) = (valid = !isnothing(cert) && !isempty(cert.steps),)
+
 function reconstruct(trace, reduced_state::AbstractVector{<:Integer})
-    kind, mode = trace
+    kind, mode = trace[1], trace[2]
     if kind == :exact_two_var
         return [1, 0]
     else
@@ -1166,9 +1173,12 @@ end
 module _MockWorkspaceQUBOPreprocessing
 import QUBOTools
 
+const FORCE_CERT_VALID = Ref{Bool}(true)
+
 mutable struct _MockState
     initial_edges::Int
     fixes::Vector{Int}
+    fixed_values::Dict{Int,Int}
 end
 
 mutable struct Workspace
@@ -1176,17 +1186,66 @@ mutable struct Workspace
     _state::_MockState
     probed_orders::Vector{Symbol}
     schedule_calls::Int
+    enable_blocks_flags::Vector{Bool}
+    submodular_allow_weak::Vector{Bool}
+    integerize_scale::Bool
+    max_decimals::Int
+    cert_valid::Bool
 end
 
-function Workspace(model::QUBOTools.Model; rules::Symbol = :mixed)
+function Workspace(
+    model::QUBOTools.Model;
+    rules::Symbol = :mixed,
+    integerize_scale::Bool = false,
+    max_decimals::Int = 14,
+)
     m_init = length(QUBOTools.quadratic_terms(model))
-    return Workspace(model, _MockState(m_init, Int[]), Symbol[], 0)
+    return Workspace(
+        model,
+        _MockState(m_init, Int[], Dict{Int,Int}()),
+        Symbol[],
+        0,
+        Bool[],
+        Bool[],
+        integerize_scale,
+        max_decimals,
+        FORCE_CERT_VALID[],
+    )
 end
 
 original_variables(ws::Workspace) = collect(1:QUBOTools.dimension(ws.model))
 
-function schedule_reductions!(ws::Workspace; kwargs...)
+eliminate_block!(ws::Workspace; kwargs...) = nothing
+
+function _is_decimal_rounding_trap(model::QUBOTools.Model)
+    QUBOTools.dimension(model) == 2 || return false
+    L = Dict(QUBOTools.linear_terms(model))
+    Q = Dict(QUBOTools.quadratic_terms(model))
+    return get(L, 1, 0.0) == 0.3 &&
+           get(L, 2, 0.0) == 0.6 &&
+           (get(Q, (1, 2), 0.0) == -0.9 || get(Q, (2, 1), 0.0) == -0.9)
+end
+
+function schedule_reductions!(ws::Workspace; enable_blocks::Bool = false, kwargs...)
     ws.schedule_calls += 1
+    push!(ws.enable_blocks_flags, enable_blocks)
+    if _is_decimal_rounding_trap(ws.model) && isempty(ws._state.fixes)
+        # On f(x1, x2) = 0.3*x1 + 0.6*x2 - 0.9*x1*x2:
+        # - Exact binary64 has 0.3 + 0.6 - 0.9 = -2^-54 < 0 => unique minimizer (1, 1).
+        # - Float64 decimal scaling by 10 (integerize_scale = true) rounds 0.9*10 to 9.0,
+        #   making (0, 0) and (1, 1) tie at 0 and fixing (0, 0) under tie-breaking.
+        val = ws.integerize_scale ? 0 : 1
+        append!(ws._state.fixes, [1, 2])
+        ws._state.fixed_values[1] = val
+        ws._state.fixed_values[2] = val
+        return (
+            dominance_deductions = 2,
+            elimination_deductions = 0,
+            star_triangle_deductions = 0,
+            relation_deductions = 0,
+            fill_edges = 0,
+        )
+    end
     return (
         dominance_deductions = 0,
         elimination_deductions = 0,
@@ -1197,7 +1256,11 @@ function schedule_reductions!(ws::Workspace; kwargs...)
 end
 
 apply_roof_duality!(ws::Workspace) = (fixings = Pair{Int,Int}[],)
-apply_submodular_cut!(ws::Workspace) = (fixings = Pair{Int,Int}[],)
+
+function apply_submodular_cut!(ws::Workspace; allow_weak::Bool = false)
+    push!(ws.submodular_allow_weak, allow_weak)
+    return (fixings = Pair{Int,Int}[],)
+end
 apply_maxcut!(ws::Workspace; kwargs...) = (deductions = 0, fill_edges = 0)
 coercive_field_witness(ws::Workspace; kwargs...) = ones(Int, QUBOTools.dimension(ws.model))
 
@@ -1205,6 +1268,7 @@ function probe_variables!(ws::Workspace; order::Symbol = :index, kwargs...)
     push!(ws.probed_orders, order)
     if !(1 in ws._state.fixes)
         push!(ws._state.fixes, 1)
+        ws._state.fixed_values[1] = 1
         return (deductions = 1,)
     end
     return (deductions = 0,)
@@ -1213,11 +1277,17 @@ end
 function materialize(ws::Workspace; coefficient_type = Float64)
     n = QUBOTools.dimension(ws.model)
     free = setdiff(collect(1:n), ws._state.fixes)
+    if isempty(free) && !isempty(ws._state.fixed_values)
+        fixed_state = [ws._state.fixed_values[i] for i in 1:n]
+        off = Float64(QUBOTools.value(ws.model, fixed_state))
+    else
+        off = -1.0
+    end
     red = QUBOTools.Model{Int,Float64,Int}(
         Set{Int}(1:length(free)),
         Dict{Int,Float64}(i => -1.0 for i in 1:length(free)),
         Dict{Tuple{Int,Int},Float64}();
-        offset = -1.0,
+        offset = off,
         domain = :bool,
         sense  = QUBOTools.sense(ws.model),
     )
@@ -1226,7 +1296,18 @@ end
 
 export_model(mat) = mat._model
 
+export_certificate(ws::Workspace) =
+    isempty(ws._state.fixes) ? nothing : (steps = copy(ws._state.fixes),)
+
+verify_certificate(ws::Workspace, cert) =
+    (valid = !isnothing(cert) && !isempty(cert.steps) && ws.cert_valid,)
+
 function reconstruct(mat, reduced_state::AbstractVector{<:Integer})
+    ws = mat._ws
+    n = QUBOTools.dimension(ws.model)
+    if isempty(mat._free) && length(ws._state.fixed_values) == n
+        return (state = [ws._state.fixed_values[i] for i in 1:n],)
+    end
     return (state = vcat([1], collect(Int, reduced_state)),)
 end
 end
@@ -1290,7 +1371,8 @@ function test_preprocessing_enrichment()
         @test_throws ArgumentError _field_alignment(model_spin_max, [1, 0])
         @test_throws DimensionMismatch _field_alignment(model_spin_max, [1])
 
-        # Workspace-mode probing with coercive_field_witness and order = :coercive
+        # Workspace-mode probing with coercive_field_witness and order = :coercive,
+        # block elimination detection via eliminate_block!, and submodular allow_weak
         ws_res = _run_qubopreprocessing_mode(
             _MockWorkspaceQUBOPreprocessing,
             model_exact;
@@ -1299,7 +1381,137 @@ function test_preprocessing_enrichment()
         @test ws_res.surviving_variables == [2]
         @test ws_res.trace._ws.probed_orders == [:coercive]
         @test ws_res.trace._ws.schedule_calls == 2
+        @test ws_res.trace._ws.enable_blocks_flags == [true, true]
+        @test ws_res.trace._ws.submodular_allow_weak == [false, false]
+        @test ws_res.trace._ws.integerize_scale == false
         @test ws_res.rules["probing"] == 1
+        @test ws_res.certified == true
+
+        ws_res_weak = _run_qubopreprocessing_mode(
+            _MockWorkspaceQUBOPreprocessing,
+            model_exact;
+            mode = :weak,
+        )
+        @test ws_res_weak.trace._ws.enable_blocks_flags == [true, true]
+        @test ws_res_weak.trace._ws.submodular_allow_weak == [true, true]
+        @test ws_res_weak.certified == true
+
+        # Large instance (> 1,500 variables) disables enable_blocks even when eliminate_block! is defined
+        model_large_blocks = QUBOTools.Model(
+            Dict(i => -1.0 for i in 1:1_501),
+            Dict{Tuple{Int,Int},Float64}();
+            domain = :bool,
+            sense = :min,
+        )
+        ws_res_large = _run_qubopreprocessing_mode(
+            _MockWorkspaceQUBOPreprocessing,
+            model_large_blocks;
+            mode = :strong,
+        )
+        @test ws_res_large.trace._ws.enable_blocks_flags == [false]
+
+        # Decimal-coefficient instance where decimal rounding (integerize_scale = true)
+        # changes the reduction: f(x1, x2) = 0.3*x1 + 0.6*x2 - 0.9*x1*x2 has
+        # 0.3 + 0.6 - 0.9 == -2^-54 < 0 in binary64, so (1, 1) is the unique minimizer.
+        model_decimal = QUBOTools.Model(
+            Dict(1 => 0.3, 2 => 0.6),
+            Dict((1, 2) => -0.9);
+            domain = :bool,
+            sense = :min,
+        )
+        @test QUBOTools.value(model_decimal, [1, 1]) < QUBOTools.value(model_decimal, [0, 0])
+        ws_rounded = _MockWorkspaceQUBOPreprocessing.Workspace(
+            model_decimal;
+            rules = :mixed,
+            integerize_scale = true,
+            max_decimals = 14,
+        )
+        _MockWorkspaceQUBOPreprocessing.schedule_reductions!(ws_rounded)
+        mat_rounded = _MockWorkspaceQUBOPreprocessing.materialize(ws_rounded)
+        @test _MockWorkspaceQUBOPreprocessing.reconstruct(mat_rounded, Int[]).state == [0, 0]
+
+        dec_res = _run_qubopreprocessing_mode(
+            _MockWorkspaceQUBOPreprocessing,
+            model_decimal;
+            mode = :strong,
+        )
+        @test dec_res.trace._ws.integerize_scale == false
+        @test QUBOTools.dimension(dec_res.model) == 0
+        @test dec_res.certified == true
+        @test _reconstruct_qubopreprocessing(
+            _MockWorkspaceQUBOPreprocessing,
+            dec_res.trace,
+            Int[],
+        ) == [1, 1]
+
+        # Certificate verification gating: when verify_certificate returns valid = false,
+        # strong_certified / weak_certified are false and proven_optimal is not set.
+        _MockWorkspaceQUBOPreprocessing.FORCE_CERT_VALID[] = false
+        try
+            uncert_s = _run_qubopreprocessing_mode(
+                _MockWorkspaceQUBOPreprocessing,
+                model_decimal;
+                mode = :strong,
+            )
+            uncert_w = _run_qubopreprocessing_mode(
+                _MockWorkspaceQUBOPreprocessing,
+                model_decimal;
+                mode = :weak,
+            )
+            @test uncert_s.certified == false
+            @test uncert_w.certified == false
+            summary_uncert = _qubopreprocessing_summary_dict_from_runs(
+                model_decimal,
+                uncert_s,
+                uncert_w,
+            )
+            @test summary_uncert["strong_certified"] == false
+            @test summary_uncert["weak_certified"] == false
+
+            mktempdir() do uncert_path
+                QUBOLib.access(; path = uncert_path, clear = true) do index
+                    inst_dec = QUBOLib.add_instance!(index, model_decimal; name = "decimal.qs")
+                    # Seed a suboptimal solution [0, 1] (value = 0.6 > 0) so repair improves it to [1, 1]
+                    subopt_dec = QUBOTools.SampleSet{Float64,Int}(
+                        model_decimal,
+                        [[0, 1]];
+                        metadata = Dict{String,Any}("origin" => "fixture"),
+                    )
+                    QUBOLib.add_solution!(
+                        index,
+                        inst_dec,
+                        subopt_dec;
+                        qubo_value = QUBOTools.value(model_decimal, [0, 1]),
+                        proven_optimal = false,
+                        feasibility_status = "feasible",
+                        validation_status = "validated",
+                    )
+
+                    stats_uncert = enrich_preprocessing!(
+                        index,
+                        _MockWorkspaceQUBOPreprocessing,
+                    )
+                    @test stats_uncert.exact_count == 0
+                    @test stats_uncert.repaired_strong_count == 1
+
+                    meta_dec_df = QUBOLib.DBInterface.execute(
+                        QUBOLib.database(index),
+                        "SELECT metadata FROM Instances WHERE instance = ?;",
+                        (inst_dec,),
+                    ) |> QUBOLib.DataFrame
+                    meta_dec = QUBOLib.JSON.parse(meta_dec_df[1, :metadata])
+                    @test meta_dec["preprocessing"]["strong_certified"] == false
+                    @test meta_dec["preprocessing"]["weak_certified"] == false
+
+                    best_dec = QUBOLib.best_solution_record(index, inst_dec)
+                    @test !isnothing(best_dec)
+                    @test best_dec[:bitstring] == "11"
+                    @test !Bool(best_dec[:proven_optimal])
+                end
+            end
+        finally
+            _MockWorkspaceQUBOPreprocessing.FORCE_CERT_VALID[] = true
+        end
 
         mktempdir() do path
             coercive_tsv = joinpath(path, "coercive_metrics.tsv")
