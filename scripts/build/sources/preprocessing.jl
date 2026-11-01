@@ -441,11 +441,141 @@ function _safe_materialize(preprocess_module::Module, ws)
     end
 end
 
+function _reconstruct_qubopreprocessing(
+    preprocess_module::Module,
+    trace,
+    reduced_state::AbstractVector{<:Integer},
+)
+    rec = preprocess_module.reconstruct(trace, reduced_state)
+    return hasproperty(rec, :state) ? rec.state : rec
+end
+
+function _is_callee_kw_method_error(e, fn)::Bool
+    e isa MethodError || return false
+    return e.f === Core.kwcall && e.args isa Tuple && length(e.args) >= 2 && e.args[2] === fn
+end
+
+function _construct_workspace(preprocess_module::Module, model::QUBOTools.Model)
+    ws_fn = preprocess_module.Workspace
+    return try
+        ws_fn(model; rules = :mixed, integerize_scale = false, max_decimals = 14)
+    catch e1
+        _is_callee_kw_method_error(e1, ws_fn) || rethrow()
+        try
+            ws_fn(model; rules = :mixed, integerize_scale = false)
+        catch e2
+            _is_callee_kw_method_error(e2, ws_fn) || rethrow()
+            ws_fn(model; rules = :mixed)
+        end
+    end
+end
+
+function _call_apply_submodular_cut!(
+    preprocess_module::Module,
+    ws;
+    allow_weak::Bool = false,
+)
+    sc_fn = preprocess_module.apply_submodular_cut!
+    return try
+        sc_fn(ws; allow_weak = allow_weak)
+    catch e
+        _is_callee_kw_method_error(e, sc_fn) || rethrow()
+        sc_fn(ws)
+    end
+end
+
+function _call_fallback_preprocess(
+    preprocess_module::Module,
+    model::QUBOTools.Model;
+    mode::Symbol = :strong,
+)
+    prep_fn = preprocess_module.preprocess
+    return try
+        prep_fn(model; mode = mode, integerize_scale = false)
+    catch e
+        _is_callee_kw_method_error(e, prep_fn) || rethrow()
+        prep_fn(model; mode = mode)
+    end
+end
+
+function _canonical_exact_polynomial(model::QUBOTools.Model)
+    s = _to_exact_rational_qubolib(QUBOTools.scale(model))
+    off = s * _to_exact_rational_qubolib(QUBOTools.offset(model))
+    lin = Dict{Int,Rational{BigInt}}()
+    for (i, v) in QUBOTools.linear_terms(model)
+        c = s * _to_exact_rational_qubolib(v)
+        iszero(c) && continue
+        idx = Int(i)
+        c_new = get(lin, idx, zero(Rational{BigInt})) + c
+        iszero(c_new) ? delete!(lin, idx) : (lin[idx] = c_new)
+    end
+    quad = Dict{Tuple{Int,Int},Rational{BigInt}}()
+    is_bool = Symbol(QUBOTools.domain(model)) == :bool
+    for ((i, j), v) in QUBOTools.quadratic_terms(model)
+        c = s * _to_exact_rational_qubolib(v)
+        iszero(c) && continue
+        u, w = min(Int(i), Int(j)), max(Int(i), Int(j))
+        if u == w
+            if is_bool
+                c_new = get(lin, u, zero(Rational{BigInt})) + c
+                iszero(c_new) ? delete!(lin, u) : (lin[u] = c_new)
+            else
+                off += c
+            end
+        else
+            key = (u, w)
+            c_new = get(quad, key, zero(Rational{BigInt})) + c
+            iszero(c_new) ? delete!(quad, key) : (quad[key] = c_new)
+        end
+    end
+    return (offset = off, linear = lin, quadratic = quad)
+end
+
+function _is_identity_reduction(
+    preprocess_module::Module,
+    model::QUBOTools.Model,
+    red_model::QUBOTools.Model,
+    surviving::AbstractVector{<:Integer},
+    trace;
+    total_deductions::Int = 0,
+)::Bool
+    total_deductions == 0 || return false
+    n_init = QUBOTools.dimension(model)
+    QUBOTools.dimension(red_model) == n_init || return false
+    length(surviving) == n_init || return false
+    for i in 1:n_init
+        Int(surviving[i]) == i || return false
+    end
+    Symbol(QUBOTools.sense(red_model)) == Symbol(QUBOTools.sense(model)) || return false
+    Symbol(QUBOTools.domain(red_model)) == Symbol(QUBOTools.domain(model)) || return false
+    _canonical_exact_polynomial(red_model) == _canonical_exact_polynomial(model) || return false
+    if isdefined(preprocess_module, :reconstruct)
+        low_val = Symbol(QUBOTools.domain(model)) == :spin ? -1 : 0
+        probes = (
+            fill(low_val, n_init),
+            fill(1, n_init),
+            [isodd(i) ? 1 : low_val for i in 1:n_init],
+        )
+        for probe in probes
+            rec = try
+                _reconstruct_qubopreprocessing(preprocess_module, trace, probe)
+            catch
+                return false
+            end
+            length(rec) == n_init || return false
+            all(Int(rec[i]) == probe[i] for i in 1:n_init) || return false
+        end
+    end
+    return true
+end
+
 function _verify_workspace_certificate(
     preprocess_module::Module,
     ws,
-    n_init::Int,
-    n_res::Int,
+    model::QUBOTools.Model,
+    red_model::QUBOTools.Model,
+    surviving::AbstractVector{<:Integer},
+    trace,
     total_deductions::Int,
 )::Bool
     if !(isdefined(preprocess_module, :export_certificate) &&
@@ -453,8 +583,18 @@ function _verify_workspace_certificate(
         return false
     end
     cert = preprocess_module.export_certificate(ws)
-    if isnothing(cert) || (hasproperty(cert, :steps) && isempty(cert.steps))
-        return n_res == n_init && total_deductions == 0
+    if isnothing(cert)
+        return _is_identity_reduction(
+            preprocess_module,
+            model,
+            red_model,
+            surviving,
+            trace;
+            total_deductions = total_deductions,
+        )
+    end
+    if hasproperty(cert, :steps) && isempty(cert.steps)
+        return false
     end
     ver = preprocess_module.verify_certificate(ws, cert)
     return hasproperty(ver, :valid) ? Bool(ver.valid) : Bool(ver)
@@ -465,17 +605,23 @@ function _ensure_fallback_certified(
     model::QUBOTools.Model,
     res,
 )
-    if hasproperty(res, :certified)
-        return res isa NamedTuple ? merge(res, (certified = Bool(res.certified),)) : res
-    end
-    n_init = QUBOTools.dimension(model)
-    n_res = QUBOTools.dimension(res.model)
     certified = if isdefined(preprocess_module, :export_certificate) &&
                    isdefined(preprocess_module, :verify_certificate)
         target = hasproperty(res, :workspace) ? res.workspace : res.trace
         cert = preprocess_module.export_certificate(target)
-        if isnothing(cert) || (hasproperty(cert, :steps) && isempty(cert.steps))
-            n_res == n_init
+        if isnothing(cert)
+            surviving =
+                hasproperty(res, :surviving_variables) ? res.surviving_variables :
+                collect(1:QUBOTools.dimension(res.model))
+            _is_identity_reduction(
+                preprocess_module,
+                model,
+                res.model,
+                surviving,
+                res.trace,
+            )
+        elseif hasproperty(cert, :steps) && isempty(cert.steps)
+            false
         else
             ver = preprocess_module.verify_certificate(
                 hasproperty(res, :workspace) ? res.workspace : model,
@@ -498,12 +644,7 @@ function _run_qubopreprocessing_mode(
        isdefined(preprocess_module, :schedule_reductions!) &&
        isdefined(preprocess_module, :materialize)
         allow_weak = (mode == :weak)
-        ws = try
-            preprocess_module.Workspace(model; rules = :mixed, integerize_scale = false, max_decimals = 14)
-        catch e
-            e isa MethodError || rethrow()
-            preprocess_module.Workspace(model; rules = :mixed)
-        end
+        ws = _construct_workspace(preprocess_module, model)
         n_init = length(preprocess_module.original_variables(ws))
         m_init = ws._state.initial_edges
         dense_large = m_init > 10_000 && n_init > 500
@@ -552,12 +693,11 @@ function _run_qubopreprocessing_mode(
             round_ded += rd_new
 
             if length(ws._state.fixes) < n_init
-                r_sc = try
-                    preprocess_module.apply_submodular_cut!(ws; allow_weak = allow_weak)
-                catch e
-                    e isa MethodError || rethrow()
-                    preprocess_module.apply_submodular_cut!(ws)
-                end
+                r_sc = _call_apply_submodular_cut!(
+                    preprocess_module,
+                    ws;
+                    allow_weak = allow_weak,
+                )
                 sc_new = length(r_sc.fixings)
                 submod_ded += sc_new
                 round_ded += sc_new
@@ -672,7 +812,7 @@ function _run_qubopreprocessing_mode(
 
         mat = _safe_materialize(preprocess_module, ws)
         red_model = preprocess_module.export_model(mat)
-        n_res = QUBOTools.dimension(red_model)
+        surviving = hasproperty(mat, :_free) ? collect(Int, mat._free) : collect(1:n_init)
         total_deductions =
             dom_ded +
             elim_ded +
@@ -685,11 +825,12 @@ function _run_qubopreprocessing_mode(
         certified = _verify_workspace_certificate(
             preprocess_module,
             ws,
-            n_init,
-            n_res,
+            model,
+            red_model,
+            surviving,
+            mat,
             total_deductions,
         )
-        surviving = hasproperty(mat, :_free) ? collect(Int, mat._free) : collect(1:n_init)
         rules = Dict{String,Any}(
             "dominance"   => dom_ded,
             "elimination" => elim_ded,
@@ -709,23 +850,9 @@ function _run_qubopreprocessing_mode(
             certified = certified,
         )
     else
-        res = try
-            preprocess_module.preprocess(model; mode = mode, integerize_scale = false)
-        catch e
-            e isa MethodError || rethrow()
-            preprocess_module.preprocess(model; mode = mode)
-        end
+        res = _call_fallback_preprocess(preprocess_module, model; mode = mode)
         return _ensure_fallback_certified(preprocess_module, model, res)
     end
-end
-
-function _reconstruct_qubopreprocessing(
-    preprocess_module::Module,
-    trace,
-    reduced_state::AbstractVector{<:Integer},
-)
-    rec = preprocess_module.reconstruct(trace, reduced_state)
-    return hasproperty(rec, :state) ? rec.state : rec
 end
 
 function enrich_preprocessing!(
