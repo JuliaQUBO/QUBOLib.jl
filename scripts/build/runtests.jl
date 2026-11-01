@@ -1127,6 +1127,8 @@ const INJECT_CERTIFIED_TRUE = Ref{Bool}(false)
 const RETURN_STRUCT_RESULT = Ref{Bool}(false)
 const NOOP_MODE = Ref{Symbol}(:none)
 const VERIFY_CALLS = Ref{Int}(0)
+const PREPROCESS_CALL_COUNT = Ref{Int}(0)
+const THROW_PREPROCESS_INTERNAL_ERROR = Ref{Bool}(false)
 
 struct _FallbackStructResult
     model::QUBOTools.Model
@@ -1157,6 +1159,8 @@ function preprocess(
     mode::Symbol = :strong,
     integerize_scale::Bool = false,
 )
+    PREPROCESS_CALL_COUNT[] += 1
+    THROW_PREPROCESS_INTERNAL_ERROR[] && (1 + "internal_preprocess_kw_bug")
     n = QUBOTools.dimension(model)
     if NOOP_MODE[] == :identity
         res = (
@@ -1342,7 +1346,10 @@ const FORCE_EMPTY_CERT = Ref{Bool}(false)
 const FORCE_MISSING_CERT = Ref{Bool}(false)
 const PERTURB_NOOP_OFFSET = Ref{Float64}(0.0)
 const WEAK_ONLY_ZERO_REDUCTION = Ref{Bool}(false)
+const THROW_WORKSPACE_INTERNAL_ERROR = Ref{Bool}(false)
+const WORKSPACE_CALL_COUNT = Ref{Int}(0)
 const THROW_SUBMODULAR_INTERNAL_ERROR = Ref{Bool}(false)
+const SUBMODULAR_CALL_COUNT = Ref{Int}(0)
 
 mutable struct _MockState
     initial_edges::Int
@@ -1413,6 +1420,8 @@ function Workspace(
     integerize_scale::Bool = false,
     max_decimals::Int = 14,
 )
+    WORKSPACE_CALL_COUNT[] += 1
+    THROW_WORKSPACE_INTERNAL_ERROR[] && (1 + "internal_workspace_kw_bug")
     m_init = length(QUBOTools.quadratic_terms(model))
     snap = _snapshot_polynomial(
         model;
@@ -1504,6 +1513,7 @@ end
 apply_roof_duality!(ws::Workspace) = (fixings = Pair{Int,Int}[],)
 
 function apply_submodular_cut!(ws::Workspace; allow_weak::Bool = false)
+    SUBMODULAR_CALL_COUNT[] += 1
     THROW_SUBMODULAR_INTERNAL_ERROR[] && (1 + "internal_submodular_kw_bug")
     push!(ws.submodular_allow_weak, allow_weak)
     return (fixings = Pair{Int,Int}[],)
@@ -1901,6 +1911,20 @@ function test_preprocessing_enrichment()
             _MockLegacyFallbackPreprocess.THROW_INTERNAL[] = false
         end
 
+        _MockWorkspaceQUBOPreprocessing.WORKSPACE_CALL_COUNT[] = 0
+        _MockWorkspaceQUBOPreprocessing.THROW_WORKSPACE_INTERNAL_ERROR[] = true
+        try
+            @test_throws MethodError _run_qubopreprocessing_mode(
+                _MockWorkspaceQUBOPreprocessing,
+                model_exact;
+                mode = :strong,
+            )
+            @test _MockWorkspaceQUBOPreprocessing.WORKSPACE_CALL_COUNT[] == 1
+        finally
+            _MockWorkspaceQUBOPreprocessing.THROW_WORKSPACE_INTERNAL_ERROR[] = false
+        end
+
+        _MockWorkspaceQUBOPreprocessing.SUBMODULAR_CALL_COUNT[] = 0
         _MockWorkspaceQUBOPreprocessing.THROW_SUBMODULAR_INTERNAL_ERROR[] = true
         try
             @test_throws MethodError _run_qubopreprocessing_mode(
@@ -1908,8 +1932,22 @@ function test_preprocessing_enrichment()
                 model_exact;
                 mode = :weak,
             )
+            @test _MockWorkspaceQUBOPreprocessing.SUBMODULAR_CALL_COUNT[] == 1
         finally
             _MockWorkspaceQUBOPreprocessing.THROW_SUBMODULAR_INTERNAL_ERROR[] = false
+        end
+
+        _MockQUBOPreprocessing.PREPROCESS_CALL_COUNT[] = 0
+        _MockQUBOPreprocessing.THROW_PREPROCESS_INTERNAL_ERROR[] = true
+        try
+            @test_throws MethodError _run_qubopreprocessing_mode(
+                _MockQUBOPreprocessing,
+                model_exact;
+                mode = :strong,
+            )
+            @test _MockQUBOPreprocessing.PREPROCESS_CALL_COUNT[] == 1
+        finally
+            _MockQUBOPreprocessing.THROW_PREPROCESS_INTERNAL_ERROR[] = false
         end
 
         # Decimal-coefficient instance where decimal rounding (integerize_scale = true)
