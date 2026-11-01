@@ -92,8 +92,15 @@ reuse an existing tag or replace a published release asset.
 1. Retain the locally built `qubolib.tar.gz` and verify its size, SHA-256, and
    extracted tree hash against `[candidate_artifact]`. If those bytes are lost,
    rebuild and repeat the audit; do not assume the old hashes still apply.
+   Build only from a clean, committed tree, including any preprocessing
+   enrichment. Record that commit as `build_commit`. Each instance's
+   `metadata.preprocessing.provenance` in `index.db` records the same commit,
+   whether the tree was dirty, the SHA-256 of
+   `scripts/build/sources/preprocessing.jl`, the QUBOPreprocessing.jl version,
+   and the result source; reject a candidate whose provenance shows a dirty
+   tree or a commit other than `build_commit`.
 2. After human approval, publish those exact bytes to a new GitHub data release
-   with an explicit reviewed target commit. Include the upstream cutoff,
+   whose target commit is `build_commit`. Include the upstream cutoff,
    conversion notes, inventory, and hashes in the release notes. Do not run the
    ordinary `Deployment` workflow to promote this file: it rebuilds the corpus
    and replaces the source mirror release.

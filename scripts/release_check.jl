@@ -176,6 +176,11 @@ function check_dataset_artifact!(
     )
     check!(
         failures,
+        is_lower_hex(get(artifact, "build_commit", nothing), 40),
+        "DATASET.toml artifact.build_commit must be a lowercase 40-character SHA-1.",
+    )
+    check!(
+        failures,
         is_lower_hex(get(artifact, "sha256", nothing), 64),
         "DATASET.toml artifact.sha256 must be a lowercase 64-character SHA-256.",
     )

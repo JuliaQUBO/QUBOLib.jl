@@ -1341,6 +1341,14 @@ function test_preprocessing_enrichment()
                     validation_status = "validated",
                 )
 
+                summary_path = joinpath(path, "summary.tsv")
+                write(summary_path, "instance\tn_strong\n")
+                summary_prov = _qubopreprocessing_build_provenance(
+                    _MockQUBOPreprocessing;
+                    summary_tsv = summary_path,
+                )
+                @test summary_prov["summary_tsv_sha256"] == bytes2hex(SHA.sha256(read(summary_path)))
+
                 stats = enrich_preprocessing!(
                     index,
                     _MockQUBOPreprocessing;
@@ -1362,6 +1370,16 @@ function test_preprocessing_enrichment()
                 @test meta_exact["n_strong"] == 0
                 @test meta_exact["m_strong"] == 0
                 @test meta_exact["preprocessing"]["package"] == QUBOPREPROCESSING_SOLVER
+                prov = meta_exact["preprocessing"]["provenance"]
+                @test prov["result_source"] == "pipeline"
+                @test prov["pipeline_source"] == "scripts/build/sources/preprocessing.jl"
+                @test prov["pipeline_source_sha256"] ==
+                      bytes2hex(SHA.sha256(read(joinpath(@__DIR__, "sources", "preprocessing.jl"))))
+                @test isnothing(prov["qubopreprocessing_version"])  # the mock is not a package
+                @test isnothing(prov["summary_tsv_sha256"])
+                @test isnothing(prov["qubolib_build_commit"]) ||
+                      occursin(r"^[0-9a-f]{40}$", prov["qubolib_build_commit"])
+                @test meta_repair["preprocessing"]["provenance"] == prov
                 @test haskey(meta_exact["preprocessing"], "coercive_fields")
                 @test meta_exact["preprocessing"]["coercive_fields"]["is_gauge_invariant"] == true
                 @test meta_repair["n_strong"] == 1
