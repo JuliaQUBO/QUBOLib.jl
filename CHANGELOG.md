@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- Record build provenance in each instance's `metadata.preprocessing.provenance`
+  during preprocessing enrichment:
+  - QUBOLib commit and dirty flag;
+  - pipeline source SHA-256;
+  - QUBOPreprocessing.jl version and tree hash;
+  - input TSV hashes;
+  - per-instance result and coercive-field sources.
+
+  Enrichment now fails on a QUBOPreprocessing.jl version mismatch or on a
+  pipeline source that changed after loading (#101).
+- Mark `v0.2.4-data+8`'s `build_commit` as not reproducible in `DATASET.toml`,
+  check `build_commit` in the release preflight, and require future data
+  releases to target the clean commit that built them (#101).
+
 ## v0.2.6 - 2026-10-31
 
 - Publish data release `v0.2.4-data+8` (Zenodo `10.5281/zenodo.23839797` under

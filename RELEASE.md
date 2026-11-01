@@ -93,14 +93,27 @@ reuse an existing tag or replace a published release asset.
    extracted tree hash against `[candidate_artifact]`. If those bytes are lost,
    rebuild and repeat the audit; do not assume the old hashes still apply.
    Build only from a clean, committed tree, including any preprocessing
-   enrichment. Record that commit as `build_commit`. Each instance's
-   `metadata.preprocessing.provenance` in `index.db` records the same commit,
-   whether the tree was dirty, the SHA-256 of
-   `scripts/build/sources/preprocessing.jl`, the QUBOPreprocessing.jl version,
-   and the result source; reject a candidate whose provenance shows a dirty
-   tree or a commit other than `build_commit`.
-2. After human approval, publish those exact bytes to a new GitHub data release
-   whose target commit is `build_commit`. Include the upstream cutoff,
+   enrichment. Load QUBOPreprocessing.jl from a stacked environment rather than
+   by editing `scripts/build/Project.toml`, so the tree stays clean. Record that
+   commit as `build_commit` with `build_commit_status = "verified"`.
+   Each instance's `metadata.preprocessing.provenance` in `index.db` describes
+   the enrichment run. It records:
+   - the QUBOLib commit and whether the tree was dirty;
+   - the SHA-256 of `scripts/build/sources/preprocessing.jl`;
+   - the QUBOPreprocessing.jl version and tree hash;
+   - the hashes of any input TSVs;
+   - per instance, whether results and coercive fields came from the pipeline
+     or from a TSV.
+
+   Reject a candidate if any of these holds:
+   - a commit or tree hash is null;
+   - the tree was dirty;
+   - the commit differs from `build_commit`;
+   - any instance has `result_source` other than `pipeline`, unless the
+     summary TSV and the provenance of the run that produced it are published
+     with the release.
+2. After human approval, push `build_commit` and publish those exact bytes to a
+   new GitHub data release whose target commit is `build_commit`. Include the upstream cutoff,
    conversion notes, inventory, and hashes in the release notes. Do not run the
    ordinary `Deployment` workflow to promote this file: it rebuilds the corpus
    and replaces the source mirror release.

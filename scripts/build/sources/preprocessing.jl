@@ -655,39 +655,73 @@ function _reconstruct_qubopreprocessing(
     return hasproperty(rec, :state) ? rec.state : rec
 end
 
+const _QUBOLIB_REPO_ROOT = normpath(joinpath(@__DIR__, "..", "..", ".."))
+
 function _git_build_output(args::Vector{String})
     try
-        return String(strip(read(`git -C $(@__DIR__) $args`, String)))
-    catch
+        return String(strip(read(pipeline(`git -C $(_QUBOLIB_REPO_ROOT) $args`; stderr = devnull), String)))
+    catch err
+        err isa InterruptException && rethrow()
         return nothing
     end
 end
 
-_file_sha256(path::AbstractString) = bytes2hex(SHA.sha256(read(path)))
+# Commit and dirty flag of the QUBOLib checkout itself; `nothing` when this file
+# is not inside a QUBOLib git checkout (git walks up to any enclosing repository).
+function _qubolib_git_state()
+    top = _git_build_output(["rev-parse", "--show-toplevel"])
+    if isnothing(top) || !isdir(top) || realpath(top) != realpath(_QUBOLIB_REPO_ROOT)
+        return (commit = nothing, dirty = nothing)
+    end
+    status = _git_build_output(["status", "--porcelain", "--untracked-files=no"])
+    return (
+        commit = _git_build_output(["rev-parse", "HEAD"]),
+        dirty = isnothing(status) ? nothing : !isempty(status),
+    )
+end
 
-# Build provenance stored with every instance's preprocessing metadata, so an
-# index.db can be traced to the code and package versions that produced it.
-function _qubopreprocessing_build_provenance(
-    preprocess_module::Module;
-    summary_tsv::Union{AbstractString,Nothing} = nothing,
-)
-    loaded = pkgversion(preprocess_module)
+_file_sha256(path::AbstractString) = bytes2hex(SHA.sha256(read(path)))
+# Line endings are normalized so CRLF checkouts hash like the repository blob.
+_source_sha256(path::AbstractString) = bytes2hex(SHA.sha256(replace(read(path, String), "\r\n" => "\n")))
+
+# Hash of this file as loaded; provenance describes the code that runs, not later edits.
+const _PREPROCESSING_SOURCE_SHA256 = _source_sha256(@__FILE__)
+
+function _check_qubopreprocessing_version(loaded::Union{VersionNumber,Nothing})
     if !isnothing(loaded) && loaded != VersionNumber(QUBOPREPROCESSING_VERSION)
         error("Loaded $(QUBOPREPROCESSING_SOLVER) v$(loaded) does not match " *
               "QUBOPREPROCESSING_VERSION = \"$(QUBOPREPROCESSING_VERSION)\"")
     end
+    return nothing
+end
+
+# Build provenance stored with every instance's preprocessing metadata, so an
+# index.db can be traced to the code and package versions that produced it.
+# All fields describe the enrichment run; per-instance `result_source` and
+# `coercive_source` say whether results came from that run or from an input TSV.
+function _qubopreprocessing_build_provenance(
+    preprocess_module::Module;
+    summary_tsv::Union{AbstractString,Nothing} = nothing,
+    coercive_tsv::Union{AbstractString,Nothing} = nothing,
+)
+    loaded = pkgversion(preprocess_module)
+    _check_qubopreprocessing_version(loaded)
+    _source_sha256(@__FILE__) == _PREPROCESSING_SOURCE_SHA256 ||
+        error("$(@__FILE__) changed on disk since it was loaded; restart Julia before enrichment")
+    pkg_root = pkgdir(preprocess_module)
     uuid = Base.PkgId(preprocess_module).uuid
     dep = isnothing(uuid) ? nothing : get(Pkg.dependencies(), uuid, nothing)
-    status = _git_build_output(["status", "--porcelain", "--untracked-files=no"])
+    git = _qubolib_git_state()
     return Dict{String,Any}(
-        "qubolib_build_commit"          => _git_build_output(["rev-parse", "HEAD"]),
-        "qubolib_build_tree_dirty"      => isnothing(status) ? nothing : !isempty(status),
-        "pipeline_source"               => "scripts/build/sources/preprocessing.jl",
-        "pipeline_source_sha256"        => _file_sha256(@__FILE__),
-        "qubopreprocessing_version"     => isnothing(loaded) ? nothing : string(loaded),
-        "qubopreprocessing_tree_hash"   => isnothing(dep) ? nothing : dep.tree_hash,
+        "qubolib_build_commit"           => git.commit,
+        "qubolib_build_tree_dirty"       => git.dirty,
+        "pipeline_source"                => "scripts/build/sources/preprocessing.jl",
+        "pipeline_source_sha256"         => _PREPROCESSING_SOURCE_SHA256,
+        "qubopreprocessing_version"      => isnothing(loaded) ? nothing : string(loaded),
+        "qubopreprocessing_tree_hash"    => isnothing(pkg_root) ? nothing : bytes2hex(Pkg.GitTools.tree_hash(pkg_root)),
         "qubopreprocessing_git_revision" => isnothing(dep) ? nothing : dep.git_revision,
-        "summary_tsv_sha256"            => isnothing(summary_tsv) ? nothing : _file_sha256(summary_tsv),
+        "summary_tsv_sha256"             => isnothing(summary_tsv) ? nothing : _file_sha256(summary_tsv),
+        "coercive_tsv_sha256"            => isnothing(coercive_tsv) ? nothing : _file_sha256(coercive_tsv),
     )
 end
 
@@ -698,7 +732,7 @@ function enrich_preprocessing!(
     coercive_tsv::Union{AbstractString,Nothing} = nothing,
     repair_instance_ids::Union{AbstractSet{<:Integer},Nothing} = nothing,
 )
-    build_provenance = _qubopreprocessing_build_provenance(preprocess_module; summary_tsv)
+    build_provenance = _qubopreprocessing_build_provenance(preprocess_module; summary_tsv, coercive_tsv)
     _ensure_qubopreprocessing_solver!(index)
     db = QUBOLib.database(index)
 
@@ -769,6 +803,10 @@ function enrich_preprocessing!(
             meta["m_weak"] = Int(prep_info["m_weak"])
             provenance = copy(build_provenance)
             provenance["result_source"] = haskey(precomputed, inst_id) ? "summary_tsv" : "pipeline"
+            provenance["coercive_source"] =
+                haskey(precomputed_coercive, inst_id) ? "coercive_tsv" :
+                haskey(get(precomputed, inst_id, Dict{String,Any}()), "coercive_fields") ? "summary_tsv" :
+                "pipeline"
             prep_info["provenance"] = provenance
             meta["preprocessing"] = prep_info
 
