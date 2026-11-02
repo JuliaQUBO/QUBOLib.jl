@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Make preprocessing enrichment certify what it records (#99, #100):
+  - build workspaces with lossless `integerize_scale = false`;
+  - set `strong_certified` / `weak_certified` from `verify_certificate`, or
+    from an exact identity check when nothing was reduced;
+  - add zero-residual `proven_optimal` records and repairs only for
+    certified results;
+  - run connected block elimination with QUBOPreprocessing.jl 0.1.5;
+  - apply weak submodular cuts in `:weak` mode.
+
+  The next data build will report different census counts.
+
 ## v0.2.6 - 2026-10-31
 
 - Publish data release `v0.2.4-data+8` (Zenodo `10.5281/zenodo.23839797` under

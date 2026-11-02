@@ -212,6 +212,15 @@ function _field_alignment(
     return nonzero > 0 ? round(aligned / nonzero; digits = 6) : nothing
 end
 
+function _is_result_certified(res)::Bool
+    if hasproperty(res, :certified)
+        return Bool(getproperty(res, :certified))
+    elseif res isa AbstractDict || applicable(get, res, :certified, false)
+        return Bool(get(res, :certified, false))
+    end
+    return false
+end
+
 function _qubopreprocessing_summary_dict_from_runs(
     model::QUBOTools.Model,
     res_strong,
@@ -243,7 +252,7 @@ function _qubopreprocessing_summary_dict_from_runs(
         "strong_edges_removed" => m_init - m_strong,
         "strong_var_red_pct"  => round(strong_var_red_pct; digits = 4),
         "strong_edge_red_pct" => round(strong_edge_red_pct; digits = 4),
-        "strong_certified"    => true,
+        "strong_certified"    => _is_result_certified(res_strong),
         "strong_time_s"       => round(Float64(strong_time_s); digits = 4),
         "n_weak"              => n_weak,
         "m_weak"              => m_weak,
@@ -251,7 +260,7 @@ function _qubopreprocessing_summary_dict_from_runs(
         "weak_edges_removed"  => m_init - m_weak,
         "weak_var_red_pct"    => round(weak_var_red_pct; digits = 4),
         "weak_edge_red_pct"   => round(weak_edge_red_pct; digits = 4),
-        "weak_certified"      => true,
+        "weak_certified"      => _is_result_certified(res_weak),
         "weak_time_s"         => round(Float64(weak_time_s); digits = 4),
         "coercive_fields"     => _coercive_field_summary_dict(model),
     )
@@ -441,6 +450,210 @@ function _safe_materialize(preprocess_module::Module, ws)
     end
 end
 
+function _reconstruct_qubopreprocessing(
+    preprocess_module::Module,
+    trace,
+    reduced_state::AbstractVector{<:Integer},
+)
+    rec = preprocess_module.reconstruct(trace, reduced_state)
+    return hasproperty(rec, :state) ? rec.state : rec
+end
+
+function _is_callee_kw_method_error(e, fn)::Bool
+    e isa MethodError || return false
+    return e.f === Core.kwcall && e.args isa Tuple && length(e.args) >= 2 && e.args[2] === fn
+end
+
+function _construct_workspace(preprocess_module::Module, model::QUBOTools.Model)
+    ws_fn = preprocess_module.Workspace
+    return try
+        ws_fn(model; rules = :mixed, integerize_scale = false, max_decimals = 14)
+    catch e1
+        _is_callee_kw_method_error(e1, ws_fn) || rethrow()
+        try
+            ws_fn(model; rules = :mixed, integerize_scale = false)
+        catch e2
+            _is_callee_kw_method_error(e2, ws_fn) || rethrow()
+            ws_fn(model; rules = :mixed)
+        end
+    end
+end
+
+function _call_apply_submodular_cut!(
+    preprocess_module::Module,
+    ws;
+    allow_weak::Bool = false,
+)
+    sc_fn = preprocess_module.apply_submodular_cut!
+    return try
+        sc_fn(ws; allow_weak = allow_weak)
+    catch e
+        _is_callee_kw_method_error(e, sc_fn) || rethrow()
+        sc_fn(ws)
+    end
+end
+
+function _call_fallback_preprocess(
+    preprocess_module::Module,
+    model::QUBOTools.Model;
+    mode::Symbol = :strong,
+)
+    prep_fn = preprocess_module.preprocess
+    return try
+        prep_fn(model; mode = mode, integerize_scale = false)
+    catch e
+        _is_callee_kw_method_error(e, prep_fn) || rethrow()
+        prep_fn(model; mode = mode)
+    end
+end
+
+function _canonical_exact_polynomial(model::QUBOTools.Model)
+    s = _to_exact_rational_qubolib(QUBOTools.scale(model))
+    off = s * _to_exact_rational_qubolib(QUBOTools.offset(model))
+    lin = Dict{Int,Rational{BigInt}}()
+    for (i, v) in QUBOTools.linear_terms(model)
+        c = s * _to_exact_rational_qubolib(v)
+        iszero(c) && continue
+        idx = Int(i)
+        c_new = get(lin, idx, zero(Rational{BigInt})) + c
+        iszero(c_new) ? delete!(lin, idx) : (lin[idx] = c_new)
+    end
+    quad = Dict{Tuple{Int,Int},Rational{BigInt}}()
+    is_bool = Symbol(QUBOTools.domain(model)) == :bool
+    for ((i, j), v) in QUBOTools.quadratic_terms(model)
+        c = s * _to_exact_rational_qubolib(v)
+        iszero(c) && continue
+        u, w = min(Int(i), Int(j)), max(Int(i), Int(j))
+        if u == w
+            if is_bool
+                c_new = get(lin, u, zero(Rational{BigInt})) + c
+                iszero(c_new) ? delete!(lin, u) : (lin[u] = c_new)
+            else
+                off += c
+            end
+        else
+            key = (u, w)
+            c_new = get(quad, key, zero(Rational{BigInt})) + c
+            iszero(c_new) ? delete!(quad, key) : (quad[key] = c_new)
+        end
+    end
+    return (offset = off, linear = lin, quadratic = quad)
+end
+
+function _is_identity_reduction(
+    preprocess_module::Module,
+    model::QUBOTools.Model,
+    red_model::QUBOTools.Model,
+    surviving::AbstractVector{<:Integer},
+    trace;
+    total_deductions::Int = 0,
+)::Bool
+    total_deductions == 0 || return false
+    n_init = QUBOTools.dimension(model)
+    QUBOTools.dimension(red_model) == n_init || return false
+    length(surviving) == n_init || return false
+    for i in 1:n_init
+        Int(surviving[i]) == i || return false
+    end
+    Symbol(QUBOTools.sense(red_model)) == Symbol(QUBOTools.sense(model)) || return false
+    Symbol(QUBOTools.domain(red_model)) == Symbol(QUBOTools.domain(model)) || return false
+    _canonical_exact_polynomial(red_model) == _canonical_exact_polynomial(model) || return false
+    if isdefined(preprocess_module, :reconstruct)
+        low_val = Symbol(QUBOTools.domain(model)) == :spin ? -1 : 0
+        probes = (
+            fill(low_val, n_init),
+            fill(1, n_init),
+            [isodd(i) ? 1 : low_val for i in 1:n_init],
+        )
+        for probe in probes
+            rec = try
+                _reconstruct_qubopreprocessing(preprocess_module, trace, probe)
+            catch
+                return false
+            end
+            length(rec) == n_init || return false
+            all(Int(rec[i]) == probe[i] for i in 1:n_init) || return false
+        end
+    end
+    return true
+end
+
+function _verify_workspace_certificate(
+    preprocess_module::Module,
+    ws,
+    model::QUBOTools.Model,
+    red_model::QUBOTools.Model,
+    surviving::AbstractVector{<:Integer},
+    trace,
+    total_deductions::Int,
+)::Bool
+    if !(isdefined(preprocess_module, :export_certificate) &&
+         isdefined(preprocess_module, :verify_certificate))
+        return false
+    end
+    cert = preprocess_module.export_certificate(ws)
+    if isnothing(cert)
+        return _is_identity_reduction(
+            preprocess_module,
+            model,
+            red_model,
+            surviving,
+            trace;
+            total_deductions = total_deductions,
+        )
+    end
+    if hasproperty(cert, :steps) && isempty(cert.steps)
+        return false
+    end
+    ver = preprocess_module.verify_certificate(ws, cert)
+    return hasproperty(ver, :valid) ? Bool(ver.valid) : Bool(ver)
+end
+
+function _ensure_fallback_certified(
+    preprocess_module::Module,
+    model::QUBOTools.Model,
+    res,
+)
+    surviving =
+        hasproperty(res, :surviving_variables) ?
+        collect(Int, res.surviving_variables) :
+        collect(1:QUBOTools.dimension(res.model))
+    certified = if isdefined(preprocess_module, :export_certificate) &&
+                   isdefined(preprocess_module, :verify_certificate)
+        target = hasproperty(res, :workspace) ? res.workspace : res.trace
+        cert = preprocess_module.export_certificate(target)
+        if isnothing(cert)
+            _is_identity_reduction(
+                preprocess_module,
+                model,
+                res.model,
+                surviving,
+                res.trace,
+            )
+        elseif hasproperty(cert, :steps) && isempty(cert.steps)
+            false
+        else
+            ver = preprocess_module.verify_certificate(
+                hasproperty(res, :workspace) ? res.workspace : model,
+                cert,
+            )
+            hasproperty(ver, :valid) ? Bool(ver.valid) : Bool(ver)
+        end
+    else
+        false
+    end
+    if res isa NamedTuple
+        return merge(res, (certified = certified,))
+    end
+    base = (
+        model = res.model,
+        surviving_variables = surviving,
+        trace = res.trace,
+        certified = certified,
+    )
+    return hasproperty(res, :rules) ? merge(base, (rules = res.rules,)) : base
+end
+
 function _run_qubopreprocessing_mode(
     preprocess_module::Module,
     model::QUBOTools.Model;
@@ -450,19 +663,15 @@ function _run_qubopreprocessing_mode(
        isdefined(preprocess_module, :schedule_reductions!) &&
        isdefined(preprocess_module, :materialize)
         allow_weak = (mode == :weak)
-        ws = try
-            preprocess_module.Workspace(model; rules = :mixed, integerize_scale = true, max_decimals = 14)
-        catch e
-            e isa MethodError || rethrow()
-            preprocess_module.Workspace(model; rules = :mixed)
-        end
+        ws = _construct_workspace(preprocess_module, model)
         n_init = length(preprocess_module.original_variables(ws))
         m_init = ws._state.initial_edges
         dense_large = m_init > 10_000 && n_init > 500
         rel_budget = n_init <= 500 ? typemax(Int) : (m_init > 15_000 ? 25_000 : (m_init > 5_000 ? 75_000 : typemax(Int)))
-        use_blocks = isdefined(preprocess_module, :apply_block_equivalence!) && n_init <= 1_500 && m_init <= 10_000
-
-        has_blocks = isdefined(preprocess_module, :apply_block_equivalence!)
+        has_blocks =
+            isdefined(preprocess_module, :eliminate_block!) ||
+            isdefined(preprocess_module, :apply_block_equivalence!)
+        use_blocks = has_blocks && n_init <= 1_500 && m_init <= 10_000
         r1 = if has_blocks
             preprocess_module.schedule_reductions!(
                 ws;
@@ -503,7 +712,11 @@ function _run_qubopreprocessing_mode(
             round_ded += rd_new
 
             if length(ws._state.fixes) < n_init
-                r_sc = preprocess_module.apply_submodular_cut!(ws)
+                r_sc = _call_apply_submodular_cut!(
+                    preprocess_module,
+                    ws;
+                    allow_weak = allow_weak,
+                )
                 sc_new = length(r_sc.fixings)
                 submod_ded += sc_new
                 round_ded += sc_new
@@ -619,6 +832,24 @@ function _run_qubopreprocessing_mode(
         mat = _safe_materialize(preprocess_module, ws)
         red_model = preprocess_module.export_model(mat)
         surviving = hasproperty(mat, :_free) ? collect(Int, mat._free) : collect(1:n_init)
+        total_deductions =
+            dom_ded +
+            elim_ded +
+            star_ded +
+            rel_ded +
+            roof_ded +
+            submod_ded +
+            maxcut_ded +
+            probe_ded
+        certified = _verify_workspace_certificate(
+            preprocess_module,
+            ws,
+            model,
+            red_model,
+            surviving,
+            mat,
+            total_deductions,
+        )
         rules = Dict{String,Any}(
             "dominance"   => dom_ded,
             "elimination" => elim_ded,
@@ -635,24 +866,12 @@ function _run_qubopreprocessing_mode(
             surviving_variables = surviving,
             trace = mat,
             rules = rules,
+            certified = certified,
         )
     else
-        return try
-            preprocess_module.preprocess(model; mode = mode, integerize_scale = true)
-        catch e
-            e isa MethodError || rethrow()
-            preprocess_module.preprocess(model; mode = mode)
-        end
+        res = _call_fallback_preprocess(preprocess_module, model; mode = mode)
+        return _ensure_fallback_certified(preprocess_module, model, res)
     end
-end
-
-function _reconstruct_qubopreprocessing(
-    preprocess_module::Module,
-    trace,
-    reduced_state::AbstractVector{<:Integer},
-)
-    rec = preprocess_module.reconstruct(trace, reduced_state)
-    return hasproperty(rec, :state) ? rec.state : rec
 end
 
 function enrich_preprocessing!(
@@ -732,7 +951,13 @@ function enrich_preprocessing!(
             meta["m_weak"] = Int(prep_info["m_weak"])
             meta["preprocessing"] = prep_info
 
-            if Int(prep_info["n_strong"]) == 0 || Int(prep_info["n_weak"]) == 0
+            strong_zero_cert =
+                Int(prep_info["n_strong"]) == 0 &&
+                get(prep_info, "strong_certified", false) == true
+            weak_zero_cert =
+                Int(prep_info["n_weak"]) == 0 &&
+                get(prep_info, "weak_certified", false) == true
+            if strong_zero_cert || weak_zero_cert
                 push!(zero_var_instances, inst_id)
             end
 
@@ -791,8 +1016,28 @@ function enrich_preprocessing!(
         end
         model = entry.model
         domain = QUBOTools.domain(model)
-        mode_sym = QUBOTools.dimension(entry.strong.model) == 0 ? :strong : :weak
-        res = mode_sym == :strong ? entry.strong : entry.weak
+        prep_meta = get(precomputed, inst_id, nothing)
+        strong_meta_cert =
+            isnothing(prep_meta) ? true : (get(prep_meta, "strong_certified", false) == true)
+        weak_meta_cert =
+            isnothing(prep_meta) ? true : (get(prep_meta, "weak_certified", false) == true)
+        strong_ok =
+            QUBOTools.dimension(entry.strong.model) == 0 &&
+            _is_result_certified(entry.strong) &&
+            strong_meta_cert
+        weak_ok =
+            QUBOTools.dimension(entry.weak.model) == 0 &&
+            _is_result_certified(entry.weak) &&
+            weak_meta_cert
+        if strong_ok
+            mode_sym = :strong
+            res = entry.strong
+        elseif weak_ok
+            mode_sym = :weak
+            res = entry.weak
+        else
+            continue
+        end
 
         state_domain = _reconstruct_qubopreprocessing(preprocess_module, res.trace, Int[])
         state_bool = _state_to_bool_vector(state_domain, domain)
@@ -909,9 +1154,15 @@ function enrich_preprocessing!(
         orig_state = _bool_vector_to_domain(orig_bits, domain)
         orig_val = Float64(QUBOTools.value(model, orig_state))
         orig_fa = _field_alignment(model, orig_state)
+        prep_meta = get(precomputed, inst_id, nothing)
+        strong_meta_cert =
+            isnothing(prep_meta) ? true : (get(prep_meta, "strong_certified", false) == true)
+        weak_meta_cert =
+            isnothing(prep_meta) ? true : (get(prep_meta, "weak_certified", false) == true)
 
         # Strong repair
         res_s = entry.strong
+        strong_certified = _is_result_certified(res_s) && strong_meta_cert
         red_state_s = [orig_state[v] for v in res_s.surviving_variables]
         rec_state_s = _reconstruct_qubopreprocessing(preprocess_module, res_s.trace, red_state_s)
         rec_val_s = Float64(QUBOTools.value(model, rec_state_s))
@@ -958,7 +1209,7 @@ function enrich_preprocessing!(
                 source_value = rec_val_s,
                 source_objective = source_eval.source_objective,
                 source_feasible = source_eval.source_feasible,
-                proven_optimal = QUBOTools.dimension(res_s.model) == 0,
+                proven_optimal = (QUBOTools.dimension(res_s.model) == 0) && strong_certified,
                 feasibility_status = "feasible",
                 validation_status = "validated",
                 incumbent_candidate = true,
@@ -969,6 +1220,7 @@ function enrich_preprocessing!(
 
         # Weak repair: add if strictly better than both original and strong repair
         res_w = entry.weak
+        weak_certified = _is_result_certified(res_w) && weak_meta_cert
         red_state_w = [orig_state[v] for v in res_w.surviving_variables]
         rec_state_w = _reconstruct_qubopreprocessing(preprocess_module, res_w.trace, red_state_w)
         rec_val_w = Float64(QUBOTools.value(model, rec_state_w))
@@ -1017,7 +1269,7 @@ function enrich_preprocessing!(
                 source_value = rec_val_w,
                 source_objective = source_eval.source_objective,
                 source_feasible = source_eval.source_feasible,
-                proven_optimal = QUBOTools.dimension(res_w.model) == 0,
+                proven_optimal = (QUBOTools.dimension(res_w.model) == 0) && weak_certified,
                 feasibility_status = "feasible",
                 validation_status = "validated",
                 incumbent_candidate = true,
