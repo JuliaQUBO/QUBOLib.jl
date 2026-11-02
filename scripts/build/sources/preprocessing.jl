@@ -1,5 +1,5 @@
 const QUBOPREPROCESSING_SOLVER = "QUBOPreprocessing.jl"
-const QUBOPREPROCESSING_VERSION = "0.1.5"
+const QUBOPREPROCESSING_VERSION = "0.2.0"
 const QUBOPREPROCESSING_REPOSITORY = "JuliaQUBO/QUBOPreprocessing.jl"
 const QUBOPREPROCESSING_URL = "https://github.com/JuliaQUBO/QUBOPreprocessing.jl"
 
