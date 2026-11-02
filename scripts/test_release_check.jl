@@ -83,6 +83,27 @@ function test_dataset_publication_gate()
         )
     end
 end
+
+function test_dataset_artifact_build_commit()
+    @testset "Dataset artifact build commit" begin
+        artifact = TOML.parsefile(joinpath(ROOT, "DATASET.toml"))["artifact"]
+        qubolib = TOML.parsefile(joinpath(ROOT, "Artifacts.toml"))["qubolib"]
+        failures(a) = begin
+            errors = String[]
+            check_dataset_artifact!(errors, a, qubolib)
+            errors
+        end
+        @test isempty(failures(artifact))
+        @test any(contains("build_commit must"), failures(merge(artifact, Dict("build_commit" => "ca5fe70"))))
+        @test any(contains("build_commit_status must"), failures(merge(artifact, Dict("build_commit_status" => "unknown"))))
+        @test any(
+            contains("build_commit_note must"),
+            failures(merge(artifact, Dict("build_commit_status" => "not-reproducible", "build_commit_note" => " "))),
+        )
+        @test isempty(failures(merge(artifact, Dict("build_commit_status" => "verified", "build_commit_note" => ""))))
+    end
+end
 end
 
 ReleaseCheckTests.test_dataset_publication_gate()
+ReleaseCheckTests.test_dataset_artifact_build_commit()

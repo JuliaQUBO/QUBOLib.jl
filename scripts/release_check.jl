@@ -176,6 +176,22 @@ function check_dataset_artifact!(
     )
     check!(
         failures,
+        is_lower_hex(get(artifact, "build_commit", nothing), 40),
+        "DATASET.toml artifact.build_commit must be a lowercase 40-character SHA-1.",
+    )
+    check!(
+        failures,
+        get(artifact, "build_commit_status", "verified") in ("verified", "not-reproducible"),
+        "DATASET.toml artifact.build_commit_status must be verified or not-reproducible.",
+    )
+    check!(
+        failures,
+        get(artifact, "build_commit_status", "verified") == "verified" ||
+        !isempty(strip(string(get(artifact, "build_commit_note", "")))),
+        "DATASET.toml artifact.build_commit_note must explain a not-reproducible build_commit.",
+    )
+    check!(
+        failures,
         is_lower_hex(get(artifact, "sha256", nothing), 64),
         "DATASET.toml artifact.sha256 must be a lowercase 64-character SHA-256.",
     )

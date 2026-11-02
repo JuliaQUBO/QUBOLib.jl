@@ -2314,6 +2314,25 @@ function test_preprocessing_enrichment()
                 @test meta_exact["n_strong"] == 0
                 @test meta_exact["m_strong"] == 0
                 @test meta_exact["preprocessing"]["package"] == QUBOPREPROCESSING_SOLVER
+                prov = meta_exact["preprocessing"]["provenance"]
+                @test prov["result_source"] == "pipeline"
+                @test prov["coercive_source"] == "coercive_tsv"
+                @test prov["pipeline_source"] == "scripts/build/sources/preprocessing.jl"
+                @test prov["pipeline_source_sha256"] ==
+                      _source_sha256(joinpath(@__DIR__, "sources", "preprocessing.jl"))
+                @test isnothing(prov["qubopreprocessing_version"])  # the mocks are not packages
+                @test isnothing(prov["qubopreprocessing_tree_hash"])
+                @test isnothing(prov["summary_tsv_sha256"])
+                @test prov["coercive_tsv_sha256"] == bytes2hex(SHA.sha256(read(coercive_tsv)))
+                repo_root = normpath(joinpath(@__DIR__, "..", ".."))
+                if isnothing(prov["qubolib_build_commit"])
+                    @test isnothing(prov["qubolib_build_tree_dirty"])
+                else
+                    @test prov["qubolib_build_commit"] == readchomp(`git -C $repo_root rev-parse HEAD`)
+                    @test prov["qubolib_build_tree_dirty"] ==
+                          !isempty(readchomp(`git -C $repo_root status --porcelain --untracked-files=no`))
+                end
+                @test meta_repair["preprocessing"]["provenance"] == prov
                 @test haskey(meta_exact["preprocessing"], "coercive_fields")
                 @test meta_exact["preprocessing"]["coercive_fields"]["is_gauge_invariant"] == true
                 @test meta_repair["n_strong"] == 1
@@ -2339,6 +2358,46 @@ function test_preprocessing_enrichment()
                 @test haskey(repair_meta, "field_alignment")
                 @test haskey(repair_meta, "parent_field_alignment")
                 @test haskey(repair_meta, "field_alignment_improvement")
+            end
+        end
+
+        @test isnothing(_check_qubopreprocessing_version(nothing))
+        @test isnothing(_check_qubopreprocessing_version(VersionNumber(QUBOPREPROCESSING_VERSION)))
+        @test_throws ErrorException _check_qubopreprocessing_version(v"0.0.1")
+
+        # Results loaded from a summary TSV are labeled as such per instance.
+        mktempdir() do path
+            QUBOLib.access(; path, clear = true) do index
+                inst = QUBOLib.add_instance!(index, model_repair; name = "summary.qs")
+                summary_tsv = joinpath(path, "summary.tsv")
+                header = join(["c$(k)" for k in 1:38], "\t")
+                row = join(
+                    vcat(
+                        [string(inst), "qoblib", "MIS", "summary.qs", "3", "2"],
+                        ["3", "2", "1", "0", "66.7", "100.0"],
+                        ["1", "1", "0", "0", "0", "0", "0", "0", "0", "true", "0.01"],
+                        ["1", "0", "66.7", "100.0"],
+                        ["1", "1", "0", "0", "0", "0", "0", "0", "0", "true", "0.01"],
+                    ),
+                    "\t",
+                )
+                write(summary_tsv, header * "\n" * row * "\n")
+
+                stats = enrich_preprocessing!(index, _MockQUBOPreprocessing; summary_tsv)
+                @test stats.exact_count == 0
+
+                meta_df = QUBOLib.DBInterface.execute(
+                    QUBOLib.database(index),
+                    "SELECT metadata FROM Instances;",
+                ) |> QUBOLib.DataFrame
+                @test size(meta_df, 1) == 1
+                meta = QUBOLib.JSON.parse(meta_df[1, :metadata])
+                summary_prov = meta["preprocessing"]["provenance"]
+                @test meta["n_strong"] == 1
+                @test summary_prov["result_source"] == "summary_tsv"
+                @test summary_prov["coercive_source"] == "pipeline"
+                @test summary_prov["summary_tsv_sha256"] == bytes2hex(SHA.sha256(read(summary_tsv)))
+                @test isnothing(summary_prov["coercive_tsv_sha256"])
             end
         end
     end
