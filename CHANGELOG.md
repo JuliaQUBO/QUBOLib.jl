@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Make preprocessing enrichment certify what it records (#99, #100):
+  - build workspaces with lossless `integerize_scale = false`;
+  - set `strong_certified` / `weak_certified` from `verify_certificate`, or
+    from an exact identity check when nothing was reduced;
+  - add zero-residual `proven_optimal` records and repairs only for
+    certified results;
+  - run connected block elimination with QUBOPreprocessing.jl 0.1.5;
+  - apply weak submodular cuts in `:weak` mode.
+
+  The next data build will report different census counts.
 - Record build provenance in each instance's `metadata.preprocessing.provenance`
   during preprocessing enrichment:
   - QUBOLib commit and dirty flag;
