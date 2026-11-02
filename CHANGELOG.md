@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Build preprocessing enrichment against QUBOPreprocessing.jl 0.2.0, whose
+  integerization is exact by default and whose certificates record any
+  perturbation. `index.db` records report `0.2.0` from the next data build;
+  `DATASET.toml` keeps describing the published `v0.2.4-data+8` (`0.1.5`).
 - Make preprocessing enrichment certify what it records (#99, #100):
   - build workspaces with lossless `integerize_scale = false`;
   - set `strong_certified` / `weak_certified` from `verify_certificate`, or
