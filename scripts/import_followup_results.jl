@@ -159,7 +159,7 @@ function seconds(x,name; nullable=false)
 end
 function record_key(row,bundle,run_id,source_sha256)
     target=row["schedule"]=="budgeted" && row["mode"]!="raw" ? get(row,"preprocessing_target_s",get(bundle.settings,"prep-seconds",nothing)) : nothing
-    key=Dict{String,Any}("source_sha256"=>source_sha256,"runner_revision"=>bundle.provenance["runner_commit"],
+    key=Dict{String,Any}("instance_id"=>row["instance_id"],"source_sha256"=>source_sha256,"runner_revision"=>bundle.provenance["runner_commit"],
         "package_revision"=>bundle.provenance["package_revision"],"package_tree"=>bundle.provenance["package_tree"],
         "schedule"=>row["schedule"],"preprocessing_target_s"=>target,
         "mode"=>row["mode"],"run_id"=>run_id,"integerize_scale"=>row["integerize_scale"],"task"=>row["task"])

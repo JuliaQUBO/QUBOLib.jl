@@ -423,3 +423,59 @@ end
         end
     end
 end
+
+@testset "Identical native models retain distinct catalogue instance identities" begin
+    for domain in (:bool,:spin)
+        mktempdir() do root
+            f=fixture(joinpath(root,"source");domain)
+            index=QUBOLib.LibraryIndex(SQLite.DB(f.db),h5open(f.h5,"r+"),dirname(f.db))
+            alias=try
+                iid=QUBOLib.add_instance!(index,QUBOLib.load_instance(index,f.iid);name="tiny",metadata=f.legacy)
+                parent=QUBOLib.add_solution_record!(index,iid;submission=f.submission,bitstring="11",feasibility_status="feasible")
+                (;f...,iid=Int(iid),parent=Int(parent),raw=FI.load_source(PINNED,index,Int(iid)))
+            finally;close(index);end
+            @test alias.iid!=f.iid
+            @test FI.source_hash(PINNED,f.raw)==FI.source_hash(PINNED,alias.raw)
+            first,_=capture(joinpath(root,"first"),f)
+            second,_=capture(joinpath(root,"second"),alias)
+            dbsha=FI.sha(f.db);h5sha=FI.sha(f.h5)
+            stage_aliases(name,runs)=FI.stage_import(;source_database=f.db,source_archive=f.h5,output=joinpath(root,name),runs,
+                artifact_tree=repeat("d",40),run_id="same-alias-run",expected_database_sha256=dbsha,
+                expected_archive_sha256=h5sha,verifier=PINNED,expected_instance_count=2)
+            report=stage_aliases("both",[first,second])
+            @test report["distinct_instances"]==2
+            @test report["preprocessing_records_added"]==2
+            @test report["solutions_added"]==2
+            @test report["exact_global_proofs_added"]==2
+            index=open_index(joinpath(root,"both"))
+            try
+                rows=FI.query(index.db,"SELECT instance,metadata FROM Instances ORDER BY instance")
+                entries=[only(JSON.parse(row.metadata)["preprocessing_runs"]) for row in eachrow(rows)]
+                @test [entry["key"]["instance_id"] for entry in entries]==[f.iid,alias.iid]
+                @test entries[1]["key"]["source_sha256"]==entries[2]["key"]["source_sha256"]
+                @test entries[1]["key_sha256"]!=entries[2]["key_sha256"]
+                solutions=FI.query(index.db,"SELECT instance,solution,proven_optimal,metadata FROM SolutionRecords WHERE solution IS NOT NULL ORDER BY instance")
+                @test solutions.instance==[f.iid,alias.iid]
+                @test solutions.proven_optimal==[1,1]
+                for (i,iid) in enumerate((f.iid,alias.iid))
+                    sol=QUBOLib.load_solution(index,iid,solutions.solution[i])
+                    @test Symbol(QUBOTools.domain(sol))===domain
+                    @test QUBOTools.state(sol[1])==(domain===:spin ? [-1,-1] : [0,0])
+                    @test QUBOTools.metadata(sol)["source"]["instance_id"]==iid
+                    @test JSON.parse(solutions.metadata[i])["predecessor_record"]==(i==1 ? f.parent : alias.parent)
+                end
+            finally;close(index);end
+            # A repeat of either catalogue instance still invalidates the whole
+            # import, including the already inserted distinct alias.
+            @test_throws ArgumentError stage_aliases("duplicate",[first,second,first])
+            @test isfile(joinpath(root,"duplicate","failed-import.json"))
+            index=open_index(joinpath(root,"duplicate"))
+            try
+                @test isempty(FI.query(index.db,"SELECT * FROM Solutions").solution)
+                @test isempty(keys(index.h5["solutions"]))
+                @test all(value->!haskey(JSON.parse(value),"preprocessing_runs"),FI.query(index.db,"SELECT metadata FROM Instances").metadata)
+            finally;close(index);end
+            @test FI.sha(f.db)==dbsha && FI.sha(f.h5)==h5sha
+        end
+    end
+end
