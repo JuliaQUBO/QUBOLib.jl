@@ -30,6 +30,7 @@ makedocs(;
             "Basic Usage"     => "manual/1-basic.md",
             "Advanced Usage"  => "manual/2-advanced.md",
             "QOBLIB Provenance" => "manual/3-qoblib.md",
+            "Follow-up Results" => "followup_results.md",
         ],
         # "Booklet"  => [
         #     "Introduction"   => "booklet/0-intro.md",
