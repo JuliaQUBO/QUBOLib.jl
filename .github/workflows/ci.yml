@@ -36,6 +36,8 @@ jobs:
         run: julia --project=. scripts/release_check.jl
       - name: Test dataset publication gate
         run: julia --project=. scripts/test_release_check.jl
+      - name: Test layered derived-candidate validation
+        run: python3 -B scripts/test_derived_candidate.py
       - name: Validate CITATION.cff
         uses: citation-file-format/cffconvert-github-action@4cf11baa70a673bfdf9dad0acc7ee33b3f4b6084 # 2.0.0
         with:
