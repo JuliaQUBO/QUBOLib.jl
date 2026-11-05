@@ -93,9 +93,12 @@ reuse an existing tag or replace a published release asset.
    extracted tree hash against `[candidate_artifact]`. If those bytes are lost,
    rebuild and repeat the audit; do not assume the old hashes still apply.
    Build only from a clean, committed tree, including any preprocessing
-   enrichment. Load QUBOPreprocessing.jl from a stacked environment rather than
-   by editing `scripts/build/Project.toml`, so the tree stays clean. Record that
-   commit as `build_commit` with `build_commit_status = "verified"`.
+   enrichment. The tracked build environment pins QUBOPreprocessing.jl 0.2.1;
+   verify its General release and installation before publishing the builder
+   migration. Use a separate stacked environment for a development-source review,
+   keeping the release tree clean. Record the committed builder as `build_commit`
+   with `build_commit_status = "verified"`. This does not repair or relabel the
+   historical artifact's recorded provenance.
    Each instance's `metadata.preprocessing.provenance` in `index.db` describes
    the enrichment run. It records:
    - the QUBOLib commit and whether the tree was dirty;
@@ -104,6 +107,13 @@ reuse an existing tag or replace a published release asset.
    - the hashes of any input TSVs;
    - per instance, whether results and coercive fields came from the pipeline
      or from a TSV.
+   New live results also record each mode's explicit 5 second soft preparation
+   policy, all scheduler options, family calls/time/deductions/stop reasons, exact
+   integerization and export diagnostics, actual preparation overrun and separate
+   verification costs. Loading and exact input hashing have their own clocks.
+   Review [the builder policy](docs/src/booklet/2-build.md) when assessing these
+   fields. Historical TSVs lack producer policy/version information and must not
+   acquire a new-run policy merely by being imported with the new builder.
 
    Reject a candidate if any of these holds:
    - a commit or tree hash is null;
