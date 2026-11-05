@@ -1865,6 +1865,31 @@ function test_preprocessing_enrichment()
         @test real_identity.surviving_variables == collect(1:5)
         @test _canonical_exact_polynomial(real_identity.model) == _canonical_exact_polynomial(identity_model)
         @test _reconstruct_qubopreprocessing(real_qp, real_identity.trace, [-1, 1, -1, 1, -1]) == [-1, 1, -1, 1, -1]
+        # Independent fixed variables leave a noncontiguous five-spin core.
+        # Exercise the actual public original-to-residual map and repair path.
+        survivors = [2, 4, 5, 6, 7]
+        partial_model = QUBOTools.Model(
+            Dict(i => (i == 1 ? 10.0 : i == 3 ? -10.0 : 0.0) for i in 1:7),
+            Dict((i, j) => 1.0 for i in survivors for j in survivors if i < j);
+            domain = :spin, sense = :min,
+        )
+        partial = _run_qubopreprocessing_mode(real_qp, partial_model; preparation_target_s = 0.0)
+        @test partial.certified
+        @test QUBOTools.dimension(partial.model) == 5
+        @test partial.surviving_variables == survivors
+        original_state = [1, -1, -1, 1, -1, 1, -1]
+        projected = original_state[partial.surviving_variables]
+        repaired = _reconstruct_qubopreprocessing(real_qp, partial.trace, projected)
+        @test repaired[survivors] == projected
+        @test repaired[[1, 3]] == [-1, 1]
+        for mask in 0:31
+            residual_state = [iszero(mask & (1 << (i - 1))) ? -1 : 1 for i in 1:5]
+            lifted = _reconstruct_qubopreprocessing(real_qp, partial.trace, residual_state)
+            expected = -20 + sum(residual_state[i] * residual_state[j] for i in 1:5 for j in (i + 1):5)
+            @test lifted[survivors] == residual_state
+            @test QUBOTools.value(partial.model, residual_state) == expected
+            @test QUBOTools.value(partial_model, lifted) == expected
+        end
         # Fixing x=1 gives 1 + 2^-53, which is not a Float64. The builder
         # must retain that exact constant through rational transport, without rounding.
         fallback_model = QUBOTools.Model(Dict(1 => 1.0), Dict{Tuple{Int,Int},Float64}();
