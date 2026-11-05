@@ -1,6 +1,25 @@
 schema_version = 1
 
 [artifact]
+tag = "v0.2.6-data+9"
+release_tag_commit = "3c98d5f15e49e3e4c92b80280abda055d74e88eb"
+release_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.6-data%2B9"
+previous_data_release = "v0.2.4-data+8"
+build_commit = "3c98d5f15e49e3e4c92b80280abda055d74e88eb"
+build_commit_status = "not-reproducible"
+build_commit_note = "This is a layered append to immutable v0.2.4-data+8, not a single clean full rebuild. build_commit records the derived release target, not a uniform corpus producer. The parent mixed-history limitation and original release target are retained in parent_artifact; historical flat preprocessing fields are unchanged. DERIVATION.json separately binds the capture and feasible-point append inputs, executed sources and preservation audits."
+build_julia_version = "1.10.12"
+asset_name = "qubolib.tar.gz"
+asset_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/qubolib.tar.gz"
+asset_size_bytes = 743873521
+sha256 = "5559c7fd070a61e6d17f9ef53393b9694f7c51b353ae0b191c30b78f90dec5bf"
+git_tree_sha1 = "5e791d1cff8d443e0ca8bfc5c7d9cf286e638df1"
+inventory_observed_at = "2026-11-05"
+archive_members = ["archive.h5", "index.db"]
+instances = 9294
+populated_collections = 7
+
+[parent_artifact]
 tag = "v0.2.4-data+8"
 release_tag_commit = "37d1d0a2a524750fadbb5d3de484946a548deda8"
 release_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B8"
@@ -20,6 +39,8 @@ instances = 9294
 populated_collections = 7
 
 [preprocessing]
+scope = "Historical parent flat metadata; not the new append layers"
+artifact_tag = "v0.2.4-data+8"
 package = "QUBOPreprocessing.jl"
 version = "0.1.5"
 repository = "https://github.com/JuliaQUBO/QUBOPreprocessing.jl"
@@ -31,7 +52,99 @@ total_added_solution_records = 394
 repaired_minlplib_instances = ["sporttournament14.pip", "sporttournament18.pip"]
 repaired_mqlib_instances = ["G70.txt", "g000087.txt", "g000677.txt", "g000921.txt", "g001075.txt", "g002328.txt", "g002877.txt", "g003091.txt", "g003208.txt", "g003234.txt", "imgseg_147062.txt", "imgseg_26031.txt", "imgseg_309004.txt", "imgseg_365073.txt"]
 
+[derivation]
+kind = "layered-append"
+parent_tag = "v0.2.4-data+8"
+release_target_commit = "3c98d5f15e49e3e4c92b80280abda055d74e88eb"
+historical_metadata_preserved = true
+public_download_status = "verified"
+public_download_checked_at = "2026-11-05"
+scientific_scope = "Stored-QUBO capture proofs and separately feasible points; native-source feasibility remains unknown. No uniform historical rebuild, new literature-novelty or integerization-only causal claim."
+new_results_license = "CC-BY-4.0"
+benchmark_software_license = "MPL-2.0"
+upstream_collection_rights = "unchanged"
+
+[[derivation.release_assets]]
+name = "release-manifest.json"
+url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/release-manifest.json"
+bytes = 1214
+sha256 = "253efa569705946784f7b83965b814f2be55c218736d677b1717f11af7b0b6a2"
+
+[[derivation.release_assets]]
+name = "DERIVATION.json"
+url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/DERIVATION.json"
+bytes = 15385
+sha256 = "8abf015e7292949cc21472b75e03b17315baebcbda665700a796168d87a513cc"
+
+[[derivation.release_assets]]
+name = "DERIVED_RESULTS_NOTICE.txt"
+url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/DERIVED_RESULTS_NOTICE.txt"
+bytes = 1414
+sha256 = "ebba16da8f93c26b72ae71c8ff6ddfee511abb2ff0736a5130953ae76e38056b"
+
+[[derivation.release_assets]]
+name = "provenance-assets.tar.gz"
+url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/provenance-assets.tar.gz"
+bytes = 1167958
+sha256 = "0a894f9d96eea607d4185f52891d47d2553e4aa374bb11335d3755e57e6e0f05"
+
+[[derivation.release_assets]]
+name = "publication-inventory-addendum.json"
+url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/publication-inventory-addendum.json"
+bytes = 4867
+sha256 = "0cca13ecb16bff3ce9092cb37e2f8d20966a3ea4748aac2726cd33db0eea078c"
+
+[[derivation.layers]]
+kind = "capture_append"
+importer_commit = "af32a2885e4406bb4869cf1407a7241d933c6cc4"
+package_revision = "29681afd472c5d66860efca1df145d75fb315587"
+package_tree = "5fffe1ae24186b1752fca6a6d875afd398fab822"
+julia_version = "1.10.12"
+bundles = 48
+preprocessing_records = 19052
+proof_records = 1435
+solution_records = 3527
+unique_global_instances = 622
+
+[[derivation.layers]]
+kind = "feasible_points"
+importer_commit = "971d449cb7d09a911d22ef22f1c44dc3e7a13bf4"
+package_revision = "29681afd472c5d66860efca1df145d75fb315587"
+package_tree = "5fffe1ae24186b1752fca6a6d875afd398fab822"
+julia_version = "1.10.12"
+preprocessing_records = 0
+proof_records = 0
+solution_records = 6
+unique_global_instances = 0
+
 [zenodo]
+status = "published"
+concept_doi = "10.5281/zenodo.23027943"
+version_doi = "10.5281/zenodo.23972765"
+record_id = 23972765
+record_url = "https://zenodo.org/records/23972765"
+required_active_managers = 1
+designated_owner = "bernalde"
+manager_policy_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5153545937"
+active_manager_count = 1
+manager_access_status = "verified"
+owner_id = 1784890
+manager_access_evidence = "Authenticated creation, metadata read-back, six-file upload and publication under owner 1784890, matching the unchanged parent record's designated owner."
+byte_identity_status = "verified"
+byte_identity_evidence = "All six authenticated draft downloads and all six anonymous published downloads match the independently verified public GitHub data+9 assets in byte count and SHA-256; the corpus archive additionally has the independently verified Julia artifact tree recorded above."
+verified_at = "2026-11-05"
+related_identifiers_status = "verified"
+related_identifiers_count = 21
+related_identifiers_evidence_url = "https://zenodo.org/api/records/23972765"
+doi_resolution_status = "verified"
+doi_resolution_checked_at = "2026-11-05"
+doi_resolution_note = "Version and concept DOI.org links resolve to record 23972765; both DataCite DOI API records are available."
+publication_date = "2026-11-05"
+asset_url = "https://zenodo.org/records/23972765/files/qubolib.tar.gz"
+license_model = "per-collection"
+blocking_reasons = []
+
+[parent_zenodo]
 status = "published"
 required_active_managers = 1
 designated_owner = "bernalde"
@@ -217,6 +330,6 @@ provenance_evidence_url = "https://github.com/MQLib/MQLib/tree/585496274af5abb08
 rights_status = "verified"
 rights_evidence_status = "verified-public-evidence"
 data_license = "MIT"
-license_evidence_url = "https://github.com/MQLib/MQLib/blob/585496274af5abb0849d0d47e135496b4688680b/LICENSE.md"
+license_evidence_url = "https://github.com/MQLib/MQLib/blob/585496274af5abb0849d0d47e135496b4688680b/LICENSE"
 transformation_note = "QUBOLib imports 3,002 MQLib benchmark instances (88.4% of the 3,396-instance MQLib corpus): all 231 classic literature instances from data/standard.csv (71 G-set, 60 Beasley, 45 GKA, 30 Spin-Glass, 21 Palubeckis p3000_1..p7000_3, and 4 DIMACS Torus) plus 2,771 Tier 2 instances from data/instance_header_info.csv and data/results_imgseg.zip (1,376 SteinLib up to n = 38,418, 312 BiqMac, 224 Rudy random graphs up to n = 35,960, 105 OR-Library, 100 Berkeley Image Segmentation up to n = 28,552, 113 Glasgow/Dharwadker, 104 DIMACS/Coloring/Market, 11 TSPLIB95, and 526 Culberson & NetworkX random graphs with m <= 250,000, including all 30 largest-n instances with n >= 15,000), converts Max-Cut and master-node QUBO edge lists to canonical :bool/:max QUBO models with chunked HDF5 deflate compression (level = 3), and attaches 246 heuristic bitstring solutions and 2,825 value-only benchmark records across 38 heuristic solver submissions from MQLib data/results.zip and data/results_imgseg.zip."
 required_action = "Preserve the MQLib article and repository attribution, MIT copyright notice, and QUBOLib processing statement."

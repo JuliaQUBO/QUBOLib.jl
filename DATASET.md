@@ -7,26 +7,78 @@ machine-readable companion is [`DATASET.toml`](DATASET.toml).
 ## Selected artifact
 
 This repository's [`Artifacts.toml`](Artifacts.toml) selects
-[`v0.2.4-data+8`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B8)
-for the package. Previously tagged package versions retain their original
-artifact pins; publishing a data release does not modify them.
+[`v0.2.6-data+9`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.6-data%2B9)
+for package 0.2.7. Previously tagged packages retain their original pins.
 
 | Property | Recorded value |
 |:--|:--|
-| Release tag commit | `37d1d0a2a524750fadbb5d3de484946a548deda8` |
+| Release target commit | `3c98d5f15e49e3e4c92b80280abda055d74e88eb` |
 | Asset | `qubolib.tar.gz` |
-| Compressed size | 729,302,742 bytes |
-| SHA-256 | `2470f3b1b8b3ba4f718987883f56f8a47554a54e8735a262b268881dd1904bfc` |
-| Julia artifact tree hash | `db23630c10bf992c60033093eb46067fad78ccaa` |
+| Compressed size | 743,873,521 bytes |
+| SHA-256 | `5559c7fd070a61e6d17f9ef53393b9694f7c51b353ae0b191c30b78f90dec5bf` |
+| Julia artifact tree hash | `5e791d1cff8d443e0ca8bfc5c7d9cf286e638df1` |
 | Archive members | `archive.h5`, `index.db` |
 | Populated collections | 7 |
 | Instances | 9,294 |
-| Inventory date | 2026-10-31 |
+| Inventory date | 2026-11-05 |
 
-The SHA-256 was recomputed from the GitHub release asset. The inventory was
-queried from the asset's SQLite index. A Zenodo upload must use these exact
-bytes; rebuilding the database is not an equivalent archive. This release
-updates `v0.2.4-data+7` by expanding the `mqlib` collection from 210 to 3,002
+All six GitHub release downloads match the retained independent SHA256 inventory.
+The archive contains only the database and HDF5 files. The five accompanying
+files are `release-manifest.json`, `DERIVATION.json`, `DERIVED_RESULTS_NOTICE.txt`,
+`provenance-assets.tar.gz`, and `publication-inventory-addendum.json`; their exact
+sizes, hashes and URLs are recorded under `derivation` in `DATASET.toml`.
+The portable supplement includes the reviewed checker, original metadata,
+rights notices, and public input-location instructions. It verifies byte identity
+and retained lineage; it does not rerun scientific experiments or proof replay.
+
+This is a layered append to immutable `v0.2.4-data+8`. The first layer adds
+19,052 preprocessing histories and 3,527 solution records, including 1,435
+capture proof records covering 622 distinct stored QUBOs. The second adds six
+separately feasible points and zero preprocessing/proof records. Its importer
+commits are `af32a2885e4406bb4869cf1407a7241d933c6cc4` and
+`971d449cb7d09a911d22ef22f1c44dc3e7a13bf4`, respectively. The exact source,
+input/output, environment and audit bindings are retained in `DERIVATION.json`.
+Native-source feasibility remains unknown where stated; these additions make
+no literature-novelty claim and do not establish an integerization-only effect.
+
+The original flat preprocessing fields, models, source attribution and earlier
+records are preserved. The parent mixes historical uncommitted code states;
+`build_commit_status = "not-reproducible"` therefore remains explicit. The
+selected `build_commit` is the release target, not a claim that one clean commit
+rebuilds the full corpus. `parent_artifact` retains the original target and full
+explanation, and `preprocessing` describes only the parent's v0.1.5 flat fields.
+The capture code and measurements precede the default-builder migration.
+
+These six files are preserved in [Zenodo record 23972765](https://zenodo.org/records/23972765),
+version DOI [10.5281/zenodo.23972765](https://doi.org/10.5281/zenodo.23972765),
+under the existing concept `10.5281/zenodo.23027943`. All six anonymous Zenodo
+downloads match the independently verified GitHub assets in byte count and
+SHA-256; both version and concept DOI links resolve. The older dataset DOI below
+identifies only the parent. Software source archives have a separate concept
+and must not be used as dataset citations.
+
+`index.db` is the relational catalog; `archive.h5` holds model and solution
+payloads. To check the selected public file identity on a machine with space:
+
+```bash
+audit_dir="$(mktemp -d)"
+gh release download 'v0.2.6-data+9' --repo JuliaQUBO/QUBOLib.jl \
+  --pattern qubolib.tar.gz --dir "$audit_dir"
+sha256sum "$audit_dir/qubolib.tar.gz"
+tar -tzf "$audit_dir/qubolib.tar.gz"
+mkdir "$audit_dir/extracted"
+tar -xzf "$audit_dir/qubolib.tar.gz" -C "$audit_dir/extracted"
+julia --startup-file=no -e \
+  'import Pkg; println(bytes2hex(Pkg.GitTools.tree_hash(ARGS[1])))' \
+  "$audit_dir/extracted"
+```
+
+Compare against the selected SHA256/tree above. Full lineage validation uses the
+instructions in the independently hash-verified portable supplement.
+
+## Historical parent `v0.2.4-data+8`
+
+The historical parent `v0.2.4-data+8` updates `v0.2.4-data+7` by expanding the `mqlib` collection from 210 to 3,002
 benchmark instances across all 18 source families (`100%` of `data/standard.csv`
 `231 / 231` including all `21` `Palubeckis` instances `p3000_1`–`p7000_3` plus
 `2,771` Tier 2 instances, with `246` heuristic bitstring solutions and
@@ -50,35 +102,11 @@ unchanged in [Zenodo record 23839797](https://zenodo.org/records/23839797).
 Published on 2026-10-31 (UTC) under CC BY 4.0 and MIT per-collection terms, with collection-specific
 attribution and conversion notices. Both the draft download and the public
 download were compared byte-for-byte against an independent GitHub download;
-their compressed size, SHA-256, and extracted Julia tree hash match the table.
+their compressed size, SHA-256, and extracted Julia tree hash match the parent bindings in `DATASET.toml`.
 The verification timestamp and registration
 evidence are recorded in `DATASET.toml`.
 
-`index.db` is the relational catalog of collections, instances, and solutions.
-`archive.h5` stores the corresponding models and solution payloads. Reproduce
-the recorded file identity and populated-collection counts with:
-
-```bash
-audit_dir="$(mktemp -d)"
-gh release download 'v0.2.4-data+8' \
-  --repo JuliaQUBO/QUBOLib.jl \
-  --pattern qubolib.tar.gz \
-  --dir "$audit_dir"
-sha256sum "$audit_dir/qubolib.tar.gz"
-tar -tzf "$audit_dir/qubolib.tar.gz"
-mkdir "$audit_dir/extracted"
-tar -xzf "$audit_dir/qubolib.tar.gz" -C "$audit_dir/extracted"
-julia --startup-file=no -e \
-  'import Pkg; println(bytes2hex(Pkg.GitTools.tree_hash(ARGS[1])))' \
-  "$audit_dir/extracted"
-sqlite3 "$audit_dir/extracted/index.db" \
-  'SELECT collection, COUNT(*) FROM Instances GROUP BY collection ORDER BY collection;'
-```
-
-The expected SHA-256 and tree hash are the values in the table above. The SQL
-query must return the same seven collection counts recorded below.
-
-## September QOBLIB snapshot
+## Historical September QOBLIB snapshot
 
 The importer now uses QOBLIB
 [`16a166ee67c24c112551c803aab5394743b815b5`](https://github.com/ZIB-AOPT/QOBLIB/tree/16a166ee67c24c112551c803aab5394743b815b5).
@@ -117,7 +145,9 @@ portfolio submissions have infeasible slack values and remain metadata-only;
 no assignment is invented. Compact market-split bitstrings and MIS full bit
 vectors are now supported alongside the existing formats.
 
-To reproduce the build, check out the recorded build commit, instantiate
+These instructions describe the September snapshot, not a rebuild of the selected
+layered artifact or its mixed-history parent. To reproduce that earlier build,
+check out its recorded build commit, instantiate
 `scripts/build`, and run `build_qubolib!(destination; clear_build = true)` from
 `scripts/build/build.jl` in a fresh destination. It downloads the pinned sources;
 `QUBOLIB_QOBLIB_SOURCE` can instead point to a clean checkout of the exact
@@ -131,7 +161,7 @@ For preservation, download the published archive rather than rebuilding it.
 Future data releases must repeat the publication and verification steps in
 [`RELEASE.md`](RELEASE.md#archive-the-selected-github-release).
 [`Artifacts.toml`](Artifacts.toml) retains the GitHub download URL. Zenodo
-provides an independently verified preservation copy; adding it as an
+preserves both the historical parent and selected successor. Adding an
 automatic artifact fallback is not required for preservation.
 
 ## Collection audit
@@ -206,8 +236,8 @@ contains a CC-BY-4.0 data license. The dataset record must retain the QOBLIB
 attribution, source commit, and citation.
 
 [MQLib commit `585496274af5abb0849d0d47e135496b4688680b`](https://github.com/MQLib/MQLib/tree/585496274af5abb0849d0d47e135496b4688680b)
-is MIT-licensed (`Copyright (c) 2015-2016 Iain Dunning, Swati Gupta, and John
-Silberholz`). QUBOLib imports 3,002 benchmark instances across all 18 source
+is [MIT-licensed](https://github.com/MQLib/MQLib/blob/585496274af5abb0849d0d47e135496b4688680b/LICENSE). Preserve the full upstream copyright and permission notice;
+the file is named `LICENSE`, not `LICENSE.md`. QUBOLib imports 3,002 benchmark instances across all 18 source
 families (`100%` of `data/standard.csv` `231 / 231` including all `21`
 `Palubeckis` instances `p3000_1`–`p7000_3` plus `2,771` Tier 2 instances),
 converts Max-Cut and master-node QUBO edge lists to canonical `:bool`/`:max`
@@ -230,17 +260,18 @@ does not grant rights to other upstream material or to future collections.
 - Cite QUBOLib software using [`CITATION.cff`](CITATION.cff), and identify the
   package version used when reproducibility depends on it.
 - Cite the [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) for
-  the corpus across versions. For the exact `v0.2.4-data+8` bytes, cite the
-  [version DOI](https://doi.org/10.5281/zenodo.23839797). Also cite each source
+  the corpus across versions. Cite [10.5281/zenodo.23972765](https://doi.org/10.5281/zenodo.23972765)
+  for the selected `v0.2.6-data+9` files. The
+  [older version DOI](https://doi.org/10.5281/zenodo.23839797) identifies only
+  `v0.2.4-data+8`. Also cite each source
   collection used. A dataset DOI does not identify the Julia package version.
 
 ## Zenodo publication gate
 
-`DATASET.toml` records this version as `published`. The public
-[record metadata](https://zenodo.org/api/records/23839797) identifies owner
-1784890 and the 19 verified related identifiers. Authenticated creation,
-upload, and publication verified the designated owner's access. This record
-uses the single-owner exception, not a claim of two active managers.
+`DATASET.toml` records the selected version's Zenodo status as `published`, with
+verified owner access, six-file byte identity, 21 related identifiers and public
+DOI resolution. The parent publication evidence is preserved separately under
+`parent_zenodo`. The designated-owner exception remains in force.
 
 Before publishing any successor, all of the following must be true:
 
@@ -270,5 +301,5 @@ Before a dataset publication, require the stronger gate:
 julia --project=. scripts/release_check.jl --require-dataset-publishable
 ```
 
-The stronger command passes for the published version and must fail for a
-successor whose status is `blocked` or whose required evidence is unverified.
+Both commands pass for the selected published version. A future successor must
+record its own access, byte identity and publication evidence before promotion.
