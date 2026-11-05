@@ -123,6 +123,62 @@ does not contain a native-source checker or authorize an upstream submission.
 
 ## Review, failure, and release boundary
 
+### Feasible points outside preprocessing capture runs
+
+`scripts/import_validated_points.jl` imports separately retained feasible points
+into another **new private copy**. This route is useful for a solver endpoint
+that has a validated original state but no preprocessing capture record. It
+does not synthesize a preprocessing measurement or append anything to
+`Instances.metadata.preprocessing_runs`. Every original `Instances` value and
+existing solution/submission row remains intact.
+
+The input is an explicitly SHA-256-pinned JSON bundle with schema
+`qubolib-validated-points-v1`. It identifies the exact parent database/archive,
+the ancestral artifact snapshot, an import ID and provenance, and one point per
+instance. Each point contains the catalogue identity, native model hash, encoded
+state hash, relative state-file path/hash, canonical exact objective `p/q`, and
+provenance. State files are exactly the binary vector followed by one LF. Files
+must remain inside the bundle directory. The ancestral snapshot fields preserve
+declared lineage; the exact parent file hashes and freshly checked native model
+hash bind the files actually consumed by this import.
+
+```sh
+julia --project=/path/to/pinned/environment scripts/import_validated_points.jl \
+  --source-database=/path/to/immutable-parent/index.db \
+  --source-archive=/path/to/immutable-parent/archive.h5 \
+  --database-sha256=EXPECTED_PARENT_DATABASE_SHA256 \
+  --archive-sha256=EXPECTED_PARENT_ARCHIVE_SHA256 \
+  --bundle=/path/to/point-bundle/points.json \
+  --bundle-sha256=EXPECTED_BUNDLE_SHA256 \
+  --output=/path/to/NEW-point-stage \
+  --witness-tools=/path/to/reviewed/library_witnesses.jl \
+  --witness-tools-sha256=REVIEWED_HELPER_SHA256
+```
+
+The CLI is restricted to Dantzig. It loads each original model through the
+explicitly pinned native canonicalizer, checks its hash and domain, validates the
+binary vector and recomputes its objective using exact rational arithmetic.
+An earlier audit receipt or numerical solver status is retained as provenance,
+not accepted as verification. A changed state, objective, source, domain or hash
+is rejected. The existing finite floating objective columns remain in use;
+the exact rational objective is also retained in the solution metadata.
+
+This route always inserts **feasible-only** solution records with
+`proven_optimal=false`, including when an upstream solver reported optimality.
+It records upstream native-source feasibility as unknown and leaves SQL
+`source_feasible`, `source_value` and `source_objective` null. It provides no
+new reduction proof or global certificate. All inserts use one transaction;
+on failure, the new copy is marked unpublishable and its inserted SQL/HDF5
+solution entries are rolled back. The source files are rehashed after staging.
+Neither script publishes a dataset or changes an installed artifact.
+
+The synthetic test `test/validated_points_import.jl` exercises native Bool/Spin
+states, both objective senses, exact decimal binary64 coefficients, source and
+state tampering, preservation of every pre-existing SQL row, and rollback. It
+uses the same explicit `FOLLOWUP_WITNESS_TOOLS`/`FOLLOWUP_WITNESS_SHA256` pins as
+the capture-import fixture tests. Real catalogue points must be checked on
+Dantzig rather than evaluated by these local fixtures.
+
 Successful output contains `index.db`, `archive.h5`, and `diff-report.json` with
 source and staged hashes, inserted record IDs, counts, and proof classifications.
 Review those artifacts and the exact witnesses before proposing a new dataset.
