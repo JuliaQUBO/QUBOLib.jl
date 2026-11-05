@@ -158,6 +158,13 @@ union, and add only its listed feasible points. The selected point bundle and
 state files remain pinned separately from all tied-best states. Feasible points
 must not acquire optimality proofs or native-source feasibility claims.
 
+The validator checks the original producer formats' explicit `--key=value`
+arguments against their retained inputs, source files, environment and raw-bundle
+selection. The point layer uses the capture layer's recorded Julia runtime,
+Project/Manifest and package pins. Different producer formats or environments
+need an explicit reviewed schema update; omitted identity fields do not disable
+these checks.
+
 Each lineage `assets` entry has `path`, `bytes`, `sha256`, and `scope` (`metadata`
 or `release`); JSON evidence also has `format: "json"`. Paths are canonical
 relative POSIX paths. Preserve the exact audit/source bytes: rewriting private

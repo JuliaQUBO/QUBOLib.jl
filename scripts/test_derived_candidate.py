@@ -4,7 +4,7 @@ import copy
 import hashlib
 import io
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import subprocess
 import tarfile
 import tempfile
@@ -84,7 +84,91 @@ class Fixture:
                 source_archives=['source_archive'], all_point_states='all_states', endpoint_audit='endpoint'), layers=[self.cap, self.points])
         self.manifest = dict(schema='qubolib-derived-release-v1', candidate=dict(release_target_commit='1' * 40,
             root='artifact', files=self.final, git_tree_sha1=self.independent_tree()))
+        self.complete_execution_metadata()
         self.archive()
+        self.seal()
+
+    def complete_execution_metadata(self):
+        # Match the actual producer formats while retaining entirely fabricated
+        # bytes. Runtime paths describe the old execution, not the relocated files.
+        def original(ref, path):
+            return dict(bytes=self.assets[ref]['bytes'], sha256=self.assets[ref]['sha256'], path=path)
+        self.cap['producer_commits'] = {'census': '9' * 40}
+        self.assets['source_archive']['commit'] = '9' * 40
+        c = self.docs['capture_plan']
+        c.update(schema='private-combined-qubolib-stage-execution-plan-v1', artifact_tree='f' * 40, original_database=dict(self.old['index.db'], path='/data/parent/index.db'),
+                 original_archive=dict(self.old['archive.h5'], path='/data/parent/archive.h5'),
+                 importer=original('support', '/tools/capture/import_followup_results.jl'),
+                 witness_helper=original('helper', '/producer/scripts/library_witnesses.jl'),
+                 producer_project=original('project', '/producer/Project.toml'),
+                 producer_manifest=original('environment', '/producer/Manifest.toml'),
+                 julia=dict(path='/runtime/julia', bytes=1, sha256='8' * 64), output_directory='/data/middle',
+                 phase_pins={'census': dict(root='/captures/census', source_revision='9' * 40, instances=2, records=4)},
+                 bundles=[dict(path='/captures/census/jobs/slot-00', phase='census', slot=0, records=4, instance_ids=[1, 2],
+                               metadata={name: original('raw', '/captures/census/jobs/slot-00/' + name)
+                                         for name in ('run-plan.json', 'records.jsonl', 'terminal.json')})])
+        c['argv'] = ['/runtime/julia', '--startup-file=no', '--project=/producer', c['importer']['path'],
+            '--source-database=/data/parent/index.db', '--source-archive=/data/parent/archive.h5',
+            '--database-sha256=' + self.old['index.db']['sha256'], '--archive-sha256=' + self.old['archive.h5']['sha256'],
+            '--artifact-tree=' + 'f' * 40, '--run-id=capture-run', '--expected-instance-count=2',
+            '--runs=/captures/census/jobs/slot-00', '--output=/data/middle',
+            '--witness-tools=' + c['witness_helper']['path'], '--witness-tools-sha256=' + self.assets['helper']['sha256']]
+        c['resource_argv'] = ['systemd'] + c['argv']
+        self.put_json('capture_plan', c)
+        self.put_json('capture_launch', dict(plan_sha256=self.assets['capture_plan']['sha256'], command=['systemd'] + c['argv']))
+        d = self.docs['capture_diff'];d.update(run_id='capture-run', source_artifact_tree='f' * 40)
+        d['verifier']['path'] = c['witness_helper']['path'];self.put_json('capture_diff', d)
+        a = self.docs['capture_audit'];a['diff_report_sha256'] = self.assets['capture_diff']['sha256'];self.put_json('capture_audit', a)
+        bundle = self.docs['bundle'];bundle.update(import_id='point-run', ancestor_snapshot=dict(artifact_tree='f' * 40,
+            database_sha256=self.old['index.db']['sha256'], archive_sha256=self.old['archive.h5']['sha256']))
+        bundle['provenance']['runner_commit'] = '9' * 40
+        bundle['points'][0].update(state_path='states/7.bits', native_source_sha256='6' * 64,
+                                   state_sha256='7' * 64, original_objective_exact='1/1')
+        self.put_json('bundle', bundle)
+        point = self.docs['point_plan'];point.update(schema='six-point-import-execution-plan-v1', bundle_sha256=self.assets['bundle']['sha256'],
+            source_files={'scripts/import_validated_points.jl': self.assets['importer'],
+                          'scripts/import_followup_results.jl': self.assets['support']},
+            expected_deltas=dict(Instances=0, Solutions=1, SolutionRecords=1, Submissions=1, Solvers=1,
+                                 preprocessing_runs=0, global_proof_records=0, unique_global_instances=0))
+        point['argv'] = ['/runtime/julia', '--startup-file=no', '--project=/producer', '/tools/points/import_validated_points.jl',
+            '--source-database=/data/middle/index.db', '--source-archive=/data/middle/archive.h5',
+            '--database-sha256=' + self.middle['index.db']['sha256'], '--archive-sha256=' + self.middle['archive.h5']['sha256'],
+            '--bundle=/points/points.json', '--bundle-sha256=' + self.assets['bundle']['sha256'], '--output=/data/final',
+            '--witness-tools=' + c['witness_helper']['path'], '--witness-tools-sha256=' + self.assets['helper']['sha256']]
+        self.put_json('point_plan', point)
+        self.put_json('point_launch', dict(source_commit='b' * 40, plan_sha256=self.assets['point_plan']['sha256'],
+                                         dispatch_returncode=0, argv=['systemd'] + point['argv']))
+        d = self.docs['point_diff'];d.update(import_id='point-run', bundle_sha256=self.assets['bundle']['sha256'])
+        d['verifier']['path'] = c['witness_helper']['path']
+        d['changes'][0].update(source_sha256='6' * 64, state_sha256='7' * 64, original_objective_exact='1/1')
+        self.put_json('point_diff', d)
+        a = self.docs['point_audit']
+        a.update(parent_files={n: dict(v, path='/data/middle/' + n) for n, v in self.middle.items()},
+                 stage_files={n: dict(v, path='/data/final/' + n) for n, v in self.final.items()},
+                 bundle=original('bundle', '/points/points.json'), import_diff=self.assets['point_diff'],
+                 import_plan=self.assets['point_plan'], launch_receipt=self.assets['point_launch'],
+                 executed_source_files={'importer': original('importer', '/tools/points/import_validated_points.jl'),
+                    'support_importer': original('support', '/tools/points/import_followup_results.jl'),
+                    'native_helper': c['witness_helper']}, point_state_files={'7': original('state', '/points/states/7.bits')})
+        self.put_json('point_audit', a)
+
+    def repin_plan(self, which, mutate):
+        # Keep every containing digest, dispatched argv and audit binding valid.
+        # The only remaining defect is the semantic contradiction under test.
+        name = which + '_plan';old = copy.deepcopy(self.docs[name]);new = copy.deepcopy(old)
+        mutate(new)
+        if which == 'capture':
+            new['resource_argv'] = new['resource_argv'][:-len(old['argv'])] + new['argv']
+        self.put_json(name, new)
+        launch_name = which + '_launch';launch = copy.deepcopy(self.docs[launch_name])
+        launch['plan_sha256'] = self.assets[name]['sha256']
+        command_key = 'command' if which == 'capture' else 'argv'
+        launch[command_key] = launch[command_key][:-len(old['argv'])] + new['argv']
+        self.put_json(launch_name, launch)
+        if which == 'point':
+            audit = copy.deepcopy(self.docs['point_audit'])
+            audit['import_plan'] = self.assets[name];audit['launch_receipt'] = self.assets[launch_name]
+            self.put_json('point_audit', audit)
         self.seal()
 
     def pair(self, directory, db, h5):
@@ -230,8 +314,12 @@ class DerivedCandidateTests(unittest.TestCase):
         # Deliberately preserve all cross-file pins after changing the claim.
         diff = copy.deepcopy(f.docs['point_diff']);diff['bundle_sha256'] = f.assets['bundle']['sha256']
         f.put_json('point_diff', diff)
-        audit = copy.deepcopy(f.docs['point_audit']);audit['bundle'] = f.assets['bundle'];audit['import_diff'] = f.assets['point_diff']
-        f.put_json('point_audit', audit);f.seal()
+        audit = copy.deepcopy(f.docs['point_audit']);audit['bundle'].update({k: f.assets['bundle'][k] for k in ('bytes', 'sha256')});audit['import_diff'] = f.assets['point_diff']
+        f.put_json('point_audit', audit)
+        def repin_bundle(plan):
+            plan['bundle_sha256'] = f.assets['bundle']['sha256']
+            plan['argv'] = ['--bundle-sha256=' + f.assets['bundle']['sha256'] if a.startswith('--bundle-sha256=') else a for a in plan['argv']]
+        f.repin_plan('point', repin_bundle)
         with self.assertRaisesRegex(gate.ValidationError, 'must not become'):
             f.validate()
 
@@ -335,6 +423,128 @@ class DerivedCandidateTests(unittest.TestCase):
         f.put_json('point_audit', audit);f.seal()
         with self.assertRaisesRegex(gate.ValidationError, 'native feasibility'):
             f.validate()
+
+    def test_repinned_point_plan_bundle_pin(self):
+        self.fixture.repin_plan('point', lambda p: p.update(bundle_sha256='0' * 64))
+        with self.assertRaises(gate.ValidationError):
+            self.fixture.validate(metadata_only=True)
+
+    def test_repinned_point_plan_executed_sources(self):
+        for source in ('scripts/import_validated_points.jl', 'scripts/import_followup_results.jl'):
+            with self.subTest(source=source):
+                with tempfile.TemporaryDirectory() as path:
+                    f = Fixture(Path(path))
+                    f.repin_plan('point', lambda p: p['source_files'][source].update(sha256='0' * 64))
+                    with self.assertRaises(gate.ValidationError):
+                        f.validate(metadata_only=True)
+
+    def test_repinned_parent_tree_must_match_execution(self):
+        f = self.fixture;f.lineage['parent']['git_tree_sha1'] = '0' * 40;f.seal()
+        with self.assertRaises(gate.ValidationError):
+            f.validate(metadata_only=True)
+
+    def test_repinned_hash_arguments_match_inputs(self):
+        flags = {'capture': ('database-sha256', 'archive-sha256', 'artifact-tree', 'witness-tools-sha256'),
+                 'point': ('database-sha256', 'archive-sha256', 'bundle-sha256', 'witness-tools-sha256')}
+        for which, names in flags.items():
+            for name in names:
+                with self.subTest(which=which, flag=name):
+                    with tempfile.TemporaryDirectory() as path:
+                        f = Fixture(Path(path))
+                        def contradict(plan):
+                            plan['argv'] = ['--' + name + '=' + '0' * (40 if name == 'artifact-tree' else 64)
+                                            if a.startswith('--' + name + '=') else a for a in plan['argv']]
+                        f.repin_plan(which, contradict)
+                        with self.assertRaises(gate.ValidationError):
+                            f.validate(metadata_only=True)
+
+    def test_repinned_execution_paths_and_selection(self):
+        for which, name in (('capture', 'source-database'), ('capture', 'source-archive'), ('capture', 'runs'),
+                            ('capture', 'witness-tools'), ('capture', 'output'), ('point', 'source-database'),
+                            ('point', 'source-archive'), ('point', 'bundle'), ('point', 'witness-tools'), ('point', 'output')):
+            with self.subTest(which=which, flag=name):
+                with tempfile.TemporaryDirectory() as path:
+                    f = Fixture(Path(path))
+                    def contradict(plan):
+                        plan['argv'] = ['--' + name + '=/different/input' if a.startswith('--' + name + '=') else a
+                                        for a in plan['argv']]
+                    f.repin_plan(which, contradict)
+                    with self.assertRaises(gate.ValidationError):
+                        f.validate(metadata_only=True)
+
+    def test_repinned_parent_file_and_environment_plan_records(self):
+        for name in ('original_database', 'original_archive', 'producer_project', 'producer_manifest', 'importer', 'witness_helper'):
+            with self.subTest(field=name):
+                with tempfile.TemporaryDirectory() as path:
+                    f = Fixture(Path(path))
+                    f.repin_plan('capture', lambda p: p[name].update(bytes=p[name]['bytes'] + 1))
+                    with self.assertRaises(gate.ValidationError):
+                        f.validate(metadata_only=True)
+
+    def test_repinned_duplicate_identity_argument(self):
+        f = self.fixture
+        f.repin_plan('point', lambda p: p['argv'].append('--bundle-sha256=' + '0' * 64))
+        with self.assertRaises(gate.ValidationError):
+            f.validate(metadata_only=True)
+
+    def test_repinned_capture_raw_bundle_selection(self):
+        f = self.fixture
+        f.repin_plan('capture', lambda p: p['bundles'][0].update(path='/other/raw-bundle'))
+        with self.assertRaises(gate.ValidationError):
+            f.validate(metadata_only=True)
+
+    def test_repinned_runtime_project_and_script_paths(self):
+        for which, part in (('point', 'runtime'), ('point', 'project'), ('point', 'script'), ('capture', 'script')):
+            with self.subTest(which=which, part=part):
+                with tempfile.TemporaryDirectory() as path:
+                    f = Fixture(Path(path))
+                    def contradict(plan):
+                        if part == 'runtime':
+                            plan['argv'][0] = '/other/julia'
+                        elif part == 'project':
+                            plan['argv'][2] = '--project=/other/project'
+                        else:
+                            plan['argv'][3] = '/other/' + PurePosixPath(plan['argv'][3]).name
+                    f.repin_plan(which, contradict)
+                    with self.assertRaises(gate.ValidationError):
+                        f.validate(metadata_only=True)
+
+    def test_repinned_raw_phase_metadata_and_source(self):
+        for field in ('producer', 'record_total', 'metadata_path'):
+            with self.subTest(field=field):
+                with tempfile.TemporaryDirectory() as path:
+                    f = Fixture(Path(path))
+                    def contradict(plan):
+                        if field == 'producer':
+                            plan['phase_pins']['census']['source_revision'] = '0' * 40
+                        elif field == 'record_total':
+                            plan['bundles'][0]['records'] += 1
+                        else:
+                            plan['bundles'][0]['metadata']['records.jsonl']['path'] = '/unselected/records.jsonl'
+                    f.repin_plan('capture', contradict)
+                    with self.assertRaises(gate.ValidationError):
+                        f.validate(metadata_only=True)
+
+    def test_repinned_point_planned_proof_delta(self):
+        f = self.fixture
+        f.repin_plan('point', lambda p: p['expected_deltas'].update(global_proof_records=1))
+        with self.assertRaisesRegex(gate.ValidationError, 'planned deltas'):
+            f.validate(metadata_only=True)
+
+    def test_repinned_point_raw_source_and_state_paths(self):
+        for field in ('source_sha256', 'state_sha256', 'original_objective_exact', 'state_path'):
+            with self.subTest(field=field):
+                with tempfile.TemporaryDirectory() as path:
+                    f = Fixture(Path(path));audit = copy.deepcopy(f.docs['point_audit'])
+                    if field == 'state_path':
+                        audit['point_state_files']['7']['path'] = '/other/7.bits'
+                    else:
+                        diff = copy.deepcopy(f.docs['point_diff'])
+                        diff['changes'][0][field] = '2/1' if field == 'original_objective_exact' else '0' * 64
+                        f.put_json('point_diff', diff);audit['import_diff'] = f.assets['point_diff']
+                    f.put_json('point_audit', audit);f.seal()
+                    with self.assertRaises(gate.ValidationError):
+                        f.validate(metadata_only=True)
 
     def test_uniform_build_cannot_enter_derived_route(self):
         f = self.fixture

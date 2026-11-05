@@ -98,6 +98,173 @@ def table_deltas(audit, expected):
                 'Preservation audit table delta differs: ' + table)
 
 
+def same_binding(record, expected, label):
+    binding(record)
+    require(all(record[key] == expected[key] for key in ('bytes', 'sha256')), label + ' binding differs')
+
+
+def runtime_path(value):
+    require(isinstance(value, str) and value and '\x00' not in value and '\\' not in value,
+            'Invalid recorded execution path')
+    path = PurePosixPath(value)
+    require(path.is_absolute() and str(path) == value and '..' not in path.parts,
+            'Execution paths must be canonical absolute POSIX paths')
+    return path
+
+
+def execution_arguments(plan, basename):
+    """Parse only the existing pinned producer format; reject ambiguous overrides."""
+    argv = plan.get('argv')
+    require(isinstance(argv, list) and argv and all(isinstance(a, str) for a in argv), 'Execution argv is required')
+    scripts = [i for i, a in enumerate(argv) if not a.startswith('-') and PurePosixPath(a).name == basename]
+    require(len(scripts) == 1 and scripts[0] > 0, 'Exactly one recorded importer script is required')
+    position = scripts[0]
+    def options(arguments):
+        result = {}
+        for argument in arguments:
+            require(argument.startswith('--') and '=' in argument, 'Expected explicit --key=value execution argument')
+            key, value = argument[2:].split('=', 1)
+            require(key and value and key not in result, 'Empty or duplicate execution argument: ' + key)
+            result[key] = value
+        return result
+    julia = options(argv[1:position])
+    require(set(julia) == {'startup-file', 'project'} and julia['startup-file'] == 'no', 'Recorded Julia invocation differs')
+    runtime_path(argv[0]);runtime_path(argv[position]);runtime_path(julia['project'])
+    return argv[0], argv[position], julia['project'], options(argv[position + 1:])
+
+
+def check_capture_execution(layer, plan, diff, parent, assets, archives):
+    require(plan.get('schema') == 'private-combined-qubolib-stage-execution-plan-v1', 'Wrong capture execution plan schema')
+    require(plan.get('artifact_tree') == parent['git_tree_sha1'] == diff.get('source_artifact_tree'),
+            'Capture plan/diff parent artifact tree differs')
+    source = layer['source']
+    for field, ref in (('original_database', None), ('original_archive', None), ('importer', 'importer'),
+                       ('witness_helper', 'native_helper'), ('producer_project', 'project'), ('producer_manifest', 'manifest')):
+        expected = layer['input_files']['index.db' if field == 'original_database' else 'archive.h5'] if ref is None else assets[source[ref]]
+        same_binding(plan.get(field), expected, 'Capture plan ' + field)
+    executable, script, project, arguments = execution_arguments(plan, 'import_followup_results.jl')
+    binding(plan['julia'])
+    require(executable == plan['julia']['path'] and script == plan['importer']['path'], 'Capture executed source/runtime path differs')
+    require(runtime_path(plan['producer_project']['path']) == runtime_path(project) / 'Project.toml' and
+            runtime_path(plan['producer_manifest']['path']) == runtime_path(project) / 'Manifest.toml',
+            'Capture executed environment path differs')
+    db = runtime_path(plan['original_database']['path']);h5 = runtime_path(plan['original_archive']['path'])
+    require(db.name == 'index.db' and h5.name == 'archive.h5' and db.parent == h5.parent,
+            'Capture parent file paths differ')
+    output = runtime_path(plan['output_directory'])
+    require(output != db.parent, 'Capture output must be a separate copy')
+    require(diff.get('verifier', {}).get('path') == plan['witness_helper']['path'], 'Capture verifier path differs')
+    bundles = plan.get('bundles');phases = plan.get('phase_pins');producers = layer.get('producer_commits')
+    require(isinstance(bundles, list) and len(bundles) == layer['counts']['bundles'] and bundles and
+            isinstance(phases, dict) and phases and isinstance(producers, dict) and set(phases) == set(producers),
+            'Capture raw bundle/phase inventory differs')
+    available = {assets[ref].get('commit') for ref in archives}
+    for phase, pin in phases.items():
+        require(hexhash(producers[phase], 40) and pin.get('source_revision') == producers[phase] and
+                producers[phase] in available, 'Capture producer source/archive differs: ' + phase)
+    seen_paths, seen_slots, all_ids = set(), set(), set()
+    phase_ids = {name: set() for name in phases};phase_records = dict.fromkeys(phases, 0)
+    for bundle in bundles:
+        phase = bundle['phase'];require(phase in phases, 'Unplanned capture phase')
+        path = runtime_path(bundle['path']);slot = bundle['slot']
+        require(integer(slot) and path == runtime_path(phases[phase]['root']) / 'jobs' / f'slot-{slot:02d}' and
+                ',' not in str(path) and str(path) not in seen_paths and (phase, slot) not in seen_slots,
+                'Capture raw bundle selection differs')
+        seen_paths.add(str(path));seen_slots.add((phase, slot))
+        ids = bundle['instance_ids']
+        require(isinstance(ids, list) and all(integer(iid, 1) for iid in ids) and len(ids) == len(set(ids)) and
+                not (set(ids) & phase_ids[phase]) and integer(bundle['records']), 'Capture raw bundle coverage differs')
+        phase_ids[phase].update(ids);all_ids.update(ids);phase_records[phase] += bundle['records']
+        require(set(bundle['metadata']) == {'run-plan.json', 'records.jsonl', 'terminal.json'}, 'Capture raw metadata inventory differs')
+        for name, pin in bundle['metadata'].items():
+            binding(pin)
+            require(runtime_path(pin['path']) == path / name, 'Capture raw metadata path differs')
+        for pin in bundle.get('witness_byte_pins', []):
+            binding(pin)
+            require(runtime_path(pin['path']).is_relative_to(path / 'witnesses'), 'Capture raw witness path differs')
+    require(len(all_ids) == layer['instances'] and sum(phase_records.values()) == layer['counts']['preprocessing_records'],
+            'Capture raw bundle totals differ')
+    for phase, pin in phases.items():
+        require(count_is(pin.get('records'), phase_records[phase]) and count_is(pin.get('instances'), len(phase_ids[phase])),
+                'Capture phase coverage differs: ' + phase)
+    expected = {'source-database': str(db), 'source-archive': str(h5),
+                'database-sha256': layer['input_files']['index.db']['sha256'],
+                'archive-sha256': layer['input_files']['archive.h5']['sha256'], 'artifact-tree': parent['git_tree_sha1'],
+                'run-id': diff.get('run_id'), 'expected-instance-count': str(layer['instances']),
+                'runs': ','.join(bundle['path'] for bundle in bundles), 'output': str(output),
+                'witness-tools': plan['witness_helper']['path'], 'witness-tools-sha256': assets[source['native_helper']]['sha256']}
+    require(isinstance(expected['run-id'], str) and expected['run-id'] and arguments == expected,
+            'Capture dispatched input arguments differ from pinned plan/lineage')
+    require(plan.get('resource_argv', [])[-len(plan['argv']):] == plan['argv'], 'Capture resource argv differs')
+
+
+def check_point_execution(layer, plan, audit, diff, bundle, parent, capture_layer, capture_plan, assets):
+    require(plan.get('schema') == 'six-point-import-execution-plan-v1', 'Wrong point execution plan schema')
+    source = layer['source']
+    require(plan.get('bundle_sha256') == assets[layer['bundle']]['sha256'], 'Point plan bundle binding differs')
+    for name in ('importer', 'support_importer'):
+        filename = 'scripts/import_validated_points.jl' if name == 'importer' else 'scripts/import_followup_results.jl'
+        same_binding(plan.get('source_files', {}).get(filename), assets[source[name]], 'Point plan source ' + name)
+    for name in ('importer', 'support_importer', 'native_helper'):
+        same_binding(audit['executed_source_files'][name], assets[source[name]], 'Point audited source ' + name)
+    for name, record in audit['parent_files'].items():
+        same_binding(record, layer['input_files'][name], 'Point audited parent ' + name)
+    for name, record in audit['stage_files'].items():
+        same_binding(record, layer['output_files'][name], 'Point audited output ' + name)
+    same_binding(audit['bundle'], assets[layer['bundle']], 'Point audited bundle')
+    for field, ref in (('import_diff', 'diff'), ('import_plan', 'plan'), ('launch_receipt', 'launch'), ('auditor', 'auditor')):
+        same_binding(audit[field], assets[layer[ref]], 'Point audited ' + field)
+    executable, script, project, arguments = execution_arguments(plan, 'import_validated_points.jl')
+    require(executable == capture_plan['julia']['path'] and
+            project == str(runtime_path(capture_plan['producer_project']['path']).parent), 'Point executed runtime/environment differs')
+    require(all(source[name] == capture_plan[name] for name in ('package_revision', 'package_tree')),
+            'Point executed package identity differs from retained environment')
+    for name, capture_name in (('project', 'project'), ('manifest', 'manifest')):
+        same_binding(assets[source[name]], assets[capture_layer['source'][capture_name]], 'Point/capture environment ' + name)
+    executed = audit['executed_source_files']
+    require(script == executed['importer']['path'] and
+            runtime_path(executed['support_importer']['path']) == runtime_path(script).parent / 'import_followup_results.jl' and
+            diff.get('verifier', {}).get('path') == executed['native_helper']['path'], 'Point executed importer/helper paths differ')
+    roots = {runtime_path(pin['path']).parent for pin in audit['stage_files'].values()}
+    require(len(roots) == 1, 'Point output file paths differ')
+    output = next(iter(roots))
+    db = runtime_path(audit['parent_files']['index.db']['path']);h5 = runtime_path(audit['parent_files']['archive.h5']['path'])
+    require(db.name == 'index.db' and h5.name == 'archive.h5' and db.parent == h5.parent and
+            db.parent == runtime_path(capture_plan['output_directory']) and output != db.parent,
+            'Point input/output paths do not connect to capture output')
+    for name, pin in audit['stage_files'].items():
+        require(runtime_path(pin['path']) == output / name, 'Point output filename differs')
+    expected = {'source-database': str(db), 'source-archive': str(h5),
+                'database-sha256': layer['input_files']['index.db']['sha256'], 'archive-sha256': layer['input_files']['archive.h5']['sha256'],
+                'bundle': audit['bundle']['path'], 'bundle-sha256': assets[layer['bundle']]['sha256'],
+                'output': str(output), 'witness-tools': executed['native_helper']['path'],
+                'witness-tools-sha256': assets[source['native_helper']]['sha256']}
+    require(arguments == expected, 'Point dispatched input arguments differ from audited inputs/lineage')
+    ancestor = bundle.get('ancestor_snapshot', {})
+    require(ancestor.get('artifact_tree') == parent['git_tree_sha1'] and
+            ancestor.get('database_sha256') == parent['files']['index.db']['sha256'] and
+            ancestor.get('archive_sha256') == parent['files']['archive.h5']['sha256'], 'Point bundle ancestor differs')
+    require(bundle.get('import_id') == diff.get('import_id') and isinstance(bundle.get('import_id'), str) and bundle['import_id'],
+            'Point import identity differs')
+    require(bundle.get('provenance', {}).get('runner_commit') == capture_layer['producer_commits'].get('census'),
+            'Point producer revision differs from retained census source')
+    expected_deltas = dict(Instances=0, Solutions=layer['counts']['solution_records'], SolutionRecords=layer['counts']['solution_records'],
+                           Submissions=1, Solvers=1, preprocessing_runs=0, global_proof_records=0, unique_global_instances=0)
+    require(set(plan.get('expected_deltas', {})) == set(expected_deltas) and
+            all(count_is(plan['expected_deltas'][name], count) for name, count in expected_deltas.items()), 'Point planned deltas differ')
+    changes = {change['instance_id']: change for change in diff['changes']}
+    for point in bundle['points']:
+        iid = str(point['instance_id']);pin = audit['point_state_files'][iid]
+        same_binding(pin, assets[layer['states'][iid]], 'Point audited state')
+        require(runtime_path(pin['path']) == runtime_path(audit['bundle']['path']).parent / safe_relative(point['state_path']),
+                'Point bundle/state path differs')
+        change = changes[point['instance_id']]
+        require(hexhash(point.get('native_source_sha256')) and hexhash(point.get('state_sha256')) and
+                change.get('source_sha256') == point['native_source_sha256'] and change.get('state_sha256') == point['state_sha256'] and
+                isinstance(point.get('original_objective_exact'), str) and
+                change.get('original_objective_exact') == point['original_objective_exact'], 'Point raw source/state/objective metadata differs')
+
+
 def check_diff(diff, layer, parent_files, output_files):
     counts = layer['counts']
     require(diff.get('outcome') == 'staged' and diff.get('historical_preprocessing_preserved') is True,
@@ -262,8 +429,11 @@ def validate_lineage(lineage, base, locations, metadata_only):
         audit, diff = documents[layer['audit']], documents[layer['diff']]
         check_diff(diff, layer, previous, output)
         if layer['kind'] == 'capture_append':
+            check_capture_execution(layer, documents[layer['plan']], diff, parent, assets, reproduction['source_archives'])
             check_capture(layer, audit, diff, documents[layer['plan']], documents[layer['launch']], assets)
         else:
+            check_point_execution(layer, documents[layer['plan']], audit, diff, documents[layer['bundle']], parent,
+                                  layers[0], documents[layers[0]['plan']], assets)
             check_points(layer, audit, diff, documents[layer['bundle']], documents[layer['plan']], documents[layer['launch']], assets)
             previous_audit = documents[layers[0]['audit']]
             require({t: r['after'] for t, r in previous_audit['table_deltas'].items()} ==
