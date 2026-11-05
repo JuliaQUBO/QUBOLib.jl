@@ -8,6 +8,19 @@ function library_path()::String
     return abspath(artifact"qubolib") 
 end
 
+# Locate the artifact without installing it. Empty local libraries must remain
+# usable with clear=true even when the lazy corpus has not been downloaded.
+function _library_artifact_path()::String
+    meta = Pkg.Artifacts.artifact_meta(
+        "qubolib",
+        joinpath(__project__(), "Artifacts.toml");
+        pkg_uuid = Base.PkgId(@__MODULE__).uuid,
+    )
+    isnothing(meta) && error("The packaged QUBOLib artifact is not defined")
+
+    return Pkg.Artifacts.artifact_path(Base.SHA1(meta["git-tree-sha1"]))
+end
+
 function library_path(path::AbstractString)::String
     return joinpath(path, "qubolib")
 end
