@@ -116,13 +116,15 @@ Use [`CITATION.cff`](CITATION.cff) for QUBOLib software citation metadata and
 identify the package version used.
 
 For the benchmark data, cite the
-[dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) across versions,
-or [version DOI 10.5281/zenodo.23839797](https://doi.org/10.5281/zenodo.23839797)
-for the exact `v0.2.4-data+8` archive. The
-[Zenodo record](https://zenodo.org/records/23839797) preserves the distributed
-archive unchanged. Also cite each source collection used. Previously tagged
-package versions retain their original artifact pins; check `Artifacts.toml`
-at the package version used before choosing a dataset citation.
+[dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) across versions.
+Package 0.2.7 selects the layered
+[`v0.2.6-data+9` release](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.6-data%2B9);
+its new dataset-version Zenodo preservation is pending, so cite this exact
+GitHub release until its version DOI is verified. The older
+[version DOI 10.5281/zenodo.23839797](https://doi.org/10.5281/zenodo.23839797)
+identifies only the immutable `v0.2.4-data+8` parent. Also cite each source
+collection used. Previously tagged package versions retain their original
+artifact pins; check `Artifacts.toml` at the package version used.
 
 The data artifact combines independently sourced collections; the repository's
 MIT software license is not a blanket dataset license. Before redistributing or

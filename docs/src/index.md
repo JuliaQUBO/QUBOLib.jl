@@ -81,11 +81,10 @@ For general use, cite the
 [QUBO.jl ecosystem article](https://doi.org/10.1080/10556788.2026.2702926)
 and identify the QUBOLib package version. For benchmark data, cite the
 [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) across versions,
-or the [version DOI](https://doi.org/10.5281/zenodo.23824873) for the exact
-`v0.2.4-data+7` archive, and cite the source collections used.
-
-The [Zenodo record](https://zenodo.org/records/23824873) preserves the same
-archive as the GitHub data release. Check `Artifacts.toml` at the package
+and cite the exact
+[`v0.2.6-data+9` GitHub release](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.6-data%2B9)
+selected by package 0.2.7 while its dataset-version Zenodo preservation is pending.
+Also cite the source collections used. Check `Artifacts.toml` at the package
 version used: older package tags retain their earlier data pins. The
 [dataset provenance inventory](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.md)
 records hashes, licenses, conversions, and verification evidence.
@@ -96,3 +95,15 @@ QUBOLib is also an invitation to donate challenging QUBOs. If you have benchmark
 instances, reproducible generators, or source archives that should be part of
 the library, see [Advanced Usage](manual/2-advanced.md) for the collection
 metadata, local import workflow, and packaged artifact workflow.
+
+## Selected data version
+
+Package 0.2.7 selects the published
+[`v0.2.6-data+9` artifact](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.6-data%2B9).
+It appends capture histories and six separately feasible points to the immutable
+historical parent; it does not restamp flat preprocessing metadata or claim a
+single clean rebuild. See the
+[dataset inventory](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.md)
+for exact sidecar hashes, scientific scope and per-collection rights. Dataset
+Zenodo preservation of this selected version is pending; the older data DOI
+identifies only `v0.2.4-data+8`, and software archive DOIs do not identify data.
