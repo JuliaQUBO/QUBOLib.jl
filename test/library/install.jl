@@ -1,8 +1,15 @@
-function _with_install_artifact(callback; source_parts = ("artifact-parent", "qubolib"))
+function _with_install_artifact(
+    callback;
+    source_parts = ("artifact-parent", "qubolib"),
+    materialize = true,
+)
     mktempdir() do root
-        source = mkpath(joinpath(root, source_parts...))
-        write(joinpath(source, "index.db"), "fixture database\n")
-        write(joinpath(source, "archive.h5"), "fixture archive\n")
+        source = joinpath(root, source_parts...)
+        if materialize
+            mkpath(source)
+            write(joinpath(source, "index.db"), "fixture database\n")
+            write(joinpath(source, "archive.h5"), "fixture archive\n")
+        end
 
         depot = mkpath(joinpath(root, "depot", "artifacts"))
         open(joinpath(depot, "Overrides.toml"), "w") do io
@@ -15,13 +22,39 @@ function _with_install_artifact(callback; source_parts = ("artifact-parent", "qu
         pushfirst!(DEPOT_PATH, dirname(depot))
         QUBOLib.Pkg.Artifacts.load_overrides(; force = true)
         try
-            @test realpath(QUBOLib.library_path()) == realpath(source)
+            if materialize
+                @test realpath(QUBOLib.library_path()) == realpath(source)
+            else
+                @test QUBOLib._library_artifact_path() == source
+            end
             callback(root, source)
         finally
             empty!(DEPOT_PATH)
             append!(DEPOT_PATH, original_depots)
             QUBOLib.Pkg.Artifacts.load_overrides(; force = true)
         end
+    end
+end
+
+function _with_install_downloads_forbidden(callback)
+    downloads = QUBOLib.Pkg.PlatformEngines.Downloads
+    original_downloader = downloads.DOWNLOADER[]
+    original_hook = downloads.EASY_HOOK[]
+    attempts = Ref(0)
+    reject_download = (easy, info) -> begin
+        attempts[] += 1
+        error("Artifact installation must not download in this fixture")
+    end
+    downloader = downloads.Downloader(; grace = 0)
+    downloader.easy_hook = reject_download
+    downloads.EASY_HOOK[] = reject_download
+    downloads.default_downloader!(downloader)
+    try
+        # Downloads runs this hook before adding the transfer to libcurl.
+        callback(attempts)
+    finally
+        downloads.default_downloader!(original_downloader)
+        downloads.EASY_HOOK[] = original_hook
     end
 end
 
@@ -40,6 +73,26 @@ end
 
 function test_library_install()
     @testset "→ Install preserves the packaged artifact" begin
+        _with_install_downloads_forbidden() do attempts
+            _with_install_artifact(; materialize = false) do root, source
+                @test !ispath(source)
+
+                working = joinpath(root, "empty-install")
+                QUBOLib.install(working; clear = true)
+                @test isdir(joinpath(working, "qubolib"))
+                @test isempty(readdir(joinpath(working, "qubolib")))
+                @test !ispath(source)
+
+                working = joinpath(root, "empty-access")
+                QUBOLib.access(; path = working, clear = true) do index
+                    @test isopen(index)
+                end
+                @test QUBOLib.is_installed(working)
+                @test !ispath(source)
+                @test attempts[] == 0
+            end
+        end
+
         _with_install_artifact() do root, source
             before = _install_fixture_snapshot(source)
             for clear in (false, true)
