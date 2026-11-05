@@ -126,6 +126,107 @@ reuse an existing tag or replace a published release asset.
 4. Use that selected release for the first Zenodo version below. Publishing the
    candidate is not part of the importer PR's automated human-review workflow.
 
+### Promote a layered derived candidate
+
+Use this separate route when a new snapshot appends reviewed measurements or
+feasible points to an immutable published artifact. The uniform clean-build
+checks above remain mandatory for ordinary rebuilds. A derived snapshot must
+preserve the original `Instances.metadata.preprocessing` and other historical
+fields; do not restamp them with the append importer, new builder or release
+commit. The original `v0.2.4-data+8` provenance remains `not-reproducible`, with its
+recorded explanation. Reproducibility of a new append sequence is a separate claim.
+
+Prepare and review two **external release sidecars**:
+
+- `DERIVATION.json` (`qubolib-derived-lineage-v1`) records the immutable parent's
+  release commit, compressed asset size/SHA256, extracted database/HDF5 size/hashes,
+  artifact tree and historical provenance limitation. Its ordered layers bind
+  input/output database/HDF5 hashes, producing importer commits and file hashes,
+  package revision/tree, the exact Project/Manifest, raw evidence/source archives,
+  import plans, actual launch receipts, diff receipts and preservation audits.
+- `release-manifest.json` (`qubolib-derived-release-v1`) pins that lineage file
+  and the final candidate's release target commit, compressed size/SHA256,
+  artifact Git tree and exact database/HDF5 member sizes/hashes. It never uses a
+  placeholder as a verified hash. Neither sidecar is embedded in `qubolib.tar.gz`;
+  that archive retains exactly `archive.h5` and `index.db`.
+
+For this schema, the first layer is `capture_append` and the second is
+`feasible_points`. The first preservation audit must retain all historical
+columns/metadata and tie its counts and file pins to the capture diff/plan. The
+second must preserve all instance metadata and the first layer's histories/proof
+union, and add only its listed feasible points. The selected point bundle and
+state files remain pinned separately from all tied-best states. Feasible points
+must not acquire optimality proofs or native-source feasibility claims.
+
+The validator checks the original producer formats' explicit `--key=value`
+arguments against their retained inputs, source files, environment and raw-bundle
+selection. The point layer uses the capture layer's recorded Julia runtime,
+Project/Manifest and package pins. Different producer formats or environments
+need an explicit reviewed schema update; omitted identity fields do not disable
+these checks.
+
+Each lineage `assets` entry has `path`, `bytes`, `sha256`, and `scope` (`metadata`
+or `release`); JSON evidence also has `format: "json"`. Paths are canonical
+relative POSIX paths. Preserve the exact audit/source bytes: rewriting private
+paths inside a retained receipt changes its hash and breaks its attribution.
+Store frozen Project/Manifest copies with inert `.txt` names so dependency
+scanners do not mistake evidence for active environments.
+
+1. Validate the small receipts/source metadata before packing:
+
+   ```bash
+   python3 -B scripts/check_derived_candidate.py \
+     --manifest /path/to/release-manifest.json --manifest-sha256 <reviewed-sha256> \
+     --metadata-only
+   ```
+
+   Success is explicitly `metadata_validated`, with `artifact_validated=false`,
+   deferred release assets listed, and final archive validation deferred. This
+   is preparation evidence only. Missing metadata files, changed hashes, broken
+   layer chains, altered proof scope and rejected/mismatched audits fail.
+2. On the machine retaining the real data, finish the read-only SQL/content
+   audits, retain their source and receipts, and pack the exact final copy. The
+   validator does not evaluate models/objectives, replay proofs or rerun those
+   audits. Copy/pin all reproduction assets and fill the final archive/tree/target
+   fields. Review the resulting manifest SHA256 before full validation:
+
+   ```bash
+   python3 -B scripts/check_derived_candidate.py \
+     --manifest /path/to/release-manifest.json --manifest-sha256 <reviewed-sha256> \
+     --artifact-root /path/to/final/catalogue \
+     --asset-locations /path/to/retained-asset-locations.json
+   ```
+
+   The optional location map maps asset IDs to existing regular files; it changes
+   locations, never expected hashes or required assets. Full validation requires
+   every declared source/evidence asset. It independently hashes both final files,
+   computes their Git artifact tree, hashes the compressed archive, and streams
+   every tar member to check exact inventory, modes, sizes and bytes without
+   extraction. Extra/duplicate/linked/unsafe members and missing files fail.
+   Success is `artifact_bytes_and_lineage_validated`; publication authorization
+   remains a separate maintainer gate, including any applicable standing approval.
+3. After the independent review/content checks and maintainer authorization,
+   publish the reviewed compressed bytes and both sidecars together at a new
+   data tag targeting the recorded release commit. Retain the validator's JSON
+   report and script source/hash. Do not run `Deployment`, replace an old asset,
+   or treat a metadata-only result as an artifact check. Download and rehash the
+   public compressed asset and sidecars before promotion/Zenodo archiving.
+4. In the subsequent selected-artifact PR, update the actual published byte/tree
+   bindings and link the sidecar hashes. Keep the historical parent limitation
+   explicit: a verified append derivation does not establish a single clean
+   historical full rebuild. The ordinary `release_check.jl` package/dataset,
+   collection-rights, Zenodo byte-identity and publication gates still apply.
+   New result metadata may be CC BY 4.0 and benchmark software MPL-2.0; upstream
+   collection rights/attribution retain their separate terms.
+
+The current capture/point derivation has 19,052 appended preprocessing records,
+1,435 capture proof records covering 622 distinct stored QUBOs, and six additional
+feasible points with zero added preprocessing/proof records. Its producing
+capture code and measurements precede the default-builder migration; do not
+attribute this snapshot to that migration or claim an integerization-only effect.
+The release tooling PR does not itself promote a dataset, select an artifact,
+pack the real corpus, or complete independent/human review.
+
 ### Archive the selected GitHub release
 
 1. Select the GitHub data release to archive and audit its exact asset. Record
