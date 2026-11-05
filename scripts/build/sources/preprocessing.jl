@@ -1,5 +1,13 @@
 const QUBOPREPROCESSING_SOLVER = "QUBOPreprocessing.jl"
-const QUBOPREPROCESSING_VERSION = "0.2.0"
+const QUBOPREPROCESSING_VERSION = "0.2.1"
+const QUBOPREPROCESSING_PREPARATION_TARGET_S = 5.0
+const QUBOPREPROCESSING_SCHEDULE_OPTIONS = (
+    enable_probing = true,
+    max_block_size = 12,
+    probe_rounds = 8,
+    guaranteed_relation_work = 75_000,
+    tie_break = :low,
+)
 const QUBOPREPROCESSING_REPOSITORY = "JuliaQUBO/QUBOPreprocessing.jl"
 const QUBOPREPROCESSING_URL = "https://github.com/JuliaQUBO/QUBOPreprocessing.jl"
 
@@ -240,12 +248,18 @@ function _qubopreprocessing_summary_dict_from_runs(
     weak_var_red_pct = n_init > 0 ? 100.0 * (n_init - n_weak) / n_init : 0.0
     weak_edge_red_pct = m_init > 0 ? 100.0 * (m_init - m_weak) / m_init : 0.0
 
+    coercive_s = @elapsed coercive = _coercive_field_summary_dict(model)
+    density(n, m) = n > 1 ? 2.0 * m / (Float64(n) * (n - 1)) : 0.0
     summary = Dict{String,Any}(
+        "schema"              => "qubolib-builder-preprocessing-v1",
         "package"             => QUBOPREPROCESSING_SOLVER,
         "version"             => QUBOPREPROCESSING_VERSION,
         "repository"          => QUBOPREPROCESSING_REPOSITORY,
         "n_init"              => n_init,
         "m_init"              => m_init,
+        "density_init"        => density(n_init, m_init),
+        "density_strong"      => density(n_strong, m_strong),
+        "density_weak"        => density(n_weak, m_weak),
         "n_strong"            => n_strong,
         "m_strong"            => m_strong,
         "strong_vars_removed" => n_init - n_strong,
@@ -262,8 +276,17 @@ function _qubopreprocessing_summary_dict_from_runs(
         "weak_edge_red_pct"   => round(weak_edge_red_pct; digits = 4),
         "weak_certified"      => _is_result_certified(res_weak),
         "weak_time_s"         => round(Float64(weak_time_s); digits = 4),
-        "coercive_fields"     => _coercive_field_summary_dict(model),
+        "coercive_fields"     => coercive,
+        "coercive_diagnostics_s" => coercive_s,
     )
+    if hasproperty(res_strong, :diagnostics)
+        summary["strong_run"] = res_strong.diagnostics
+        summary["strong_time_s"] = res_strong.diagnostics["clocks"]["preparation_s"]
+    end
+    if hasproperty(res_weak, :diagnostics)
+        summary["weak_run"] = res_weak.diagnostics
+        summary["weak_time_s"] = res_weak.diagnostics["clocks"]["preparation_s"]
+    end
     if hasproperty(res_strong, :rules)
         summary["strong_rules"] = res_strong.rules
     end
@@ -346,7 +369,8 @@ function _load_preprocessing_summary_tsv(path::AbstractString)
 
         rows[inst_id] = Dict{String,Any}(
             "package"              => QUBOPREPROCESSING_SOLVER,
-            "version"              => QUBOPREPROCESSING_VERSION,
+            "version"              => nothing,
+            "schedule"             => Dict("name" => "legacy_summary_tsv", "settings_recorded" => false),
             "repository"           => QUBOPREPROCESSING_REPOSITORY,
             "n_init"               => n_init,
             "m_init"               => m_init,
@@ -439,11 +463,17 @@ function _is_strictly_better_qubo(
     end
 end
 
-function _safe_materialize(preprocess_module::Module, ws)
+function _safe_materialize(preprocess_module::Module, ws; diagnostics = Dict{String,Any}())
+    diagnostics["rounding"] = "none"
+    diagnostics["fallback_reason"] = nothing
     try
-        return preprocess_module.materialize(ws; coefficient_type = Float64)
+        mat = preprocess_module.materialize(ws; coefficient_type = Float64)
+        diagnostics["coefficient_type"] = "Float64"
+        return mat
     catch e
         if e isa InexactError || e isa OverflowError || e isa ArgumentError
+            diagnostics["fallback_reason"] = sprint(showerror, e)
+            diagnostics["coefficient_type"] = "Rational{BigInt}"
             return preprocess_module.materialize(ws; coefficient_type = Rational{BigInt})
         end
         rethrow()
@@ -459,52 +489,11 @@ function _reconstruct_qubopreprocessing(
     return hasproperty(rec, :state) ? rec.state : rec
 end
 
-function _is_callee_kw_method_error(e, fn)::Bool
-    e isa MethodError || return false
-    return e.f === Core.kwcall && e.args isa Tuple && length(e.args) >= 2 && e.args[2] === fn
-end
-
+# No compatibility fallback: older releases cannot implement this policy.
 function _construct_workspace(preprocess_module::Module, model::QUBOTools.Model)
-    ws_fn = preprocess_module.Workspace
-    return try
-        ws_fn(model; rules = :mixed, integerize_scale = false, max_decimals = 14)
-    catch e1
-        _is_callee_kw_method_error(e1, ws_fn) || rethrow()
-        try
-            ws_fn(model; rules = :mixed, integerize_scale = false)
-        catch e2
-            _is_callee_kw_method_error(e2, ws_fn) || rethrow()
-            ws_fn(model; rules = :mixed)
-        end
-    end
-end
-
-function _call_apply_submodular_cut!(
-    preprocess_module::Module,
-    ws;
-    allow_weak::Bool = false,
-)
-    sc_fn = preprocess_module.apply_submodular_cut!
-    return try
-        sc_fn(ws; allow_weak = allow_weak)
-    catch e
-        _is_callee_kw_method_error(e, sc_fn) || rethrow()
-        sc_fn(ws)
-    end
-end
-
-function _call_fallback_preprocess(
-    preprocess_module::Module,
-    model::QUBOTools.Model;
-    mode::Symbol = :strong,
-)
-    prep_fn = preprocess_module.preprocess
-    return try
-        prep_fn(model; mode = mode, integerize_scale = false)
-    catch e
-        _is_callee_kw_method_error(e, prep_fn) || rethrow()
-        prep_fn(model; mode = mode)
-    end
+    return preprocess_module.Workspace(
+        model; rules = :mixed, integerize_scale = true, max_decimals = 9, atol = 0.0,
+    )
 end
 
 function _canonical_exact_polynomial(model::QUBOTools.Model)
@@ -609,269 +598,112 @@ function _verify_workspace_certificate(
     return hasproperty(ver, :valid) ? Bool(ver.valid) : Bool(ver)
 end
 
-function _ensure_fallback_certified(
-    preprocess_module::Module,
-    model::QUBOTools.Model,
-    res,
-)
-    surviving =
-        hasproperty(res, :surviving_variables) ?
-        collect(Int, res.surviving_variables) :
-        collect(1:QUBOTools.dimension(res.model))
-    certified = if isdefined(preprocess_module, :export_certificate) &&
-                   isdefined(preprocess_module, :verify_certificate)
-        target = hasproperty(res, :workspace) ? res.workspace : res.trace
-        cert = preprocess_module.export_certificate(target)
-        if isnothing(cert)
-            _is_identity_reduction(
-                preprocess_module,
-                model,
-                res.model,
-                surviving,
-                res.trace,
-            )
-        elseif hasproperty(cert, :steps) && isempty(cert.steps)
-            false
-        else
-            ver = preprocess_module.verify_certificate(
-                hasproperty(res, :workspace) ? res.workspace : model,
-                cert,
-            )
-            hasproperty(ver, :valid) ? Bool(ver.valid) : Bool(ver)
-        end
-    else
-        false
-    end
-    if res isa NamedTuple
-        return merge(res, (certified = certified,))
-    end
-    base = (
-        model = res.model,
-        surviving_variables = surviving,
-        trace = res.trace,
-        certified = certified,
+function _qubopreprocessing_policy(mode::Symbol, preparation_target_s::Real)
+    mode in (:strong, :weak) || throw(ArgumentError("mode must be :strong or :weak"))
+    (!(preparation_target_s isa Bool) && isfinite(preparation_target_s) &&
+     preparation_target_s >= 0 && isfinite(Float64(preparation_target_s))) ||
+        throw(ArgumentError("preparation_target_s must be finite nonnegative seconds"))
+    options = Dict{String,Any}(string(k) => (v isa Symbol ? string(v) : v)
+                               for (k, v) in pairs(QUBOPREPROCESSING_SCHEDULE_OPTIONS))
+    return Dict{String,Any}(
+        "name" => "QUBOPreprocessing.schedule_budgeted!",
+        "preparation_target_s" => Float64(preparation_target_s),
+        "target_kind" => "soft",
+        "target_scope" => "configuration, workspace construction, scheduling, materialization/export, accounting",
+        "excluded_costs" => ["model loading", "input/provenance hashing", "certificate verification",
+                              "solution reconstruction/capture", "source objective evaluation",
+                              "coercive-field diagnostics"],
+        "mandatory_cheap_floor" => true,
+        "hard_time_cap" => false,
+        "downstream_solver_dispatched" => false,
+        "mode" => string(mode),
+        "allow_weak" => mode == :weak,
+        "workspace" => Dict("rules" => "mixed", "integerize_scale" => true,
+                             "max_decimals" => 9, "atol" => 0.0),
+        "scheduler" => options,
+        "materialization" => Dict("rounding" => "none", "preferred_coefficient_type" => "Float64",
+                                   "exact_fallback_coefficient_type" => "Rational{BigInt}"),
     )
-    return hasproperty(res, :rules) ? merge(base, (rules = res.rules,)) : base
 end
 
 function _run_qubopreprocessing_mode(
     preprocess_module::Module,
     model::QUBOTools.Model;
     mode::Symbol = :strong,
+    preparation_target_s::Real = QUBOPREPROCESSING_PREPARATION_TARGET_S,
 )
-    if isdefined(preprocess_module, :Workspace) &&
-       isdefined(preprocess_module, :schedule_reductions!) &&
-       isdefined(preprocess_module, :materialize)
-        allow_weak = (mode == :weak)
-        ws = _construct_workspace(preprocess_module, model)
-        n_init = length(preprocess_module.original_variables(ws))
-        m_init = ws._state.initial_edges
-        dense_large = m_init > 10_000 && n_init > 500
-        rel_budget = n_init <= 500 ? typemax(Int) : (m_init > 15_000 ? 25_000 : (m_init > 5_000 ? 75_000 : typemax(Int)))
-        has_blocks =
-            isdefined(preprocess_module, :eliminate_block!) ||
-            isdefined(preprocess_module, :apply_block_equivalence!)
-        use_blocks = has_blocks && n_init <= 1_500 && m_init <= 10_000
-        r1 = if has_blocks
-            preprocess_module.schedule_reductions!(
-                ws;
-                allow_weak_dominance = allow_weak,
-                allow_weak_relations = allow_weak,
-                enable_star_triangle = true,
-                enable_blocks = use_blocks,
-                relation_work_budget = rel_budget,
-            )
-        else
-            preprocess_module.schedule_reductions!(
-                ws;
-                allow_weak_dominance = allow_weak,
-                allow_weak_relations = allow_weak,
-                enable_star_triangle = true,
-                relation_work_budget = rel_budget,
-            )
-        end
-        dom_ded = r1.dominance_deductions
-        elim_ded = r1.elimination_deductions
-        star_ded = r1.star_triangle_deductions
-        rel_ded = r1.relation_deductions
-        fill_edges = r1.fill_edges
-        roof_ded = 0
-        submod_ded = 0
-        maxcut_ded = 0
-        probe_ded = 0
-
-        max_outer_rounds = (m_init <= 5_000 && n_init <= 500) ? 8 : 1
-        post_probe_ded = 0
-        for iter in 1:max_outer_rounds
-            (length(ws._state.fixes) < n_init && !dense_large) || break
-            round_ded = 0
-
-            r_rd = preprocess_module.apply_roof_duality!(ws)
-            rd_new = length(r_rd.fixings)
-            roof_ded += rd_new
-            round_ded += rd_new
-
-            if length(ws._state.fixes) < n_init
-                r_sc = _call_apply_submodular_cut!(
-                    preprocess_module,
-                    ws;
-                    allow_weak = allow_weak,
-                )
-                sc_new = length(r_sc.fixings)
-                submod_ded += sc_new
-                round_ded += sc_new
-            end
-            if length(ws._state.fixes) < n_init
-                r_mc = preprocess_module.apply_maxcut!(ws; allow_weak = allow_weak)
-                maxcut_ded += r_mc.deductions
-                round_ded += r_mc.deductions
-                fill_edges += r_mc.fill_edges
-            end
-            if round_ded > 0 && length(ws._state.fixes) < n_init
-                r2 = if has_blocks
-                    preprocess_module.schedule_reductions!(
-                        ws;
-                        allow_weak_dominance = allow_weak,
-                        allow_weak_relations = allow_weak,
-                        enable_star_triangle = true,
-                        enable_blocks = use_blocks,
-                        relation_work_budget = rel_budget,
-                    )
-                else
-                    preprocess_module.schedule_reductions!(
-                        ws;
-                        allow_weak_dominance = allow_weak,
-                        allow_weak_relations = allow_weak,
-                        enable_star_triangle = true,
-                        relation_work_budget = rel_budget,
-                    )
-                end
-                dom_ded += r2.dominance_deductions
-                elim_ded += r2.elimination_deductions
-                star_ded += r2.star_triangle_deductions
-                rel_ded += r2.relation_deductions
-                fill_edges += r2.fill_edges
-            end
-            if iter > 1 && round_ded == 0 && post_probe_ded == 0
-                break
-            end
-            pr_new = 0
-            post_probe_ded = 0
-            if m_init <= 5_000 && n_init <= 500 && length(ws._state.fixes) < n_init
-                if isdefined(preprocess_module, :coercive_field_witness)
-                    r_pr = preprocess_module.probe_variables!(
-                        ws;
-                        max_candidates = min(n_init, 100),
-                        max_rounds = n_init <= 100 ? 8 : 1,
-                        max_trial_fixes = n_init <= 100 ? 512 : 64,
-                        max_work = n_init <= 100 ? 2_000_000 : 100_000,
-                        max_exact_work = n_init <= 100 ? 2_000_000 : 100_000,
-                        order = :coercive,
-                    )
-                    pr_new = r_pr.deductions
-                else
-                    mat0 = _safe_materialize(preprocess_module, ws)
-                    red_m0 = preprocess_module.export_model(mat0)
-                    h0, _, _ = _exact_ising_fields_and_couplings(red_m0)
-                    is_bool = Symbol(QUBOTools.domain(model)) == :bool
-                    low_val = is_bool ? 0 : -1
-                    dir = Symbol(QUBOTools.sense(model)) == :max ? -1 : 1
-                    free0 = Int[
-                        iszero(h0[k]) ? low_val : ((dir * h0[k] > 0) ? low_val : 1) for
-                        k in eachindex(h0)
-                    ]
-                    w_state = _reconstruct_qubopreprocessing(preprocess_module, mat0, free0)
-                    r_pr = preprocess_module.probe_variables!(
-                        ws,
-                        w_state;
-                        max_candidates = min(n_init, 100),
-                        max_rounds = 1,
-                        max_trial_fixes = 64,
-                        max_work = 100_000,
-                        max_exact_work = 100_000,
-                    )
-                    pr_new = r_pr.deductions
-                end
-                probe_ded += pr_new
-                round_ded += pr_new
-            end
-            if pr_new > 0 && length(ws._state.fixes) < n_init
-                r3 = if has_blocks
-                    preprocess_module.schedule_reductions!(
-                        ws;
-                        allow_weak_dominance = allow_weak,
-                        allow_weak_relations = allow_weak,
-                        enable_star_triangle = true,
-                        enable_blocks = use_blocks,
-                        relation_work_budget = rel_budget,
-                    )
-                else
-                    preprocess_module.schedule_reductions!(
-                        ws;
-                        allow_weak_dominance = allow_weak,
-                        allow_weak_relations = allow_weak,
-                        enable_star_triangle = true,
-                        relation_work_budget = rel_budget,
-                    )
-                end
-                dom_ded += r3.dominance_deductions
-                elim_ded += r3.elimination_deductions
-                star_ded += r3.star_triangle_deductions
-                rel_ded += r3.relation_deductions
-                fill_edges += r3.fill_edges
-                post_probe_ded =
-                    r3.dominance_deductions +
-                    r3.elimination_deductions +
-                    r3.star_triangle_deductions +
-                    r3.relation_deductions
-                round_ded += post_probe_ded
-            end
-            round_ded > 0 || break
-        end
-
-        mat = _safe_materialize(preprocess_module, ws)
-        red_model = preprocess_module.export_model(mat)
-        surviving = hasproperty(mat, :_free) ? collect(Int, mat._free) : collect(1:n_init)
-        total_deductions =
-            dom_ded +
-            elim_ded +
-            star_ded +
-            rel_ded +
-            roof_ded +
-            submod_ded +
-            maxcut_ded +
-            probe_ded
-        certified = _verify_workspace_certificate(
-            preprocess_module,
-            ws,
-            model,
-            red_model,
-            surviving,
-            mat,
-            total_deductions,
-        )
-        rules = Dict{String,Any}(
-            "dominance"   => dom_ded,
-            "elimination" => elim_ded,
-            "star"        => star_ded,
-            "relations"   => rel_ded,
-            "roof"        => roof_ded,
-            "submodular"  => submod_ded,
-            "maxcut"      => maxcut_ded,
-            "probing"     => probe_ded,
-            "fill_edges"  => fill_edges,
-        )
-        return (
-            model = red_model,
-            surviving_variables = surviving,
-            trace = mat,
-            rules = rules,
-            certified = certified,
-        )
-    else
-        res = _call_fallback_preprocess(preprocess_module, model; mode = mode)
-        return _ensure_fallback_certified(preprocess_module, model, res)
+    start_ns = time_ns()
+    policy = _qubopreprocessing_policy(mode, preparation_target_s)
+    _check_qubopreprocessing_version(pkgversion(preprocess_module))
+    for name in (:Workspace, :schedule_budgeted!, :materialize, :export_model, :index_map)
+        isdefined(preprocess_module, name) || error("$(QUBOPREPROCESSING_SOLVER) v$(QUBOPREPROCESSING_VERSION) with $name is required")
     end
+    construction_start_ns = time_ns()
+    ws = _construct_workspace(preprocess_module, model)
+    construction_end_ns = time_ns()
+    construction_s = (construction_end_ns - construction_start_ns) / 1e9
+    elapsed_before_schedule_s = (construction_end_ns - start_ns) / 1e9
+    # The public scheduler starts its own clock. Construction consumes the same
+    # preparation allowance, but its mandatory cheap floor can overrun even zero.
+    scheduler_budget_s = max(0.0, Float64(preparation_target_s) - elapsed_before_schedule_s)
+    schedule = preprocess_module.schedule_budgeted!(
+        ws; time_limit = scheduler_budget_s, allow_weak = mode == :weak,
+        QUBOPREPROCESSING_SCHEDULE_OPTIONS...,
+    )
+    schedule_end_ns = time_ns()
+    materialization = Dict{String,Any}()
+    mat = _safe_materialize(preprocess_module, ws; diagnostics = materialization)
+    red_model = preprocess_module.export_model(mat)
+    materialization_end_ns = time_ns()
+    mapping = preprocess_module.index_map(mat)
+    surviving = sort!(findall(>(0), mapping); by = i -> mapping[i])
+    families = [Dict{String,Any}(
+        "family" => string(f.family), "calls" => f.calls, "time_s" => f.time_s,
+        "variables_removed" => f.freed, "stop_reason" => string(f.stop_reason),
+    ) for f in schedule.families]
+    rules = Dict{String,Any}(f["family"] => f["variables_removed"] for f in families)
+    total_deductions = sum(f.freed for f in schedule.families; init = 0)
+    diagnostics = Dict{String,Any}(
+        "policy" => policy,
+        "scheduler_budget_s" => scheduler_budget_s,
+        "stop_reason" => string(schedule.stop_reason),
+        "passes" => schedule.passes,
+        "scheduler_report_elapsed_s" => schedule.elapsed_s,
+        "initial_variables" => schedule.initial_variables,
+        "residual_variables" => schedule.residual_variables,
+        "families" => families,
+        "normalization" => Dict{String,Any}(
+            "integerize_scale" => true, "max_decimals" => 9, "atol" => 0.0,
+            "input_scale" => string(QUBOTools.scale(model)),
+            "export_scale" => string(QUBOTools.scale(red_model)),
+            "workspace_perturbed" => hasproperty(ws, :perturbed) ? ws.perturbed : nothing,
+            "workspace_max_perturbation" => hasproperty(ws, :max_perturbation) ? string(ws.max_perturbation) : nothing,
+            "export_perturbed" => hasproperty(mat, :perturbed) ? mat.perturbed : nothing,
+            "export_max_perturbation" => hasproperty(mat, :max_perturbation) ? string(mat.max_perturbation) : nothing,
+        ),
+        "materialization" => materialization,
+    )
+    preparation_end_ns = time_ns()
+    preparation_s = (preparation_end_ns - start_ns) / 1e9
+    verification_start_ns = time_ns()
+    certified = _verify_workspace_certificate(
+        preprocess_module, ws, model, red_model, surviving, mat, total_deductions,
+    )
+    verification_end_ns = time_ns()
+    diagnostics["clocks"] = Dict{String,Any}(
+        "configuration_s" => (construction_start_ns - start_ns) / 1e9,
+        "construction_s" => construction_s,
+        "schedule_s" => (schedule_end_ns - construction_end_ns) / 1e9,
+        "materialization_export_s" => (materialization_end_ns - schedule_end_ns) / 1e9,
+        "accounting_s" => (preparation_end_ns - materialization_end_ns) / 1e9,
+        "preparation_s" => preparation_s,
+        "preparation_overrun_s" => max(0.0, preparation_s - Float64(preparation_target_s)),
+        "certificate_verification_s" => (verification_end_ns - verification_start_ns) / 1e9,
+        "total_mode_s" => (verification_end_ns - start_ns) / 1e9,
+    )
+    diagnostics["certificate_verified"] = certified
+    return (model = red_model, surviving_variables = surviving, trace = mat,
+            rules = rules, certified = certified, diagnostics = diagnostics)
 end
 
 const _QUBOLIB_REPO_ROOT = normpath(joinpath(@__DIR__, "..", "..", ".."))
@@ -906,6 +738,48 @@ _source_sha256(path::AbstractString) = bytes2hex(SHA.sha256(replace(read(path, S
 # Hash of this file as loaded; provenance describes the code that runs, not later edits.
 const _PREPROCESSING_SOURCE_SHA256 = _source_sha256(@__FILE__)
 
+# Hashing is deliberately outside the preparation clock. Include native domain,
+# sense and exact stored coefficients; this identifies input bytes mathematically
+# without evaluating an objective or changing the Bool/Spin representation.
+function _qubopreprocessing_model_identity(model::QUBOTools.Model)
+    ctx = SHA.SHA2_256_CTX()
+    add(parts...) = SHA.update!(ctx, codeunits(string(parts..., '\n')))
+    add("qubolib-stored-model-v1 ", QUBOTools.dimension(model), ' ',
+        Symbol(QUBOTools.domain(model)), ' ', Symbol(QUBOTools.sense(model)))
+    add("scale ", _to_exact_rational_qubolib(QUBOTools.scale(model)))
+    add("offset ", _to_exact_rational_qubolib(QUBOTools.offset(model)))
+    for (i, v) in sort!(collect(QUBOTools.linear_terms(model)); by = first)
+        add("linear ", i, ' ', _to_exact_rational_qubolib(v))
+    end
+    for ((i, j), v) in sort!(collect(QUBOTools.quadratic_terms(model)); by = first)
+        add("quadratic ", i, ' ', j, ' ', _to_exact_rational_qubolib(v))
+    end
+    return Dict{String,Any}(
+        "fingerprint_schema" => "qubolib-stored-model-v1",
+        "sha256" => bytes2hex(SHA.digest!(ctx)),
+        "dimension" => QUBOTools.dimension(model),
+        "quadratic_terms" => _qubopreprocessing_edge_count(model),
+        "domain" => string(Symbol(QUBOTools.domain(model))),
+        "sense" => string(Symbol(QUBOTools.sense(model))),
+    )
+end
+
+function _package_git_state(root)
+    isnothing(root) && return (commit = nothing, dirty = nothing)
+    output(args) = try
+        strip(read(pipeline(`git -C $root $args`; stderr = devnull), String))
+    catch err
+        err isa InterruptException && rethrow()
+        nothing
+    end
+    top = output(["rev-parse", "--show-toplevel"])
+    (isnothing(top) || !isdir(top) || realpath(top) != realpath(root)) &&
+        return (commit = nothing, dirty = nothing)
+    status = output(["status", "--porcelain", "--untracked-files=no"])
+    return (commit = output(["rev-parse", "HEAD"]),
+            dirty = isnothing(status) ? nothing : !isempty(status))
+end
+
 function _check_qubopreprocessing_version(loaded::Union{VersionNumber,Nothing})
     if !isnothing(loaded) && loaded != VersionNumber(QUBOPREPROCESSING_VERSION)
         error("Loaded $(QUBOPREPROCESSING_SOLVER) v$(loaded) does not match " *
@@ -931,14 +805,24 @@ function _qubopreprocessing_build_provenance(
     uuid = Base.PkgId(preprocess_module).uuid
     dep = isnothing(uuid) ? nothing : get(Pkg.dependencies(), uuid, nothing)
     git = _qubolib_git_state()
+    package_git = _package_git_state(pkg_root)
+    project = Base.active_project()
+    manifest = isnothing(project) ? nothing : joinpath(dirname(project), "Manifest.toml")
     return Dict{String,Any}(
         "qubolib_build_commit"           => git.commit,
         "qubolib_build_tree_dirty"       => git.dirty,
+        "qubolib_build_tree_hash"        => _git_build_output(["rev-parse", "HEAD^{tree}"]),
         "pipeline_source"                => "scripts/build/sources/preprocessing.jl",
         "pipeline_source_sha256"         => _PREPROCESSING_SOURCE_SHA256,
         "qubopreprocessing_version"      => isnothing(loaded) ? nothing : string(loaded),
         "qubopreprocessing_tree_hash"    => isnothing(pkg_root) ? nothing : bytes2hex(Pkg.GitTools.tree_hash(pkg_root)),
         "qubopreprocessing_git_revision" => isnothing(dep) ? nothing : dep.git_revision,
+        "qubopreprocessing_git_commit"   => package_git.commit,
+        "qubopreprocessing_tree_dirty"   => package_git.dirty,
+        "julia_version"                 => string(VERSION),
+        "julia_threads"                 => Threads.nthreads(),
+        "project_sha256"                => isnothing(project) ? nothing : _file_sha256(project),
+        "manifest_sha256"               => isnothing(manifest) || !isfile(manifest) ? nothing : _file_sha256(manifest),
         "summary_tsv_sha256"             => isnothing(summary_tsv) ? nothing : _file_sha256(summary_tsv),
         "coercive_tsv_sha256"            => isnothing(coercive_tsv) ? nothing : _file_sha256(coercive_tsv),
     )
@@ -951,7 +835,9 @@ function enrich_preprocessing!(
     coercive_tsv::Union{AbstractString,Nothing} = nothing,
     repair_instance_ids::Union{AbstractSet{<:Integer},Nothing} = nothing,
 )
-    build_provenance = _qubopreprocessing_build_provenance(preprocess_module; summary_tsv, coercive_tsv)
+    provenance_s = @elapsed build_provenance = _qubopreprocessing_build_provenance(preprocess_module; summary_tsv, coercive_tsv)
+    build_provenance["provenance_capture_s"] = provenance_s
+    build_provenance["run_started_unix_s"] = time()
     _ensure_qubopreprocessing_solver!(index)
     db = QUBOLib.database(index)
 
@@ -989,17 +875,21 @@ function enrich_preprocessing!(
                  parsed isa AbstractDict ? Dict{String,Any}(String(k) => v for (k, v) in pairs(parsed)) : Dict{String,Any}()
             end
 
+            load_s = 0.0
+            hash_s = 0.0
+            input_identity = nothing
             prep_info = if haskey(precomputed, inst_id)
                 info = copy(precomputed[inst_id])
                 if haskey(precomputed_coercive, inst_id)
                     info["coercive_fields"] = precomputed_coercive[inst_id]
                 elseif !haskey(info, "coercive_fields")
-                    model_c = QUBOLib.load_instance(index, inst_id)
+                    load_s = @elapsed model_c = QUBOLib.load_instance(index, inst_id)
                     info["coercive_fields"] = _coercive_field_summary_dict(model_c)
                 end
                 info
             else
-                model = QUBOLib.load_instance(index, inst_id)
+                load_s = @elapsed model = QUBOLib.load_instance(index, inst_id)
+                hash_s = @elapsed input_identity = _qubopreprocessing_model_identity(model)
                 t_s = @elapsed res_s = _run_qubopreprocessing_mode(preprocess_module, model; mode = :strong)
                 t_w = @elapsed res_w = _run_qubopreprocessing_mode(preprocess_module, model; mode = :weak)
                 live_results[inst_id] = (model = model, strong = res_s, weak = res_w)
@@ -1016,18 +906,30 @@ function enrich_preprocessing!(
                 info
             end
 
-            meta["n_strong"] = Int(prep_info["n_strong"])
-            meta["m_strong"] = Int(prep_info["m_strong"])
-            meta["n_weak"] = Int(prep_info["n_weak"])
-            meta["m_weak"] = Int(prep_info["m_weak"])
             provenance = copy(build_provenance)
             provenance["result_source"] = haskey(precomputed, inst_id) ? "summary_tsv" : "pipeline"
+            if !isnothing(input_identity)
+                input_identity["instance"] = inst_id
+                input_identity["collection"] = row[:collection]
+                input_identity["name"] = row[:name]
+                prep_info["input"] = input_identity
+            end
+            prep_info["enrichment_clocks"] = Dict("model_loading_s" => load_s, "input_hashing_s" => hash_s)
             provenance["coercive_source"] =
                 haskey(precomputed_coercive, inst_id) ? "coercive_tsv" :
                 haskey(get(precomputed, inst_id, Dict{String,Any}()), "coercive_fields") ? "summary_tsv" :
                 "pipeline"
             prep_info["provenance"] = provenance
-            meta["preprocessing"] = prep_info
+            if haskey(meta, "preprocessing") || any(haskey(meta, k) for k in ("n_strong", "m_strong", "n_weak", "m_weak"))
+                history = get!(meta, "preprocessing_runs", Any[])
+                history isa AbstractVector || error("Existing preprocessing_runs must be an array")
+                push!(history, Dict("schema" => "qubolib-builder-preprocessing-v1", "result" => prep_info))
+            else
+                for k in ("n_strong", "m_strong", "n_weak", "m_weak")
+                    meta[k] = Int(prep_info[k])
+                end
+                meta["preprocessing"] = prep_info
+            end
 
             strong_zero_cert =
                 Int(prep_info["n_strong"]) == 0 &&
@@ -1062,7 +964,7 @@ function enrich_preprocessing!(
             "version"         => QUBOPREPROCESSING_VERSION,
             "repository"      => QUBOPREPROCESSING_REPOSITORY,
             "submission_kind" => "certified_exact_reduction",
-            "date"            => "2026-10-28",
+            "run_started_unix_s" => build_provenance["run_started_unix_s"],
         ),
     )
 
@@ -1080,7 +982,7 @@ function enrich_preprocessing!(
             "version"         => QUBOPREPROCESSING_VERSION,
             "repository"      => QUBOPREPROCESSING_REPOSITORY,
             "submission_kind" => "certified_solution_repair",
-            "date"            => "2026-10-28",
+            "run_started_unix_s" => build_provenance["run_started_unix_s"],
         ),
     )
 
@@ -1117,7 +1019,9 @@ function enrich_preprocessing!(
             continue
         end
 
-        state_domain = _reconstruct_qubopreprocessing(preprocess_module, res.trace, Int[])
+        capture_start_ns = time_ns()
+        reconstruction_s = @elapsed state_domain = _reconstruct_qubopreprocessing(preprocess_module, res.trace, Int[])
+        evaluation_start_ns = time_ns()
         state_bool = _state_to_bool_vector(state_domain, domain)
         qubo_val = Float64(QUBOTools.value(model, state_domain))
         cert_val = Float64(QUBOTools.scale(res.model)) * Float64(QUBOTools.offset(res.model))
@@ -1127,12 +1031,13 @@ function enrich_preprocessing!(
             )
         end
 
-        evaluator = _qoblib_source_evaluator(index, inst_id; context = "preprocessing-exact-$inst_id")
-        source_eval = _qoblib_source_evaluation(
-            evaluator,
-            state_bool;
-            context = "preprocessing-exact-$inst_id",
-        )
+        stored_objective_check_s = (time_ns() - evaluation_start_ns) / 1e9
+        source_evaluation_s = @elapsed begin
+            evaluator = _qoblib_source_evaluator(index, inst_id; context = "preprocessing-exact-$inst_id")
+            source_eval = _qoblib_source_evaluation(
+                evaluator, state_bool; context = "preprocessing-exact-$inst_id",
+            )
+        end
 
         sol_meta = Dict{String,Any}(
             "solver"            => QUBOPREPROCESSING_SOLVER,
@@ -1147,6 +1052,14 @@ function enrich_preprocessing!(
             "certified_offset"  => cert_val,
             "field_alignment"   => _field_alignment(model, state_domain),
             "validation_status" => "validated",
+            "preparation_run" => res.diagnostics,
+            "capture_clocks" => Dict(
+                "reconstruction_s" => reconstruction_s,
+                "stored_objective_check_s" => stored_objective_check_s,
+                "source_evaluation_s" => source_evaluation_s,
+                "capture_before_storage_s" => (time_ns() - capture_start_ns) / 1e9,
+                "scope" => "reconstruction, objective checks, source evaluation and metadata; excludes SampleSet/storage",
+            ),
         )
         sol = QUBOTools.SampleSet{Float64,Int}(model, [state_domain]; metadata = sol_meta)
 
@@ -1242,14 +1155,15 @@ function enrich_preprocessing!(
         res_s = entry.strong
         strong_certified = _is_result_certified(res_s) && strong_meta_cert
         red_state_s = [orig_state[v] for v in res_s.surviving_variables]
-        rec_state_s = _reconstruct_qubopreprocessing(preprocess_module, res_s.trace, red_state_s)
-        rec_val_s = Float64(QUBOTools.value(model, rec_state_s))
+        capture_start_ns = time_ns()
+        reconstruction_s = @elapsed rec_state_s = _reconstruct_qubopreprocessing(preprocess_module, res_s.trace, red_state_s)
+        objective_evaluation_s = @elapsed rec_val_s = Float64(QUBOTools.value(model, rec_state_s))
         rec_bits_s = _state_to_bool_vector(rec_state_s, domain)
 
         evaluator = nothing
         if _is_strictly_better_qubo(rec_val_s, orig_val, sense)
             evaluator = _qoblib_source_evaluator(index, inst_id; context = "preprocessing-repair-$rec_id")
-            source_eval = _qoblib_source_evaluation(
+            source_evaluation_s = @elapsed source_eval = _qoblib_source_evaluation(
                 evaluator,
                 rec_bits_s;
                 context = "preprocessing-repair-strong-$rec_id",
@@ -1276,6 +1190,14 @@ function enrich_preprocessing!(
                 "n_init"                      => QUBOTools.dimension(model),
                 "n_reduced"                   => QUBOTools.dimension(res_s.model),
                 "validation_status"           => "validated",
+                "preparation_run"             => res_s.diagnostics,
+                "capture_clocks" => Dict(
+                    "reconstruction_s" => reconstruction_s,
+                    "stored_objective_evaluation_s" => objective_evaluation_s,
+                    "source_evaluation_s" => source_evaluation_s,
+                    "capture_before_storage_s" => (time_ns() - capture_start_ns) / 1e9,
+                    "scope" => "reconstruction, objective/source evaluation and metadata; excludes SampleSet/storage",
+                ),
             )
             sol = QUBOTools.SampleSet{Float64,Int}(model, [rec_state_s]; metadata = sol_meta)
             QUBOLib.add_solution!(
@@ -1300,8 +1222,9 @@ function enrich_preprocessing!(
         res_w = entry.weak
         weak_certified = _is_result_certified(res_w) && weak_meta_cert
         red_state_w = [orig_state[v] for v in res_w.surviving_variables]
-        rec_state_w = _reconstruct_qubopreprocessing(preprocess_module, res_w.trace, red_state_w)
-        rec_val_w = Float64(QUBOTools.value(model, rec_state_w))
+        capture_start_ns = time_ns()
+        reconstruction_s = @elapsed rec_state_w = _reconstruct_qubopreprocessing(preprocess_module, res_w.trace, red_state_w)
+        objective_evaluation_s = @elapsed rec_val_w = Float64(QUBOTools.value(model, rec_state_w))
         rec_bits_w = _state_to_bool_vector(rec_state_w, domain)
 
         best_so_far = _is_strictly_better_qubo(rec_val_s, orig_val, sense) ? rec_val_s : orig_val
@@ -1309,7 +1232,7 @@ function enrich_preprocessing!(
             if isnothing(evaluator)
                 evaluator = _qoblib_source_evaluator(index, inst_id; context = "preprocessing-repair-$rec_id")
             end
-            source_eval = _qoblib_source_evaluation(
+            source_evaluation_s = @elapsed source_eval = _qoblib_source_evaluation(
                 evaluator,
                 rec_bits_w;
                 context = "preprocessing-repair-weak-$rec_id",
@@ -1336,6 +1259,14 @@ function enrich_preprocessing!(
                 "n_init"                      => QUBOTools.dimension(model),
                 "n_reduced"                   => QUBOTools.dimension(res_w.model),
                 "validation_status"           => "validated",
+                "preparation_run"             => res_w.diagnostics,
+                "capture_clocks" => Dict(
+                    "reconstruction_s" => reconstruction_s,
+                    "stored_objective_evaluation_s" => objective_evaluation_s,
+                    "source_evaluation_s" => source_evaluation_s,
+                    "capture_before_storage_s" => (time_ns() - capture_start_ns) / 1e9,
+                    "scope" => "reconstruction, objective/source evaluation and metadata; excludes SampleSet/storage",
+                ),
             )
             sol = QUBOTools.SampleSet{Float64,Int}(model, [rec_state_w]; metadata = sol_meta)
             QUBOLib.add_solution!(

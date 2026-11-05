@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Route future preprocessing enrichment through QUBOPreprocessing.jl 0.2.1's
+  recorded budgeted schedule with exact integerization and a five-second soft
+  preparation target. Retain native Bool/Spin models and append policy settings,
+  clocks, stop reasons and certificate/perturbation diagnostics. Published data
+  versions retain their original metadata and producing source pins.
+
 ## v0.2.7 - 2026-11-05
 
 - Select the published `v0.2.6-data+9` artifact for normal package installs: a

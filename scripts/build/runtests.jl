@@ -1,4 +1,5 @@
 using Test
+import QUBOPreprocessing
 
 include("build.jl")
 include("test_portfolio.jl")
@@ -1260,82 +1261,38 @@ function reconstruct(trace, reduced_state::AbstractVector{<:Integer})
         return mode == :strong ? [1, 1, x1] : [0, 0, 1]
     end
 end
-end
-
-module _MockLegacyFallbackPreprocess
-import QUBOTools
-
-const CALL_COUNT = Ref{Int}(0)
-const THROW_INTERNAL = Ref{Bool}(false)
-
-function preprocess(model::QUBOTools.Model; mode::Symbol = :strong)
-    CALL_COUNT[] += 1
-    THROW_INTERNAL[] && (1 + "internal_preprocess_bug")
-    return (
-        model = model,
-        surviving_variables = collect(1:QUBOTools.dimension(model)),
-        trace = (:legacy_noop, mode),
-    )
-end
-
-export_certificate(trace) = nothing
-verify_certificate(::QUBOTools.Model, cert) = (valid = false,)
-reconstruct(trace, reduced_state::AbstractVector{<:Integer}) = collect(Int, reduced_state)
-end
-
-module _MockLegacyNoMaxDecimalsWorkspace
-import QUBOTools
-
-const RECORDED_INTEGERIZE = Ref{Union{Nothing,Bool}}(nothing)
-const THROW_INTERNAL_METHOD_ERROR = Ref{Symbol}(:none)
-const WORKSPACE_CALLS = Ref{Int}(0)
-const SUBMODULAR_CALLS = Ref{Int}(0)
-
-mutable struct _MockState
-    initial_edges::Int
-    fixes::Vector{Int}
-end
-
-struct Workspace
+mutable struct Workspace
     model::QUBOTools.Model
-    _state::_MockState
+    result::Any
 end
-
-function Workspace(
-    model::QUBOTools.Model;
-    rules::Symbol = :mixed,
-    integerize_scale::Bool = true,
-)
-    WORKSPACE_CALLS[] += 1
-    THROW_INTERNAL_METHOD_ERROR[] == :workspace && (1 + "internal_workspace_bug")
-    RECORDED_INTEGERIZE[] = integerize_scale
-    return Workspace(model, _MockState(length(QUBOTools.quadratic_terms(model)), Int[]))
+Workspace(model::QUBOTools.Model; kwargs...) = Workspace(model, nothing)
+function schedule_budgeted!(ws::Workspace; allow_weak = false, kwargs...)
+    ws.result = preprocess(ws.model; mode = allow_weak ? :weak : :strong, integerize_scale = true)
+    n = QUBOTools.dimension(ws.model)
+    nr = QUBOTools.dimension(ws.result.model)
+    return (stop_reason = nr == 0 ? :solved : :fixpoint, passes = 1, elapsed_s = 0.0,
+            initial_variables = n, residual_variables = nr,
+            families = [(family = :cheap, calls = 1, time_s = 0.0, freed = n - nr, stop_reason = :fixpoint)])
 end
-
-original_variables(ws::Workspace) = collect(1:QUBOTools.dimension(ws.model))
-schedule_reductions!(ws::Workspace; kwargs...) = (
-    dominance_deductions = 0,
-    elimination_deductions = 0,
-    star_triangle_deductions = 0,
-    relation_deductions = 0,
-    fill_edges = 0,
-)
-apply_roof_duality!(ws::Workspace) = (fixings = Pair{Int,Int}[],)
-function apply_submodular_cut!(ws::Workspace)
-    SUBMODULAR_CALLS[] += 1
-    THROW_INTERNAL_METHOD_ERROR[] == :submodular && (1 + "internal_submodular_bug")
-    return (fixings = Pair{Int,Int}[],)
-end
-apply_maxcut!(ws::Workspace; kwargs...) = (deductions = 0, fill_edges = 0)
-coercive_field_witness(ws::Workspace; kwargs...) = ones(Int, QUBOTools.dimension(ws.model))
-probe_variables!(ws::Workspace; kwargs...) = (deductions = 0,)
-materialize(ws::Workspace; coefficient_type = Float64) =
-    (_free = collect(1:QUBOTools.dimension(ws.model)), _model = ws.model, _ws = ws)
+materialize(ws::Workspace; kwargs...) = (_free = ws.result.surviving_variables,
+    _model = ws.result.model, _trace = ws.result.trace)
 export_model(mat) = mat._model
-export_certificate(ws::Workspace) = nothing
-verify_certificate(ws::Workspace, cert) = (valid = false,)
-reconstruct(mat, reduced_state::AbstractVector{<:Integer}) =
-    (state = collect(Int, reduced_state),)
+function index_map(mat)
+    n = mat._trace[1] == :repair_three_var ? 3 : 2
+    result = zeros(Int, n)
+    for (k, i) in enumerate(mat._free)
+        result[i] = k
+    end
+    return result
+end
+export_certificate(ws::Workspace) = export_certificate(ws.result.trace)
+verify_certificate(ws::Workspace, cert) = verify_certificate(ws.model, cert)
+reconstruct(mat::NamedTuple, reduced_state::AbstractVector{<:Integer}) = reconstruct(mat._trace, reduced_state)
+end
+
+module _MockMissingBudgetedAPI
+const WORKSPACE_CALLS = Ref(0)
+Workspace(args...; kwargs...) = (WORKSPACE_CALLS[] += 1)
 end
 
 module _MockWorkspaceQUBOPreprocessing
@@ -1350,6 +1307,11 @@ const THROW_WORKSPACE_INTERNAL_ERROR = Ref{Bool}(false)
 const WORKSPACE_CALL_COUNT = Ref{Int}(0)
 const THROW_SUBMODULAR_INTERNAL_ERROR = Ref{Bool}(false)
 const SUBMODULAR_CALL_COUNT = Ref{Int}(0)
+const CONSTRUCTION_DELAY = Ref(0.0)
+const SCHEDULE_DELAY = Ref(0.0)
+const VERIFY_DELAY = Ref(0.0)
+const RECORDED_BUDGET = Ref(0.0)
+const RECORDED_OPTIONS = Ref{Any}(nothing)
 
 mutable struct _MockState
     initial_edges::Int
@@ -1372,54 +1334,22 @@ mutable struct Workspace
     snapshot_offset::Rational{BigInt}
 end
 
-function _snapshot_polynomial(
-    model::QUBOTools.Model;
-    integerize_scale::Bool = false,
-    max_decimals::Int = 14,
-)
-    raw_lin = Dict(Int(i) => Float64(v) for (i, v) in QUBOTools.linear_terms(model))
-    raw_quad = Dict(
-        (min(Int(i), Int(j)), max(Int(i), Int(j))) => Float64(v) for
-        ((i, j), v) in QUBOTools.quadratic_terms(model)
+function _snapshot_polynomial(model::QUBOTools.Model; kwargs...)
+    return (
+        linear = Dict(Int(i) => Rational{BigInt}(v) for (i, v) in QUBOTools.linear_terms(model)),
+        quadratic = Dict((Int(i), Int(j)) => Rational{BigInt}(v) for ((i, j), v) in QUBOTools.quadratic_terms(model)),
+        offset = Rational{BigInt}(QUBOTools.offset(model)),
     )
-    raw_off = Float64(QUBOTools.offset(model))
-    all_vals = vcat(collect(values(raw_lin)), collect(values(raw_quad)), [raw_off])
-
-    scale_factor = 1.0
-    use_rounded = false
-    if integerize_scale && !isempty(all_vals)
-        for d in 0:max_decimals
-            λ = 10.0^d
-            ok = all(all_vals) do v
-                sv = v * λ
-                r = round(sv)
-                abs(sv - r) <= 1e-12 * max(1.0, abs(r))
-            end
-            if ok
-                scale_factor = λ
-                use_rounded = true
-                break
-            end
-        end
-    end
-
-    to_rat(v::Float64) =
-        use_rounded ? Rational{BigInt}(BigInt(round(Int64, v * scale_factor))) //
-                      Rational{BigInt}(BigInt(round(Int64, scale_factor))) :
-        Rational{BigInt}(v)
-
-    lin = Dict(i => to_rat(v) for (i, v) in raw_lin)
-    quad = Dict(k => to_rat(v) for (k, v) in raw_quad)
-    off = to_rat(raw_off)
-    return (linear = lin, quadratic = quad, offset = off)
 end
 
 function Workspace(
     model::QUBOTools.Model;
     rules::Symbol = :mixed,
     integerize_scale::Bool = false,
-    max_decimals::Int = 14,
+    max_decimals::Int = 9,
+    atol::Real = 0.0,
 )
+    CONSTRUCTION_DELAY[] > 0 && sleep(CONSTRUCTION_DELAY[])
     WORKSPACE_CALL_COUNT[] += 1
     THROW_WORKSPACE_INTERNAL_ERROR[] && (1 + "internal_workspace_kw_bug")
     m_init = length(QUBOTools.quadratic_terms(model))
@@ -1576,8 +1506,35 @@ function export_certificate(ws::Workspace)
     return isempty(ws._state.fixes) ? nothing : (steps = copy(ws._state.fixes),)
 end
 
-verify_certificate(ws::Workspace, cert) =
-    (valid = !isnothing(cert) && !isempty(cert.steps) && ws.cert_valid,)
+function verify_certificate(ws::Workspace, cert)
+    VERIFY_DELAY[] > 0 && sleep(VERIFY_DELAY[])
+    return (valid = !isnothing(cert) && !isempty(cert.steps) && ws.cert_valid,)
+end
+
+function index_map(mat)
+    result = zeros(Int, QUBOTools.dimension(mat._ws.model))
+    for (k, i) in enumerate(mat._free)
+        result[i] = k
+    end
+    return result
+end
+
+function schedule_budgeted!(ws::Workspace; time_limit, allow_weak = false, kwargs...)
+    RECORDED_BUDGET[] = time_limit
+    RECORDED_OPTIONS[] = (; kwargs...)
+    SCHEDULE_DELAY[] > 0 && sleep(SCHEDULE_DELAY[])
+    n = QUBOTools.dimension(ws.model)
+    r = schedule_reductions!(ws; enable_blocks = true, allow_weak_dominance = allow_weak)
+    apply_submodular_cut!(ws; allow_weak)
+    pr = n == 2 && isempty(ws._state.fixes) ? probe_variables!(ws; order = :coercive) : (deductions = 0,)
+    return (stop_reason = length(ws._state.fixes) == n ? :solved : :fixpoint,
+            passes = 1, elapsed_s = SCHEDULE_DELAY[], initial_variables = n,
+            residual_variables = n - length(ws._state.fixes),
+            families = [(family = :cheap, calls = 1, time_s = 0.0,
+                         freed = r.dominance_deductions, stop_reason = :fixpoint),
+                        (family = :probing, calls = 1, time_s = 0.0,
+                         freed = pr.deductions, stop_reason = :fixpoint)])
+end
 
 function reconstruct(mat, reduced_state::AbstractVector{<:Integer})
     ws = mat._ws
@@ -1651,8 +1608,7 @@ function test_preprocessing_enrichment()
         @test_throws ArgumentError _field_alignment(model_spin_max, [1, 0])
         @test_throws DimensionMismatch _field_alignment(model_spin_max, [1])
 
-        # Workspace-mode probing with coercive_field_witness and order = :coercive,
-        # block elimination detection via eliminate_block!, and submodular allow_weak
+        # Package policy forwarding preserves mode and exact workspace settings.
         ws_res = _run_qubopreprocessing_mode(
             _MockWorkspaceQUBOPreprocessing,
             model_exact;
@@ -1660,10 +1616,10 @@ function test_preprocessing_enrichment()
         )
         @test ws_res.surviving_variables == [2]
         @test ws_res.trace._ws.probed_orders == [:coercive]
-        @test ws_res.trace._ws.schedule_calls == 2
-        @test ws_res.trace._ws.enable_blocks_flags == [true, true]
-        @test ws_res.trace._ws.submodular_allow_weak == [false, false]
-        @test ws_res.trace._ws.integerize_scale == false
+        @test ws_res.trace._ws.schedule_calls == 1
+        @test ws_res.trace._ws.enable_blocks_flags == [true]
+        @test ws_res.trace._ws.submodular_allow_weak == [false]
+        @test ws_res.trace._ws.integerize_scale == true
         @test ws_res.rules["probing"] == 1
         @test ws_res.certified == true
 
@@ -1672,63 +1628,22 @@ function test_preprocessing_enrichment()
             model_exact;
             mode = :weak,
         )
-        @test ws_res_weak.trace._ws.enable_blocks_flags == [true, true]
-        @test ws_res_weak.trace._ws.submodular_allow_weak == [true, true]
+        @test ws_res_weak.trace._ws.enable_blocks_flags == [true]
+        @test ws_res_weak.trace._ws.submodular_allow_weak == [true]
         @test ws_res_weak.certified == true
 
-        # Block-gate boundary checks:
-        # - (n_init = 1,500, m_init = 10,000) => enable_blocks = true
-        # - (n_init = 1,501, m_init = 0)      => enable_blocks = false (variable gate)
-        # - (n_init = 150,   m_init = 10,001) => enable_blocks = false (edge gate)
-        edges_10k = Dict{Tuple{Int,Int},Float64}()
-        for i in 1:145, j in (i + 1):145
-            length(edges_10k) < 10_000 || break
-            edges_10k[(i, j)] = -1.0
-        end
-        @test length(edges_10k) == 10_000
-        model_boundary_in = QUBOTools.Model(
-            Dict(i => -1.0 for i in 1:1_500),
-            edges_10k;
-            domain = :bool,
-            sense = :min,
-        )
-        ws_res_boundary_in = _run_qubopreprocessing_mode(
-            _MockWorkspaceQUBOPreprocessing,
-            model_boundary_in;
-            mode = :strong,
-        )
-        @test ws_res_boundary_in.trace._ws.enable_blocks_flags == [true]
-        @test ws_res_boundary_in.certified == true
-
-        model_large_blocks = QUBOTools.Model(
-            Dict(i => -1.0 for i in 1:1_501),
-            Dict{Tuple{Int,Int},Float64}();
-            domain = :bool,
-            sense = :min,
-        )
-        ws_res_large = _run_qubopreprocessing_mode(
-            _MockWorkspaceQUBOPreprocessing,
-            model_large_blocks;
-            mode = :strong,
-        )
-        @test ws_res_large.trace._ws.enable_blocks_flags == [false]
-        @test ws_res_large.certified == true
-
-        edges_10k1 = copy(edges_10k)
-        edges_10k1[(145, 146)] = -1.0
-        model_dense_edges = QUBOTools.Model(
-            Dict(i => -1.0 for i in 1:150),
-            edges_10k1;
-            domain = :bool,
-            sense = :min,
-        )
-        ws_res_dense_edges = _run_qubopreprocessing_mode(
-            _MockWorkspaceQUBOPreprocessing,
-            model_dense_edges;
-            mode = :strong,
-        )
-        @test ws_res_dense_edges.trace._ws.enable_blocks_flags == [false]
-        @test ws_res_dense_edges.certified == true
+        # The package owns family selection and all defaults
+        # are forwarded explicitly and serialized next to the actual report.
+        @test _MockWorkspaceQUBOPreprocessing.RECORDED_OPTIONS[] == QUBOPREPROCESSING_SCHEDULE_OPTIONS
+        @test ws_res.diagnostics["policy"]["scheduler"]["guaranteed_relation_work"] == 75_000
+        @test ws_res.diagnostics["policy"]["workspace"] == Dict(
+            "rules" => "mixed", "integerize_scale" => true, "max_decimals" => 9, "atol" => 0.0)
+        @test ws_res.diagnostics["policy"]["allow_weak"] == false
+        @test ws_res_weak.diagnostics["policy"]["allow_weak"] == true
+        @test ws_res.diagnostics["scheduler_budget_s"] <= 5.0
+        @test ws_res.diagnostics["families"][2]["variables_removed"] == 1
+        model_identity = model_repair  # tiny identity fixture
+        @test _run_qubopreprocessing_mode(_MockWorkspaceQUBOPreprocessing, model_identity).certified
 
         # B2 regression: same-dimension zero-deduction results with missing or empty certificates
         # fail closed if the residual model or mapping differs from the input model.
@@ -1736,7 +1651,7 @@ function test_preprocessing_enrichment()
         try
             ws_perturbed_noop = _run_qubopreprocessing_mode(
                 _MockWorkspaceQUBOPreprocessing,
-                model_large_blocks;
+                model_identity;
                 mode = :strong,
             )
             @test ws_perturbed_noop.certified == false
@@ -1768,7 +1683,7 @@ function test_preprocessing_enrichment()
             _MockWorkspaceQUBOPreprocessing.FORCE_MISSING_CERT[] = false
         end
 
-        # B1 & B2 regression on fallback preprocess path:
+        # Adversarial package-shaped fixtures preserve the certificate trust boundary:
         # - Genuine identity with cert === nothing => certified == true
         # - Perturbed offset / permuted survivors / inverted reconstruction with cert === nothing => certified == false
         # - Zero-residual reduction (both NamedTuple and non-NamedTuple struct) with certified = true injected
@@ -1806,9 +1721,6 @@ function test_preprocessing_enrichment()
                 @test _MockQUBOPreprocessing.VERIFY_CALLS[] == 1
                 @test fb_rej isa NamedTuple
                 @test fb_rej.certified == false
-                if as_struct
-                    @test fb_rej.rules == Dict{String,Any}("dominance" => 1)
-                end
                 summary_fb_rej = _qubopreprocessing_summary_dict_from_runs(
                     model_exact,
                     fb_rej,
@@ -1846,70 +1758,15 @@ function test_preprocessing_enrichment()
             _MockQUBOPreprocessing.FORCE_MISSING_CERT[] = false
         end
 
-        # N1 regression: legacy keyword fallback preserves integerize_scale = false when max_decimals
-        # is unsupported, falls back to 1-arg apply_submodular_cut!(ws) and 1-kwarg preprocess(model; mode),
-        # and rethrows internal MethodErrors without retrying.
-        _MockLegacyNoMaxDecimalsWorkspace.RECORDED_INTEGERIZE[] = nothing
-        _MockLegacyNoMaxDecimalsWorkspace.WORKSPACE_CALLS[] = 0
-        _MockLegacyNoMaxDecimalsWorkspace.SUBMODULAR_CALLS[] = 0
-        legacy_res = _run_qubopreprocessing_mode(
-            _MockLegacyNoMaxDecimalsWorkspace,
-            model_exact;
-            mode = :weak,
-        )
-        @test _MockLegacyNoMaxDecimalsWorkspace.WORKSPACE_CALLS[] == 1
-        @test _MockLegacyNoMaxDecimalsWorkspace.SUBMODULAR_CALLS[] == 1
-        @test _MockLegacyNoMaxDecimalsWorkspace.RECORDED_INTEGERIZE[] == false
-        @test legacy_res.certified == true
-
-        _MockLegacyNoMaxDecimalsWorkspace.WORKSPACE_CALLS[] = 0
-        _MockLegacyNoMaxDecimalsWorkspace.THROW_INTERNAL_METHOD_ERROR[] = :workspace
-        try
-            @test_throws MethodError _run_qubopreprocessing_mode(
-                _MockLegacyNoMaxDecimalsWorkspace,
-                model_exact;
-                mode = :strong,
-            )
-            @test _MockLegacyNoMaxDecimalsWorkspace.WORKSPACE_CALLS[] == 1
-        finally
-            _MockLegacyNoMaxDecimalsWorkspace.THROW_INTERNAL_METHOD_ERROR[] = :none
+        # Unsupported APIs and invalid budgets fail before constructing a workspace.
+        @test_throws ErrorException _run_qubopreprocessing_mode(_MockMissingBudgetedAPI, model_exact)
+        @test _MockMissingBudgetedAPI.WORKSPACE_CALLS[] == 0
+        for bad in (-1.0, Inf, -Inf, NaN, true)
+            @test_throws ArgumentError _run_qubopreprocessing_mode(
+                _MockWorkspaceQUBOPreprocessing, model_exact; preparation_target_s = bad)
         end
-
-        _MockLegacyNoMaxDecimalsWorkspace.SUBMODULAR_CALLS[] = 0
-        _MockLegacyNoMaxDecimalsWorkspace.THROW_INTERNAL_METHOD_ERROR[] = :submodular
-        try
-            @test_throws MethodError _run_qubopreprocessing_mode(
-                _MockLegacyNoMaxDecimalsWorkspace,
-                model_exact;
-                mode = :weak,
-            )
-            @test _MockLegacyNoMaxDecimalsWorkspace.SUBMODULAR_CALLS[] == 1
-        finally
-            _MockLegacyNoMaxDecimalsWorkspace.THROW_INTERNAL_METHOD_ERROR[] = :none
-        end
-
-        _MockLegacyFallbackPreprocess.CALL_COUNT[] = 0
-        _MockLegacyFallbackPreprocess.THROW_INTERNAL[] = false
-        legacy_fb_res = _run_qubopreprocessing_mode(
-            _MockLegacyFallbackPreprocess,
-            model_exact;
-            mode = :strong,
-        )
-        @test _MockLegacyFallbackPreprocess.CALL_COUNT[] == 1
-        @test legacy_fb_res.certified == true
-
-        _MockLegacyFallbackPreprocess.CALL_COUNT[] = 0
-        _MockLegacyFallbackPreprocess.THROW_INTERNAL[] = true
-        try
-            @test_throws MethodError _run_qubopreprocessing_mode(
-                _MockLegacyFallbackPreprocess,
-                model_exact;
-                mode = :strong,
-            )
-            @test _MockLegacyFallbackPreprocess.CALL_COUNT[] == 1
-        finally
-            _MockLegacyFallbackPreprocess.THROW_INTERNAL[] = false
-        end
+        @test_throws ArgumentError _run_qubopreprocessing_mode(
+            _MockWorkspaceQUBOPreprocessing, model_exact; mode = :invalid)
 
         _MockWorkspaceQUBOPreprocessing.WORKSPACE_CALL_COUNT[] = 0
         _MockWorkspaceQUBOPreprocessing.THROW_WORKSPACE_INTERNAL_ERROR[] = true
@@ -1950,8 +1807,7 @@ function test_preprocessing_enrichment()
             _MockQUBOPreprocessing.THROW_PREPROCESS_INTERNAL_ERROR[] = false
         end
 
-        # Decimal-coefficient instance where decimal rounding (integerize_scale = true)
-        # changes the reduction: f(x1, x2) = 0.3*x1 + 0.6*x2 - 0.9*x1*x2 has exact
+        # Exact dyadic integerization must retain this tiny strict advantage: f(x1, x2) = 0.3*x1 + 0.6*x2 - 0.9*x1*x2 has exact
         # rational sum Rational{BigInt}(0.3) + Rational{BigInt}(0.6) - Rational{BigInt}(0.9) == -2^-54 < 0
         # (and Float64 sum (0.3 + 0.6) - 0.9 == -2^-53 < 0), so (1, 1) is the unique minimizer.
         model_decimal = QUBOTools.Model(
@@ -1964,22 +1820,12 @@ function test_preprocessing_enrichment()
               -Rational{BigInt}(1, BigInt(2)^54)
         @test QUBOTools.value(model_decimal, [1, 1]) == -2.0^-53
         @test QUBOTools.value(model_decimal, [1, 1]) < QUBOTools.value(model_decimal, [0, 0])
-        ws_rounded = _MockWorkspaceQUBOPreprocessing.Workspace(
-            model_decimal;
-            rules = :mixed,
-            integerize_scale = true,
-            max_decimals = 14,
-        )
-        _MockWorkspaceQUBOPreprocessing.schedule_reductions!(ws_rounded)
-        mat_rounded = _MockWorkspaceQUBOPreprocessing.materialize(ws_rounded)
-        @test _MockWorkspaceQUBOPreprocessing.reconstruct(mat_rounded, Int[]).state == [0, 0]
-
         dec_res = _run_qubopreprocessing_mode(
             _MockWorkspaceQUBOPreprocessing,
             model_decimal;
             mode = :strong,
         )
-        @test dec_res.trace._ws.integerize_scale == false
+        @test dec_res.trace._ws.integerize_scale == true
         @test QUBOTools.dimension(dec_res.model) == 0
         @test dec_res.certified == true
         @test _reconstruct_qubopreprocessing(
@@ -1988,29 +1834,103 @@ function test_preprocessing_enrichment()
             Int[],
         ) == [1, 1]
 
-        # If real QUBOPreprocessing is available in LOAD_PATH, verify on the real backend
-        # without swallowing load errors; otherwise report an explicit skip.
-        if Base.find_package("QUBOPreprocessing") !== nothing
-            real_qp = Base.require(Main, :QUBOPreprocessing)
-            for mode in (:strong, :weak)
-                real_dec = Base.invokelatest(
-                    _run_qubopreprocessing_mode,
-                    real_qp,
-                    model_decimal;
-                    mode = mode,
-                )
-                @test QUBOTools.dimension(real_dec.model) == 0
-                @test real_dec.certified == true
-                @test Base.invokelatest(
-                    _reconstruct_qubopreprocessing,
-                    real_qp,
-                    real_dec.trace,
-                    Int[],
-                ) == [1, 1]
-            end
-        else
-            @info "Skipping optional live QUBOPreprocessing check (QUBOPreprocessing not in active LOAD_PATH)"
-            @test_skip false
+        real_qp = QUBOPreprocessing
+        @test pkgversion(real_qp) == v"0.2.1"
+        for model in (model_decimal, model_spin_max), mode in (:strong, :weak)
+            real_result = _run_qubopreprocessing_mode(real_qp, model; mode)
+            @test real_result.certified
+            @test QUBOTools.dimension(real_result.model) == 0
+            @test isempty(real_result.surviving_variables)
+            state = _reconstruct_qubopreprocessing(real_qp, real_result.trace, Int[])
+            @test state == (model === model_decimal ? [1, 1] : [1, -1])
+            @test Symbol(QUBOTools.domain(real_result.model)) == Symbol(QUBOTools.domain(model))
+            @test real_result.diagnostics["normalization"]["workspace_perturbed"] == false
+            @test real_result.diagnostics["normalization"]["export_perturbed"] == false
+            @test real_result.diagnostics["policy"]["preparation_target_s"] == 5.0
+            @test real_result.diagnostics["policy"]["hard_time_cap"] == false
+            @test real_result.diagnostics["policy"]["downstream_solver_dispatched"] == false
+        end
+        zero_budget = _run_qubopreprocessing_mode(real_qp, model_decimal; preparation_target_s = 0.0)
+        @test zero_budget.diagnostics["scheduler_budget_s"] == 0.0
+        @test zero_budget.certified
+        @test zero_budget.diagnostics["families"][1]["family"] == "cheap"
+        @test zero_budget.diagnostics["clocks"]["preparation_overrun_s"] > 0.0
+        identity_model = QUBOTools.Model(
+            Dict(i => 0.0 for i in 1:5), Dict((i, j) => 1.0 for i in 1:5 for j in (i + 1):5);
+            domain = :spin, sense = :min,
+        )
+        real_identity = _run_qubopreprocessing_mode(real_qp, identity_model; preparation_target_s = 0.0)
+        @test real_identity.certified
+        @test QUBOTools.dimension(real_identity.model) == 5
+        @test real_identity.surviving_variables == collect(1:5)
+        @test _canonical_exact_polynomial(real_identity.model) == _canonical_exact_polynomial(identity_model)
+        @test _reconstruct_qubopreprocessing(real_qp, real_identity.trace, [-1, 1, -1, 1, -1]) == [-1, 1, -1, 1, -1]
+        # Independent fixed variables leave a noncontiguous five-spin core.
+        # Exercise the actual public original-to-residual map and repair path.
+        survivors = [2, 4, 5, 6, 7]
+        partial_model = QUBOTools.Model(
+            Dict(i => (i == 1 ? 10.0 : i == 3 ? -10.0 : 0.0) for i in 1:7),
+            Dict((i, j) => 1.0 for i in survivors for j in survivors if i < j);
+            domain = :spin, sense = :min,
+        )
+        partial = _run_qubopreprocessing_mode(real_qp, partial_model; preparation_target_s = 0.0)
+        @test partial.certified
+        @test QUBOTools.dimension(partial.model) == 5
+        @test partial.surviving_variables == survivors
+        original_state = [1, -1, -1, 1, -1, 1, -1]
+        projected = original_state[partial.surviving_variables]
+        repaired = _reconstruct_qubopreprocessing(real_qp, partial.trace, projected)
+        @test repaired[survivors] == projected
+        @test repaired[[1, 3]] == [-1, 1]
+        for mask in 0:31
+            residual_state = [iszero(mask & (1 << (i - 1))) ? -1 : 1 for i in 1:5]
+            lifted = _reconstruct_qubopreprocessing(real_qp, partial.trace, residual_state)
+            expected = -20 + sum(residual_state[i] * residual_state[j] for i in 1:5 for j in (i + 1):5)
+            @test lifted[survivors] == residual_state
+            @test QUBOTools.value(partial.model, residual_state) == expected
+            @test QUBOTools.value(partial_model, lifted) == expected
+        end
+        # Fixing x=1 gives 1 + 2^-53, which is not a Float64. The builder
+        # must retain that exact constant through rational transport, without rounding.
+        fallback_model = QUBOTools.Model(Dict(1 => 1.0), Dict{Tuple{Int,Int},Float64}();
+                                        offset = 2.0^-53, domain = :bool, sense = :max)
+        fallback = _run_qubopreprocessing_mode(real_qp, fallback_model)
+        @test fallback.certified
+        @test isempty(fallback.surviving_variables)
+        @test fallback.diagnostics["materialization"]["coefficient_type"] == "Rational{BigInt}"
+        @test !isnothing(fallback.diagnostics["materialization"]["fallback_reason"])
+        @test fallback.diagnostics["normalization"]["export_perturbed"] == false
+        @test Rational{BigInt}(QUBOTools.scale(fallback.model)) * Rational{BigInt}(QUBOTools.offset(fallback.model)) ==
+              1 + (BigInt(1) // BigInt(2)^53)
+        @test _reconstruct_qubopreprocessing(real_qp, fallback.trace, Int[]) == [1]
+        @test _qubopreprocessing_model_identity(model_decimal) == _qubopreprocessing_model_identity(model_decimal)
+        @test _qubopreprocessing_model_identity(model_decimal)["sha256"] !=
+              _qubopreprocessing_model_identity(model_spin_max)["sha256"]
+        changed_decimal = QUBOTools.Model(Dict(1 => 0.3, 2 => 0.6), Dict((1, 2) => nextfloat(-0.9));
+                                         domain = :bool, sense = :min)
+        @test _qubopreprocessing_model_identity(model_decimal)["sha256"] !=
+              _qubopreprocessing_model_identity(changed_decimal)["sha256"]
+
+        # Construction and the mandatory scheduler floor can exceed the target;
+        # verification uses its own clock and never consumes the scheduler allowance.
+        _MockWorkspaceQUBOPreprocessing.CONSTRUCTION_DELAY[] = 0.02
+        _MockWorkspaceQUBOPreprocessing.SCHEDULE_DELAY[] = 0.02
+        _MockWorkspaceQUBOPreprocessing.VERIFY_DELAY[] = 0.02
+        try
+            slow = _run_qubopreprocessing_mode(_MockWorkspaceQUBOPreprocessing, model_exact;
+                                              preparation_target_s = 0.001)
+            clocks = slow.diagnostics["clocks"]
+            @test slow.diagnostics["scheduler_budget_s"] == 0.0
+            @test _MockWorkspaceQUBOPreprocessing.RECORDED_BUDGET[] == 0.0
+            @test clocks["preparation_overrun_s"] > 0.02
+            @test clocks["certificate_verification_s"] >= 0.02
+            @test clocks["total_mode_s"] >= clocks["preparation_s"] + clocks["certificate_verification_s"]
+            @test clocks["preparation_s"] ≈ sum(clocks[k] for k in
+                ("configuration_s", "construction_s", "schedule_s", "materialization_export_s", "accounting_s"))
+        finally
+            _MockWorkspaceQUBOPreprocessing.CONSTRUCTION_DELAY[] = 0.0
+            _MockWorkspaceQUBOPreprocessing.SCHEDULE_DELAY[] = 0.0
+            _MockWorkspaceQUBOPreprocessing.VERIFY_DELAY[] = 0.0
         end
 
         # Certificate verification gating: when verify_certificate returns valid = false,
@@ -2355,6 +2275,9 @@ function test_preprocessing_enrichment()
                 @test best_repair[:qubo_value] ≈ 1.0
                 repair_sol_obj = QUBOLib.load_solution(index, Int(best_repair[:solution]))
                 repair_meta = QUBOTools.metadata(repair_sol_obj)
+                @test haskey(repair_meta, "capture_clocks")
+                @test repair_meta["capture_clocks"]["reconstruction_s"] >= 0.0
+                @test repair_meta["preparation_run"]["policy"]["preparation_target_s"] == 5.0
                 @test haskey(repair_meta, "field_alignment")
                 @test haskey(repair_meta, "parent_field_alignment")
                 @test haskey(repair_meta, "field_alignment_improvement")
@@ -2364,6 +2287,33 @@ function test_preprocessing_enrichment()
         @test isnothing(_check_qubopreprocessing_version(nothing))
         @test isnothing(_check_qubopreprocessing_version(VersionNumber(QUBOPREPROCESSING_VERSION)))
         @test_throws ErrorException _check_qubopreprocessing_version(v"0.0.1")
+        @test_throws ErrorException _check_qubopreprocessing_version(v"0.2.0")
+
+        mktempdir() do path
+            QUBOLib.access(; path, clear = true) do index
+                historical = Dict{String,Any}(
+                    "preprocessing" => Dict("version" => "0.1.5", "strong_time_s" => 3.0),
+                    "n_strong" => 3, "m_strong" => 2, "n_weak" => 2, "m_weak" => 1,
+                    "preprocessing_runs" => [Dict("historical" => true)],
+                )
+                instance = QUBOLib.add_instance!(index, model_repair; name = "historical.qs", metadata = historical)
+                enrich_preprocessing!(index, _MockQUBOPreprocessing; repair_instance_ids = Set{Int}())
+                rows = QUBOLib.DBInterface.execute(QUBOLib.database(index),
+                    "SELECT metadata FROM Instances WHERE instance = ?;", (instance,)) |> QUBOLib.DataFrame
+                observed = QUBOLib.JSON.parse(rows[1, :metadata])
+                for key in ("preprocessing", "n_strong", "m_strong", "n_weak", "m_weak")
+                    @test observed[key] == historical[key]
+                end
+                @test length(observed["preprocessing_runs"]) == 2
+                @test observed["preprocessing_runs"][1] == historical["preprocessing_runs"][1]
+                new_result = observed["preprocessing_runs"][2]["result"]
+                @test new_result["version"] == "0.2.1"
+                @test new_result["strong_run"]["policy"]["preparation_target_s"] == 5.0
+                @test new_result["input"]["domain"] == "bool"
+                @test new_result["input"]["sha256"] == _qubopreprocessing_model_identity(model_repair)["sha256"]
+                @test new_result["strong_time_s"] == new_result["strong_run"]["clocks"]["preparation_s"]
+            end
+        end
 
         # Results loaded from a summary TSV are labeled as such per instance.
         mktempdir() do path
@@ -2394,6 +2344,9 @@ function test_preprocessing_enrichment()
                 meta = QUBOLib.JSON.parse(meta_df[1, :metadata])
                 summary_prov = meta["preprocessing"]["provenance"]
                 @test meta["n_strong"] == 1
+                @test isnothing(meta["preprocessing"]["version"])
+                @test meta["preprocessing"]["schedule"]["settings_recorded"] == false
+                @test !haskey(meta["preprocessing"], "strong_run")
                 @test summary_prov["result_source"] == "summary_tsv"
                 @test summary_prov["coercive_source"] == "pipeline"
                 @test summary_prov["summary_tsv_sha256"] == bytes2hex(SHA.sha256(read(summary_tsv)))
