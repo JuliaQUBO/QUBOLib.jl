@@ -1,18 +1,29 @@
 # Changelog
 
-## Unreleased
+## v0.2.7 - 2026-11-05
+
+- Select the published `v0.2.6-data+9` artifact for normal package installs: a
+  preserved parent plus 19,052 capture histories, 1,435 capture proof records
+  (622 distinct stored QUBOs), and six separately feasible points.
+- Bind the five provenance sidecars and distinguish append reproducibility from
+  the historical parent's mixed build provenance. Preserve all six selected
+  release files at dataset DOI `10.5281/zenodo.23972765` under the existing
+  concept `10.5281/zenodo.23027943`.
+- Correct the pinned MQLib license evidence link to `LICENSE`.
 
 - Build preprocessing enrichment against QUBOPreprocessing.jl 0.2.0, whose
   integerization is exact by default and whose certificates record any
   perturbation. `index.db` records report `0.2.0` from the next data build;
-  `DATASET.toml` keeps describing the published `v0.2.4-data+8` (`0.1.5`).
+  the historical flat fields retained in `v0.2.6-data+9` still describe its
+  `v0.2.4-data+8` parent (`0.1.5`), separately from the appended measurements.
 - Make preprocessing enrichment certify what it records (#99, #100):
   - build workspaces with lossless `integerize_scale = false`;
   - set `strong_certified` / `weak_certified` from `verify_certificate`, or
     from an exact identity check when nothing was reduced;
   - add zero-residual `proven_optimal` records and repairs only for
     certified results;
-  - run connected block elimination with QUBOPreprocessing.jl 0.1.5;
+  - run connected block elimination (introduced with QUBOPreprocessing.jl
+    0.1.5; the next builder uses 0.2.0);
   - apply weak submodular cuts in `:weak` mode.
 
   The next data build will report different census counts.
