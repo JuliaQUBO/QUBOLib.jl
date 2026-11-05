@@ -64,6 +64,19 @@ Pass `path = "/path/to/workdir"` to keep the local copy somewhere else. To
 refresh the local copy from the packaged artifact, delete the local `qubolib`
 directory and call `QUBOLib.access()` again without `clear = true`.
 
+Choose a working directory outside the packaged artifact returned by
+`QUBOLib.library_path()`. `access` and `install` reject local directories that
+overlap that artifact, including paths through symlinks; `clear = true` does not
+permit clearing the artifact.
+
+If an older installation created a nested `qubolib/qubolib/…` tree inside the
+artifact, stop using that copy. After checking the path and preserving any user
+data, remove the corrupted artifact with Julia's artifact-management tools
+(`Pkg.Artifacts.remove_artifact`) and let QUBOLib download it again. Removing only
+an accidental nested `qubolib` directory is appropriate only after confirming
+that it contains no wanted data. Run `QUBOLib.access` from a separate working
+directory when reinstalling.
+
 ## Accessing the instance index database
 
 > **Warning**

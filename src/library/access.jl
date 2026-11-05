@@ -71,6 +71,8 @@ function access(callback::Any; path::AbstractString = pwd(), clear::Bool = false
 end
 
 function access(; path::AbstractString = pwd(), clear::Bool = false)
+    _check_install_destination(library_path(path), _library_artifact_path())
+
     if !is_installed(path) || clear
         install(path; clear)
     end
@@ -84,18 +86,71 @@ function is_installed(path::AbstractString)::Bool
     return isdir(lib_path) && isfile(database_path(lib_path)) && isfile(archive_path(lib_path))
 end
 
+function _resolved_install_path(path::AbstractString)
+    # Resolve existing components before handling '..'. abspath alone folds
+    # symlink/.. lexically and can hide a destination inside the artifact.
+    parts = splitpath(isabspath(path) ? path : joinpath(pwd(), path))
+    resolved = realpath(first(parts))
+    for part in Iterators.drop(parts, 1)
+        if part == "."
+            continue
+        elseif part == ".."
+            resolved = dirname(resolved)
+        else
+            candidate = joinpath(resolved, part)
+            # Some platforms report dangling links as existing paths. Check
+            # links first so resolution errors have the same public contract.
+            if islink(candidate)
+                resolved = try
+                    realpath(candidate)
+                catch err
+                    err isa Base.IOError || rethrow()
+                    throw(ArgumentError("Cannot resolve symbolic link: $candidate"))
+                end
+            elseif ispath(candidate)
+                resolved = realpath(candidate)
+            else
+                resolved = candidate
+            end
+        end
+    end
+    return resolved
+end
+
+function _check_install_destination(destination::AbstractString, source::AbstractString)
+    # Reject containment in either direction: clear=true must not remove an
+    # ancestor of the source, and copying into an ancestor can recurse too.
+    for resolve in (abspath, _resolved_install_path)
+        dst_parts = splitpath(resolve(destination))
+        src_parts = splitpath(resolve(source))
+        common = min(length(dst_parts), length(src_parts))
+        if dst_parts[1:common] == src_parts[1:common]
+            throw(ArgumentError(
+                "The local QUBOLib directory must not overlap the packaged artifact; " *
+                "choose a separate working directory.",
+            ))
+        end
+    end
+    return nothing
+end
+
 function install(path::AbstractString; clear::Bool = false)
     lib_path = library_path(path)
+    _check_install_destination(lib_path, _library_artifact_path())
 
     if clear
         rm(lib_path; force = true, recursive = true)
 
         mkpath(lib_path)
     else
+        source = library_path()
+        _check_install_destination(lib_path, source)
+        src_names = readdir(source)
+
         mkpath(lib_path)
 
-        for src_name in readdir(library_path())
-            src_path = abspath(library_path(), src_name)
+        for src_name in src_names
+            src_path = abspath(source, src_name)
             dst_path = abspath(lib_path, src_name)
 
             cp(
