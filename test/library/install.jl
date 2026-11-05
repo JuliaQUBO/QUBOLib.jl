@@ -145,6 +145,7 @@ function test_library_install()
             symlink(nested, joinpath(external, "through"); dir_target = true)
             symlink(source, joinpath(aliased_destination, "qubolib"); dir_target = true)
             symlink(joinpath(source, "not-created"), joinpath(external, "dangling"); dir_target = true)
+            symlink(joinpath(external, "cycle"), joinpath(external, "cycle"); dir_target = true)
             before = _install_fixture_snapshot(source)
 
             for clear in (false, true)
@@ -155,6 +156,7 @@ function test_library_install()
                     joinpath(external, "through", ".."),
                     joinpath(external, "missing", "..", "through", ".."),
                     joinpath(external, "dangling"),
+                    joinpath(external, "cycle"),
                 )
                     @test_throws ArgumentError QUBOLib.install(path; clear)
                     @test _install_fixture_snapshot(source) == before

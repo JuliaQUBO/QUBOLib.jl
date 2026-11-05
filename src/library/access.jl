@@ -98,10 +98,17 @@ function _resolved_install_path(path::AbstractString)
             resolved = dirname(resolved)
         else
             candidate = joinpath(resolved, part)
-            if ispath(candidate)
+            # Some platforms report dangling links as existing paths. Check
+            # links first so resolution errors have the same public contract.
+            if islink(candidate)
+                resolved = try
+                    realpath(candidate)
+                catch err
+                    err isa Base.IOError || rethrow()
+                    throw(ArgumentError("Cannot resolve symbolic link: $candidate"))
+                end
+            elseif ispath(candidate)
                 resolved = realpath(candidate)
-            elseif islink(candidate)
-                throw(ArgumentError("Cannot resolve a dangling or cyclic symbolic link: $candidate"))
             else
                 resolved = candidate
             end
