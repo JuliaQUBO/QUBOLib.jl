@@ -118,20 +118,31 @@ solution_records = 6
 unique_global_instances = 0
 
 [zenodo]
-status = "blocked"
+status = "published"
 concept_doi = "10.5281/zenodo.23027943"
+version_doi = "10.5281/zenodo.23972765"
+record_id = 23972765
+record_url = "https://zenodo.org/records/23972765"
 required_active_managers = 1
 designated_owner = "bernalde"
 manager_policy_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5153545937"
-active_manager_count = 0
-manager_access_status = "not-recorded"
-manager_access_evidence = "The parent record's verified stewardship is retained in parent_zenodo; access to a new dataset-version draft has not yet been recorded."
-byte_identity_status = "not-verified"
-related_identifiers_status = "not-recorded"
-related_identifiers_count = 0
-doi_resolution_status = "pending"
+active_manager_count = 1
+manager_access_status = "verified"
+owner_id = 1784890
+manager_access_evidence = "Authenticated creation, metadata read-back, six-file upload and publication under owner 1784890, matching the unchanged parent record's designated owner."
+byte_identity_status = "verified"
+byte_identity_evidence = "All six authenticated draft downloads and all six anonymous published downloads match the independently verified public GitHub data+9 assets in byte count and SHA-256; the corpus archive additionally has the independently verified Julia artifact tree recorded above."
+verified_at = "2026-11-05"
+related_identifiers_status = "verified"
+related_identifiers_count = 21
+related_identifiers_evidence_url = "https://zenodo.org/api/records/23972765"
+doi_resolution_status = "verified"
+doi_resolution_checked_at = "2026-11-05"
+doi_resolution_note = "Version and concept DOI.org links resolve to record 23972765; both DataCite DOI API records are available."
+publication_date = "2026-11-05"
+asset_url = "https://zenodo.org/records/23972765/files/qubolib.tar.gz"
 license_model = "per-collection"
-blocking_reasons = ["Create and verify the new dataset-version draft under concept 23027943 and the designated owner's access.", "Upload the exact published data+9 archive and provenance assets; verify draft downloads and related identifiers before publication.", "Verify the published dataset-version bytes and DOI resolution; no new dataset record ID or version DOI is assigned here."]
+blocking_reasons = []
 
 [parent_zenodo]
 status = "published"

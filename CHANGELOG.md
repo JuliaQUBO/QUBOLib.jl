@@ -6,8 +6,9 @@
   preserved parent plus 19,052 capture histories, 1,435 capture proof records
   (622 distinct stored QUBOs), and six separately feasible points.
 - Bind the five provenance sidecars and distinguish append reproducibility from
-  the historical parent's mixed build provenance. Dataset Zenodo preservation
-  for this selected version remains pending; use its GitHub release citation.
+  the historical parent's mixed build provenance. Preserve all six selected
+  release files at dataset DOI `10.5281/zenodo.23972765` under the existing
+  concept `10.5281/zenodo.23027943`.
 - Correct the pinned MQLib license evidence link to `LICENSE`.
 
 - Build preprocessing enrichment against QUBOPreprocessing.jl 0.2.0, whose

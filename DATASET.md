@@ -49,11 +49,13 @@ rebuilds the full corpus. `parent_artifact` retains the original target and full
 explanation, and `preprocessing` describes only the parent's v0.1.5 flat fields.
 The capture code and measurements precede the default-builder migration.
 
-Dataset Zenodo preservation for these new bytes is **pending** under the existing
-concept `10.5281/zenodo.23027943`. No new dataset record ID or version DOI is
-assigned here. The older dataset DOI below identifies only the parent. Software
-source archives have a separate concept and must not be used as dataset citations.
-Until preservation is verified, cite the exact GitHub data release above.
+These six files are preserved in [Zenodo record 23972765](https://zenodo.org/records/23972765),
+version DOI [10.5281/zenodo.23972765](https://doi.org/10.5281/zenodo.23972765),
+under the existing concept `10.5281/zenodo.23027943`. All six anonymous Zenodo
+downloads match the independently verified GitHub assets in byte count and
+SHA-256; both version and concept DOI links resolve. The older dataset DOI below
+identifies only the parent. Software source archives have a separate concept
+and must not be used as dataset citations.
 
 `index.db` is the relational catalog; `archive.h5` holds model and solution
 payloads. To check the selected public file identity on a machine with space:
@@ -159,7 +161,7 @@ For preservation, download the published archive rather than rebuilding it.
 Future data releases must repeat the publication and verification steps in
 [`RELEASE.md`](RELEASE.md#archive-the-selected-github-release).
 [`Artifacts.toml`](Artifacts.toml) retains the GitHub download URL. Zenodo
-preserves the historical parent; preservation of the selected successor is pending. Adding an
+preserves both the historical parent and selected successor. Adding an
 automatic artifact fallback is not required for preservation.
 
 ## Collection audit
@@ -258,19 +260,18 @@ does not grant rights to other upstream material or to future collections.
 - Cite QUBOLib software using [`CITATION.cff`](CITATION.cff), and identify the
   package version used when reproducibility depends on it.
 - Cite the [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) for
-  the corpus across versions. Cite the selected `v0.2.6-data+9` GitHub release
-  until its dataset version DOI is verified. The
+  the corpus across versions. Cite [10.5281/zenodo.23972765](https://doi.org/10.5281/zenodo.23972765)
+  for the selected `v0.2.6-data+9` files. The
   [older version DOI](https://doi.org/10.5281/zenodo.23839797) identifies only
   `v0.2.4-data+8`. Also cite each source
   collection used. A dataset DOI does not identify the Julia package version.
 
 ## Zenodo publication gate
 
-`DATASET.toml` records the selected version's Zenodo status as `blocked` pending
-new-version draft access, byte identity, related identifiers and public DOI
-verification. The parent publication evidence is preserved separately under
-`parent_zenodo`; it does not verify a successor draft. The designated-owner
-exception remains in force.
+`DATASET.toml` records the selected version's Zenodo status as `published`, with
+verified owner access, six-file byte identity, 21 related identifiers and public
+DOI resolution. The parent publication evidence is preserved separately under
+`parent_zenodo`. The designated-owner exception remains in force.
 
 Before publishing any successor, all of the following must be true:
 
@@ -300,5 +301,5 @@ Before a dataset publication, require the stronger gate:
 julia --project=. scripts/release_check.jl --require-dataset-publishable
 ```
 
-The stronger command must currently fail: the selected version remains
-`blocked` until its required new-version preservation evidence is verified.
+Both commands pass for the selected published version. A future successor must
+record its own access, byte identity and publication evidence before promotion.

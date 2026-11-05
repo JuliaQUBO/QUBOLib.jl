@@ -81,9 +81,8 @@ For general use, cite the
 [QUBO.jl ecosystem article](https://doi.org/10.1080/10556788.2026.2702926)
 and identify the QUBOLib package version. For benchmark data, cite the
 [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) across versions,
-and cite the exact
-[`v0.2.6-data+9` GitHub release](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.6-data%2B9)
-selected by package 0.2.7 while its dataset-version Zenodo preservation is pending.
+and cite [version DOI 10.5281/zenodo.23972765](https://doi.org/10.5281/zenodo.23972765)
+for the exact `v0.2.6-data+9` files selected by package 0.2.7.
 Also cite the source collections used. Check `Artifacts.toml` at the package
 version used: older package tags retain their earlier data pins. The
 [dataset provenance inventory](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.md)
@@ -104,6 +103,7 @@ It appends capture histories and six separately feasible points to the immutable
 historical parent; it does not restamp flat preprocessing metadata or claim a
 single clean rebuild. See the
 [dataset inventory](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.md)
-for exact sidecar hashes, scientific scope and per-collection rights. Dataset
-Zenodo preservation of this selected version is pending; the older data DOI
-identifies only `v0.2.4-data+8`, and software archive DOIs do not identify data.
+for exact sidecar hashes, scientific scope and per-collection rights. The
+[dataset version DOI](https://doi.org/10.5281/zenodo.23972765) preserves all six
+release files. The older data DOI identifies only `v0.2.4-data+8`, and software
+archive DOIs do not identify data.

@@ -27,6 +27,7 @@ references:
       - given-names: "David E."
         family-names: "Bernal Neira"
     url: "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.6-data%2B9"
+    doi: "10.5281/zenodo.23972765"
     version: "v0.2.6-data+9"
     year: 2026
 preferred-citation:
