@@ -22,6 +22,20 @@ packaged artifact:
     directory before creating the empty index. Use it only when starting a new
     private library or intentionally replacing the existing local library.
 
+The local directory must not overlap the packaged artifact, even when
+`clear = true`. `access` and `install` check this before changing or opening a
+local index, including when a symlink points into the artifact. Choose a separate
+working directory. Creating an empty local library does not download the lazy
+artifact.
+
+Older versions could create a nested `qubolib/qubolib/…` tree when run from
+inside the artifact directory. Stop using that corrupted copy, check the paths
+and preserve any wanted data before cleanup. Use Julia's artifact-management
+tools (`Pkg.Artifacts.remove_artifact`) to remove the corrupted artifact and
+download a fresh copy, or remove only the accidental nested `qubolib` directory
+after confirming it contains no wanted data. Reinstall from a separate working
+directory.
+
 The example below imports QUBOTools.jl directly to read a model file, so add it
 to the active Julia project before running the import workflow:
 
