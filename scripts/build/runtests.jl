@@ -1678,6 +1678,38 @@ function test_preprocessing_enrichment()
                         (_canonical_exact_polynomial(a) == _canonical_exact_polynomial(candidate))
                 end
             end
+            # Bypass Model's normalizing dictionary constructor so the
+            # comparator itself sees a diagonal, both orientations and a zero.
+            for domain in (:bool, :spin), sense in (:min, :max)
+                raw_linear = QUBOTools.SparseVector{Float64,Int}(3,
+                    [1, 2, 3], [0.5, -0.25, 0.0])
+                raw_quadratic = QUBOTools.SparseMatrixCSC{Float64,Int}(3, 3,
+                    [1, 3, 5, 5], [1, 2, 1, 3], [0.25, 0.125, -0.5, 0.0])
+                form = QUBOTools.Form{Float64}(3,
+                    QUBOTools.SparseLinearForm{Float64}(raw_linear),
+                    QUBOTools.SparseQuadraticForm{Float64}(raw_quadratic),
+                    1.0, 0.125; domain, sense)
+                raw = QUBOTools.Model{Int,Float64,Int}(QUBOTools.VariableMap{Int}([1, 2, 3]), form)
+                raw_terms = collect(QUBOTools.quadratic_terms(raw))
+                @test any(i == j for ((i, j), _) in raw_terms)
+                @test any(i > j && !iszero(v) for ((i, j), v) in raw_terms)
+                @test any(iszero(v) for (_, v) in raw_terms)
+                # 0.25*x1^2 is linear for Bool and constant for Spin;
+                # the two orientations sum to -0.375*x1*x2.
+                normalized = QUBOTools.Model(
+                    Dict(1 => (domain == :bool ? 0.75 : 0.5), 2 => -0.25, 3 => 0.0),
+                    Dict((1, 2) => -0.375);
+                    offset = domain == :bool ? 0.125 : 0.375, domain, sense)
+                @test _exact_polynomials_equal(raw, normalized)
+                @test _exact_polynomials_equal(normalized, raw)
+                for mask in 0:7
+                    low = domain == :bool ? 0 : -1
+                    state = [iszero(mask & (1 << (i - 1))) ? low : 1 for i in 1:3]
+                    expected = 0.125 + 0.5 * state[1] - 0.25 * state[2] +
+                               0.25 * state[1]^2 - 0.375 * state[1] * state[2]
+                    @test QUBOTools.value(normalized, state) == expected
+                end
+            end
         end
 
         # B2 regression: same-dimension zero-deduction results with missing or empty certificates
