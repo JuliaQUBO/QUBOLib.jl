@@ -180,6 +180,16 @@ end
         end
         store_solution!(corrupted);@test_throws ArgumentError audit()
         store_solution!(original_solution);audit()
+        for (group,key) in (("instances",string(id)),("solutions",string(exact.solution)))
+            Q.access(;path=candidate) do index
+                Q.HDF5.create_group(Q.archive(index)[group],"0"*key)
+            end
+            @test_throws ArgumentError audit()
+            Q.access(;path=candidate) do index
+                Q.HDF5.delete_object(Q.archive(index)[group],"0"*key)
+            end
+        end
+        audit()
         wrong=deepcopy(journal);wrong[Int(id)]["exact_count"]=0
         serial[]+=1
         @test_throws ArgumentError A.with_readonly_index(candidate,joinpath(directory,"wrong-count-$(serial[])")) do index

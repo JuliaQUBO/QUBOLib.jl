@@ -146,8 +146,8 @@ function audit_membership(index, originals)
     check(Set(Int.(rows(index,"SELECT instance FROM Instances;").instance))==Set(keys(originals)),"SQL originals differ from inventory")
     for (table,key,group) in (("Instances","instance","instances"),("Solutions","solution","solutions"))
         sql=Set(Int.(rows(index,"SELECT $key FROM $table;")[!,key]))
-        stored=Set(parse(Int,name) for name in keys(Q.archive(index)[group]))
-        check(sql==stored,"SQL/HDF5 membership mismatch: $table")
+        stored=Set(String.(keys(Q.archive(index)[group])))
+        check(Set(string.(sql))==stored,"SQL/HDF5 membership mismatch: $table")
     end
     check(isempty(rows(index,"PRAGMA foreign_key_check;")),"orphaned SQL references")
 end
