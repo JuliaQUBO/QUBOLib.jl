@@ -1,7 +1,8 @@
 # Measuring a bounded build command
 
 `measure_command.py` measures one command inside an **already admitted** Linux
-cgroup v2 scope. It uses Python 3.9+ standard library modules. Use the host's
+cgroup v2 scope managed by the current user's systemd manager. It uses Python
+3.9+ standard library modules. Use the host's
 existing allocation/supervision mechanism, one native thread per library, a finite
 time limit, and the approved memory bound. This wrapper does not reserve resources
 or establish descendant quiescence.
@@ -47,10 +48,12 @@ Interpret measurements precisely:
 - `largest_waited_child_rss_kib` comes from `wait4` for the direct workload. Linux
   includes waited descendants in this high-water mark; it is the largest child's
   RSS rather than the simultaneous process-tree total.
-- Sampled worker RSS and regular-file logical disk bytes are lower bounds on
-  peaks. Disk scans do not follow links, are limited to 0.1 seconds per path per
-  sample, and report incomplete scans/errors. Disk observations do not enforce a
-  quota or measure physical allocated blocks.
+- Sampled worker RSS is a lower bound on its peak. The field
+  `maximum_observed_disk_scan_bytes` records maxima of regular-file logical byte
+  scan totals. These non-atomic totals may overestimate or underestimate
+  instantaneous usage when files change during a scan. Scans do not follow links,
+  are limited to 0.1 seconds per path per sample, and report incomplete scans/errors.
+  Disk observations do not enforce a quota or measure physical allocated blocks.
 - `workload_returncode` preserves Python's negative signal result (for example
   `-9`). `shell_returncode` reports its shell equivalent (`137`). Cancellation,
   monitor errors, launcher terminal status, quiescence, and scientific acceptance
@@ -61,3 +64,14 @@ and timeout/cancellation through the **same** admission/supervision mechanism.
 Check the final journal/receipt, effective controls, process identities, OOM event
 delta, child resource usage, and the supervisor's quiescence/released-allocation
 receipt. A synthetic OOM test is not permission to retry a failed scientific job.
+
+Within a fresh admitted user scope with the matching cap and OOM policy, run the
+small path/scan/normal-completion integration checks with:
+
+```sh
+python3 -B scripts/build/test_measure_command.py --output NEW_TEST_DIRECTORY --memory-mib 128
+```
+
+This test also checks that invalid receipt parents refuse before work, cancelled
+scans avoid filesystem probes, symlinks are not scanned, and an unlimited leaf
+limit is refused. The command does not provision a scope or exercise OOM/timeout.

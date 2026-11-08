@@ -55,7 +55,7 @@ def counters(group):
 
 def controls(group, memory_mib):
     value = counters(group)
-    if int(value["memory.max"]) != memory_mib * 1024**2:
+    if value["memory.max"] == "max" or int(value["memory.max"]) != memory_mib * 1024**2:
         raise RuntimeError("effective memory.max differs from the sealed limit")
     if value["memory.swap.max"] != "0" or value["memory.oom.group"] != "0":
         raise RuntimeError("zero swap and individual-process OOM killing are required")
@@ -88,9 +88,13 @@ def disk_bytes(path, cancelled=lambda: False):
     """Regular-file logical bytes, without following links; races are counted."""
     total = 0
     errors = 0
+    if cancelled():
+        return {"bytes": 0, "errors": 0, "exists": None, "incomplete": True}
+    if path.is_symlink():
+        return {"bytes": 0, "errors": 1, "exists": True, "incomplete": True}
     if not path.exists():
         return {"bytes": 0, "errors": 0, "exists": False}
-    if path.is_symlink() or not path.is_dir():
+    if not path.is_dir():
         return {"bytes": 0, "errors": 1, "exists": True, "incomplete": True}
     deadline = time.monotonic() + 0.1
     incomplete = False
@@ -152,6 +156,8 @@ def main(argv=None):
     args = arguments(argv)
     if args.receipt.exists() or args.receipt.is_symlink():
         raise RuntimeError("receipt already exists; reuse is unsupported")
+    if not args.receipt.parent.is_dir():
+        raise RuntimeError("receipt parent directory does not exist")
     # Exclusive journal creation is the attempt claim, including failed preflight.
     with args.journal.open("x") as journal:
         started = time.monotonic()
@@ -264,7 +270,7 @@ def main(argv=None):
                            child_user_s=None if usage is None else usage.ru_utime,
                            child_system_s=None if usage is None else usage.ru_stime,
                            sampled_worker_rss_lower_bound_kib=sample_peak_rss,
-                           sampled_disk_lower_bounds_bytes=sample_peak_disk,
+                           maximum_observed_disk_scan_bytes=sample_peak_disk,
                            descendant_quiescence="requires supervising launcher receipt",
                            scientific_acceptance="not assessed")
             with args.receipt.open("x") as output:
