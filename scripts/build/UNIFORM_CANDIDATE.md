@@ -35,7 +35,10 @@ mqlib = "/path/to/mqlib.zip"
 
 The QOBLIB checkout must be clean at the importer's exact source commit. All six
 mirror hashes must match the checked-in importer pins. MINLPLib is read from its
-verified mirror, without fetching live website replacements. The MQLib Tier-2
+verified mirror, without fetching live website replacements. All 29 models and
+42 mirrored solution files (p1 and each best point) are required and preserved.
+The 26 historical intermediate points absent from the pinned mirror remain
+optional; `minlplib-mirror-inventory.json` records these omissions explicitly. The MQLib Tier-2
 catalogue, result catalogues and all selected models must be present. Incomplete
 collection imports fail the exact seven-collection/9,294-instance inventory gate.
 

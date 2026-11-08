@@ -58,6 +58,33 @@ end
     end
 end
 
+@testset "pinned MINLPLib mirror preserves required and optional point inventory" begin
+    # The real pinned mirror has all 29 models and 42 solutions, while source
+    # metadata also lists 26 historical intermediate points absent from it.
+    @test length(U.minlplib_mirror_required_files())==71
+    @test count(name->endswith(name,".sol"),U.minlplib_mirror_required_files())==42
+    mktempdir() do root
+        instances=[(name="example",best_point="p3",points=["p3","p2","p1"])]
+        required=U.minlplib_mirror_required_files(instances)
+        @test required==["example.p1.sol","example.p3.sol","example.pip"]
+        for name in required;write(joinpath(root,name),"fixture");end
+        @test U.mirror_root(root,required)==root
+        inventory=U.minlplib_mirror_inventory(root;instances)
+        @test inventory["models"]==1
+        @test inventory["mirrored_solution_files"]==["example.p1.sol","example.p3.sol"]
+        @test inventory["missing_optional_solution_files"]==["example.p2.sol"]
+        for name in required
+            mv(joinpath(root,name),joinpath(root,"held"))
+            @test_throws ArgumentError U.minlplib_mirror_inventory(root;instances)
+            mv(joinpath(root,"held"),joinpath(root,name))
+        end
+        write(joinpath(root,"example.p2.sol"),"fixture")
+        full_inventory=U.minlplib_mirror_inventory(root;instances)
+        @test full_inventory["mirrored_solution_files"]==["example.p1.sol","example.p2.sol","example.p3.sol"]
+        @test isempty(full_inventory["missing_optional_solution_files"])
+    end
+end
+
 @testset "native Bool/Spin enrichment streams one input with one shared submission pair" begin
     mktempdir() do root
         ids = Int[]
