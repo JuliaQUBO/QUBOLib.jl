@@ -25,7 +25,7 @@ end
     energy(x)=10*x[1]-10*x[3]+sum(x[i]*x[j] for i in survivors for j in survivors if i<j)
     mktempdir() do root
         QL.access(;path=root,clear=true) do index
-            QL.add_collection!(index,"fixture",Dict("name"=>"Repair fixtures"))
+            QL.add_collection!(index,"fixture",Dict{String,Any}("name"=>"Repair fixtures","author"=>String[]))
             for name in ("partial-a","partial-b")
                 id=QL.add_instance!(index,model,"fixture";name)
                 QL.add_solution!(index,id,QT.SampleSet{Float64,Int}(model,[parent]);
@@ -98,7 +98,7 @@ end
     mktempdir() do root
         ids = Int[]
         before = QL.access(;path=root,clear=true) do index
-            QL.add_collection!(index,"fixture",Dict("name"=>"Independent native fixtures"))
+            QL.add_collection!(index,"fixture",Dict{String,Any}("name"=>"Independent native fixtures","author"=>String[]))
             for (domain,sense,name) in ((:bool,:min,"bool-min"),(:spin,:max,"spin-max"))
                 model=toy_model(;domain,sense)
                 id=QL.add_instance!(index,model,"fixture";name)
