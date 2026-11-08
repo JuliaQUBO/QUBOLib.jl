@@ -18,10 +18,12 @@ function runtime_plan()
 end
 
 @testset "streamed repair retains a noncontiguous native Spin core" begin
-    survivors=[2,4,5,6,7]
-    model=QT.Model(Dict(i=>(i==1 ? 10.0 : i==3 ? -10.0 : 0.0) for i in 1:7),
+    # Thirteen frustrated spins exceed the small exact block gate; independent
+    # fixed spins at original positions1/3 leave a noncontiguous residual core.
+    survivors=[2;collect(4:15)]
+    model=QT.Model(Dict(i=>(i==1 ? 10.0 : i==3 ? -10.0 : 0.0) for i in 1:15),
         Dict((i,j)=>1.0 for i in survivors for j in survivors if i<j);domain=:spin,sense=:min)
-    parent=[1,-1,-1,1,-1,1,-1]
+    parent=[isodd(i) ? -1 : 1 for i in 1:15];parent[1]=1;parent[3]=-1
     energy(x)=10*x[1]-10*x[3]+sum(x[i]*x[j] for i in survivors for j in survivors if i<j)
     mktempdir() do root
         QL.access(;path=root,clear=true) do index
@@ -38,7 +40,7 @@ end
         @test [r["repaired_strong_count"] for r in records]==[1,1]
         QL.access(;path=root) do index
             rows=QL.DBInterface.execute(QL.database(index),"SELECT metadata FROM Instances;") |> QL.DataFrame
-            @test all(U.JSON.parse(String(r.metadata))["n_strong"]==5 for r in eachrow(rows))
+            @test all(U.JSON.parse(String(r.metadata))["n_strong"]==13 for r in eachrow(rows))
             repairs=QL.DBInterface.execute(QL.database(index),"SELECT * FROM SolutionRecords WHERE source_path LIKE 'QUBOPreprocessing.jl/strong/reconstruct%';") |> QL.DataFrame
             @test size(repairs,1)==2
             @test length(unique(repairs.submission))==1
