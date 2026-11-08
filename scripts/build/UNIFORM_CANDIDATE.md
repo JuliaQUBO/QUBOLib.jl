@@ -74,3 +74,11 @@ Tiny integration/refusal checks:
 julia --project=/path/to/locked-build-environment scripts/build/test_uniform_candidate.jl
 julia --project=/path/to/locked-build-environment --load scripts/build/runtests.jl --eval 'test_main()'
 ```
+
+## Resource measurement
+
+For bounded Linux runs, the optional [durable command monitor](MEASUREMENT.md)
+records effective controls, workload identity, periodic observations and final
+resource counters. Validate it through the host's existing admission/supervision
+mechanism before scientific use. Its receipt establishes neither descendant
+quiescence nor scientific candidate acceptance.
