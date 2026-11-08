@@ -828,13 +828,94 @@ function _qubopreprocessing_build_provenance(
     )
 end
 
+# A uniform candidate reuses these submissions while releasing each instance's
+# model and traces before loading the next one. Ordinary enrichment keeps its
+# existing one-call behavior.
+function _qubopreprocessing_submissions!(index, build_provenance)
+    # Submission for certified exact reduction (n_reduced == 0)
+    exact_submission = QUBOLib.add_submission!(
+        index;
+        submitter = QUBOPREPROCESSING_SOLVER,
+        reference = QUBOPREPROCESSING_URL,
+        modeling_approach = "QUBO",
+        workflow = "Certified algebraic QUBO preprocessing to zero residual variables (n_reduced = 0)",
+        algorithm_type = "Deterministic",
+        remarks = "Exact ground state certified by QUBOPreprocessing.jl v$(QUBOPREPROCESSING_VERSION) without search",
+        metadata = Dict{String,Any}(
+            "package"         => QUBOPREPROCESSING_SOLVER,
+            "version"         => QUBOPREPROCESSING_VERSION,
+            "repository"      => QUBOPREPROCESSING_REPOSITORY,
+            "submission_kind" => "certified_exact_reduction",
+            "run_started_unix_s" => build_provenance["run_started_unix_s"],
+        ),
+    )
+
+    # Submission for certified solution repair
+    repair_submission = QUBOLib.add_submission!(
+        index;
+        submitter = QUBOPREPROCESSING_SOLVER,
+        reference = QUBOPREPROCESSING_URL,
+        modeling_approach = "QUBO",
+        workflow = "Certified algebraic QUBO preprocessing + exact trace reconstruction on existing solution records",
+        algorithm_type = "Deterministic",
+        remarks = "Strictly improved solution obtained by projecting an existing QUBOLib solution to the reduced residual core and reconstructing fixed/eliminated variables via QUBOPreprocessing.reconstruct",
+        metadata = Dict{String,Any}(
+            "package"         => QUBOPREPROCESSING_SOLVER,
+            "version"         => QUBOPREPROCESSING_VERSION,
+            "repository"      => QUBOPREPROCESSING_REPOSITORY,
+            "submission_kind" => "certified_solution_repair",
+            "run_started_unix_s" => build_provenance["run_started_unix_s"],
+        ),
+    )
+
+    return (exact = exact_submission, repair = repair_submission)
+end
+
+function _preprocessing_instance_filter(ids)
+    isnothing(ids) && return ""
+    all(id -> id isa Integer && !(id isa Bool) && 0 < id <= typemax(Int), ids) ||
+        throw(ArgumentError("instance IDs must be positive machine-sized integers"))
+    return isempty(ids) ? "WHERE 0" : "WHERE instance IN ($(join(sort!(Int.(collect(ids))), ',')))"
+end
+
+function _validate_preprocessing_submissions(index, ids)
+    ids isa NamedTuple && keys(ids) == (:exact, :repair) ||
+        throw(ArgumentError("submission_ids must contain exact and repair IDs"))
+    all(id -> id isa Integer && !(id isa Bool) && 0 < id <= typemax(Int), values(ids)) &&
+        ids.exact != ids.repair || throw(ArgumentError("invalid preprocessing submission IDs"))
+    for (name, id, kind) in ((:exact, ids.exact, "certified_exact_reduction"),
+                              (:repair, ids.repair, "certified_solution_repair"))
+        rows = QUBOLib.DBInterface.execute(QUBOLib.database(index),
+            "SELECT metadata FROM Submissions WHERE submission = ?;", (Int(id),)) |> QUBOLib.DataFrame
+        size(rows, 1) == 1 || throw(ArgumentError("missing $name preprocessing submission"))
+        meta = QUBOLib.JSON.parse(String(rows[1, :metadata]))
+        get(meta, "submission_kind", nothing) == kind &&
+            get(meta, "version", nothing) == QUBOPREPROCESSING_VERSION ||
+            throw(ArgumentError("$name submission does not match preprocessing kind/version"))
+    end
+    return ids
+end
+
 function enrich_preprocessing!(
     index::QUBOLib.LibraryIndex,
     preprocess_module::Module;
     summary_tsv::Union{AbstractString,Nothing} = nothing,
     coercive_tsv::Union{AbstractString,Nothing} = nothing,
     repair_instance_ids::Union{AbstractSet{<:Integer},Nothing} = nothing,
+    instance_ids::Union{AbstractSet{<:Integer},Nothing} = nothing,
+    submission_ids = nothing,
 )
+    instance_filter = _preprocessing_instance_filter(instance_ids)
+    _preprocessing_instance_filter(repair_instance_ids)
+    if !isnothing(instance_ids)
+        if isnothing(repair_instance_ids)
+            repair_instance_ids = instance_ids
+        else
+            issubset(repair_instance_ids, instance_ids) ||
+                throw(ArgumentError("repair IDs must be within the selected instance IDs"))
+        end
+    end
+    isnothing(submission_ids) || _validate_preprocessing_submissions(index, submission_ids)
     provenance_s = @elapsed build_provenance = _qubopreprocessing_build_provenance(preprocess_module; summary_tsv, coercive_tsv)
     build_provenance["provenance_capture_s"] = provenance_s
     build_provenance["run_started_unix_s"] = time()
@@ -851,9 +932,12 @@ function enrich_preprocessing!(
         """
         SELECT instance, collection, name, dimension, density, sense, domain, metadata
         FROM Instances
+        $instance_filter
         ORDER BY instance;
         """,
     ) |> QUBOLib.DataFrame
+    isnothing(instance_ids) || size(instances_df, 1) == length(instance_ids) ||
+        throw(ArgumentError("selected instance IDs are missing from the library"))
 
     # Cache live preprocessing results for instances we need to solve/repair
     live_results = Dict{Int,NamedTuple}()
@@ -950,41 +1034,9 @@ function enrich_preprocessing!(
         rethrow()
     end
 
-    # Submission for certified exact reduction (n_reduced == 0)
-    exact_submission = QUBOLib.add_submission!(
-        index;
-        submitter = QUBOPREPROCESSING_SOLVER,
-        reference = QUBOPREPROCESSING_URL,
-        modeling_approach = "QUBO",
-        workflow = "Certified algebraic QUBO preprocessing to zero residual variables (n_reduced = 0)",
-        algorithm_type = "Deterministic",
-        remarks = "Exact ground state certified by QUBOPreprocessing.jl v$(QUBOPREPROCESSING_VERSION) without search",
-        metadata = Dict{String,Any}(
-            "package"         => QUBOPREPROCESSING_SOLVER,
-            "version"         => QUBOPREPROCESSING_VERSION,
-            "repository"      => QUBOPREPROCESSING_REPOSITORY,
-            "submission_kind" => "certified_exact_reduction",
-            "run_started_unix_s" => build_provenance["run_started_unix_s"],
-        ),
-    )
-
-    # Submission for certified solution repair
-    repair_submission = QUBOLib.add_submission!(
-        index;
-        submitter = QUBOPREPROCESSING_SOLVER,
-        reference = QUBOPREPROCESSING_URL,
-        modeling_approach = "QUBO",
-        workflow = "Certified algebraic QUBO preprocessing + exact trace reconstruction on existing solution records",
-        algorithm_type = "Deterministic",
-        remarks = "Strictly improved solution obtained by projecting an existing QUBOLib solution to the reduced residual core and reconstructing fixed/eliminated variables via QUBOPreprocessing.reconstruct",
-        metadata = Dict{String,Any}(
-            "package"         => QUBOPREPROCESSING_SOLVER,
-            "version"         => QUBOPREPROCESSING_VERSION,
-            "repository"      => QUBOPREPROCESSING_REPOSITORY,
-            "submission_kind" => "certified_solution_repair",
-            "run_started_unix_s" => build_provenance["run_started_unix_s"],
-        ),
-    )
+    submissions = isnothing(submission_ids) ?
+        _qubopreprocessing_submissions!(index, build_provenance) : submission_ids
+    exact_submission, repair_submission = submissions.exact, submissions.repair
 
     exact_count = 0
     for inst_id in sort(unique(zero_var_instances))
