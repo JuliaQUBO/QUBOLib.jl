@@ -69,5 +69,5 @@ Tiny integration/refusal checks:
 
 ```sh
 julia --project=/path/to/locked-build-environment scripts/build/test_uniform_candidate.jl
-julia --project=/path/to/locked-build-environment scripts/build/runtests.jl
+julia --project=/path/to/locked-build-environment --load scripts/build/runtests.jl --eval 'test_main()'
 ```

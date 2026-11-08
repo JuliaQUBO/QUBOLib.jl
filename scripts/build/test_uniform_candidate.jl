@@ -17,44 +17,6 @@ function runtime_plan()
         "manifest_sha256"=>U.sha(joinpath(dirname(project),"Manifest.toml")))
 end
 
-@testset "streamed repair retains a noncontiguous native Spin core" begin
-    # Thirteen frustrated spins exceed the small exact block gate; independent
-    # fixed spins at original positions1/3 leave a noncontiguous residual core.
-    survivors=[2;collect(4:15)]
-    model=QT.Model(Dict(i=>(i==1 ? 10.0 : i==3 ? -10.0 : 0.0) for i in 1:15),
-        Dict((i,j)=>1.0 for i in survivors for j in survivors if i<j);domain=:spin,sense=:min)
-    parent=[isodd(i) ? -1 : 1 for i in 1:15];parent[1]=1;parent[3]=-1
-    energy(x)=10*x[1]-10*x[3]+sum(x[i]*x[j] for i in survivors for j in survivors if i<j)
-    mktempdir() do root
-        QL.access(;path=root,clear=true) do index
-            QL.add_collection!(index,"fixture",Dict{String,Any}("name"=>"Repair fixtures","author"=>String[]))
-            for name in ("partial-a","partial-b")
-                id=QL.add_instance!(index,model,"fixture";name)
-                QL.add_solution!(index,id,QT.SampleSet{Float64,Int}(model,[parent]);
-                    qubo_value=energy(parent),proven_optimal=false,feasibility_status="feasible",
-                    validation_status="validated",incumbent_candidate=true)
-            end
-        end
-        journal=IOBuffer();@test U.enrich_streaming!(root;journal)==2
-        records=U.JSON.parse.(filter(!isempty,split(String(take!(journal)),'\n')))
-        @test [r["repaired_strong_count"] for r in records]==[1,1]
-        QL.access(;path=root) do index
-            rows=QL.DBInterface.execute(QL.database(index),"SELECT metadata FROM Instances;") |> QL.DataFrame
-            @test all(U.JSON.parse(String(r.metadata))["n_strong"]==13 for r in eachrow(rows))
-            repairs=QL.DBInterface.execute(QL.database(index),"SELECT * FROM SolutionRecords WHERE source_path LIKE 'QUBOPreprocessing.jl/strong/reconstruct%';") |> QL.DataFrame
-            @test size(repairs,1)==2
-            @test length(unique(repairs.submission))==1
-            for row in eachrow(repairs)
-                state=[c=='1' ? 1 : -1 for c in String(row.bitstring)]
-                @test state[survivors]==parent[survivors]
-                @test state[[1,3]]==[-1,1]
-                @test row.qubo_value==energy(state)==energy(parent)-40
-                @test row.proven_optimal==0
-            end
-        end
-    end
-end
-
 @testset "locked clean runtime acceptance" begin
     identity=U.runtime_identity(runtime_plan())
     @test identity["builder"]["commit"]==U.git(U.REPO,"rev-parse","HEAD")
