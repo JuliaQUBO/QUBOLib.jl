@@ -12,9 +12,45 @@ independent_objective(x) = 2*(7+x[1]-2*x[2]+3*x[1]*x[2])
 
 function runtime_plan()
     project=Base.active_project()
-    Dict("schema"=>"qubolib-uniform-candidate-v1", "builder_commit"=>U.git(U.REPO,"rev-parse","HEAD"),
+    Dict{String,Any}("schema"=>"qubolib-uniform-candidate-v1", "builder_commit"=>U.git(U.REPO,"rev-parse","HEAD"),
         "julia_version"=>string(VERSION), "project_sha256"=>U.sha(project),
         "manifest_sha256"=>U.sha(joinpath(dirname(project),"Manifest.toml")))
+end
+
+@testset "streamed repair retains a noncontiguous native Spin core" begin
+    survivors=[2,4,5,6,7]
+    model=QT.Model(Dict(i=>(i==1 ? 10.0 : i==3 ? -10.0 : 0.0) for i in 1:7),
+        Dict((i,j)=>1.0 for i in survivors for j in survivors if i<j);domain=:spin,sense=:min)
+    parent=[1,-1,-1,1,-1,1,-1]
+    energy(x)=10*x[1]-10*x[3]+sum(x[i]*x[j] for i in survivors for j in survivors if i<j)
+    mktempdir() do root
+        QL.access(;path=root,clear=true) do index
+            QL.add_collection!(index,"fixture",Dict("name"=>"Repair fixtures"))
+            for name in ("partial-a","partial-b")
+                id=QL.add_instance!(index,model,"fixture";name)
+                QL.add_solution!(index,id,QT.SampleSet{Float64,Int}(model,[parent]);
+                    qubo_value=energy(parent),proven_optimal=false,feasibility_status="feasible",
+                    validation_status="validated",incumbent_candidate=true)
+            end
+        end
+        journal=IOBuffer();@test U.enrich_streaming!(root;journal)==2
+        records=U.JSON.parse.(filter(!isempty,split(String(take!(journal)),'\n')))
+        @test [r["repaired_strong_count"] for r in records]==[1,1]
+        QL.access(;path=root) do index
+            rows=QL.DBInterface.execute(QL.database(index),"SELECT metadata FROM Instances;") |> QL.DataFrame
+            @test all(U.JSON.parse(String(r.metadata))["n_strong"]==5 for r in eachrow(rows))
+            repairs=QL.DBInterface.execute(QL.database(index),"SELECT * FROM SolutionRecords WHERE source_path LIKE 'QUBOPreprocessing.jl/strong/reconstruct%';") |> QL.DataFrame
+            @test size(repairs,1)==2
+            @test length(unique(repairs.submission))==1
+            for row in eachrow(repairs)
+                state=[c=='1' ? 1 : -1 for c in String(row.bitstring)]
+                @test state[survivors]==parent[survivors]
+                @test state[[1,3]]==[-1,1]
+                @test row.qubo_value==energy(state)==energy(parent)-40
+                @test row.proven_optimal==0
+            end
+        end
+    end
 end
 
 @testset "locked clean runtime acceptance" begin
