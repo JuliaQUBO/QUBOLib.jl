@@ -160,6 +160,26 @@ function mirror_root(path, required)
     return only(candidates)
 end
 
+# The checksum-pinned mirror contains every model, p1, and the best point:
+# 29 PIP + 42 SOL files (DATASET.md). Other historical points in source
+# metadata are optional and are deliberately never fetched from the live site.
+function minlplib_mirror_required_files(instances=MINLPLIB_QUBO_INSTANCES)
+    return sort!(vcat([["$(info.name).pip";
+        ["$(info.name).$(point).sol" for point in unique(["p1",info.best_point])]]
+        for info in instances]...))
+end
+
+function minlplib_mirror_inventory(root; instances=MINLPLIB_QUBO_INSTANCES)
+    required = minlplib_mirror_required_files(instances)
+    require(all(name->isfile(joinpath(root,name)),required), "MINLPLib mirror is missing a model, p1, or best point")
+    declared = sort!(vcat([["$(info.name).$(point).sol" for point in info.points]
+        for info in instances]...))
+    return Dict("models"=>length(instances), "required_files"=>required,
+        "mirrored_solution_files"=>filter(name->endswith(name,".sol"),required),
+        "missing_optional_solution_files"=>filter(name->!isfile(joinpath(root,name)),declared),
+        "source"=>"checksum-pinned mirror; no live website replacements")
+end
+
 function validate_mqlib_inventory(root)
     require(all(name->isfile(joinpath(root,name)),
         ("standard.csv","catalog_tier2.csv","metrics_standard.csv","results_standard.csv")), "MQLib catalogues/results are incomplete")
@@ -189,9 +209,10 @@ function import_sources!(path, archives, qoblib)
             mkpath(destination)
             run(`unzip -qq $(archives[name]) -d $destination`)
             required = name=="mqlib" ? ["standard.csv","catalog_tier2.csv","metrics_standard.csv","results_standard.csv"] :
-                vcat([["$(info.name).pip"; ["$(info.name).$(point).sol" for point in info.points]] for info in MINLPLIB_QUBO_INSTANCES]...)
+                minlplib_mirror_required_files()
             roots[name] = mirror_root(destination,required)
         end
+        new_json(joinpath(path,"minlplib-mirror-inventory.json"), minlplib_mirror_inventory(roots["minlplib"]))
         # Reject missing MQLib models before the importer can silently skip them.
         validate_mqlib_inventory(roots["mqlib"])
         build_hen!(index)
