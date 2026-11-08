@@ -160,7 +160,9 @@ function derived_audit(index,id,p,submissions,model=Q.load_instance(index,id))
     repaired=Set{Tuple{Int,String}}()
     for r in eachrow(records)
         check(!ismissing(r.solution),"derived record lacks HDF5 solution")
-        sol=Q.load_solution(index,id,Int(r.solution));meta=T.metadata(sol);check(U.JSON.parse(String(r.metadata))==meta,"SQL/HDF5 metadata differ")
+        sol=Q.load_solution(index,id,Int(r.solution))
+        check(length(sol)==1,"derived SampleSet must contain exactly one sample")
+        meta=T.metadata(sol);check(U.JSON.parse(String(r.metadata))==meta,"SQL/HDF5 metadata differ")
         state=T.state(first(sol));check(length(state)==T.dimension(model),"derived dimension mismatch")
         check(all(v->v in (Symbol(domain)==:spin ? (-1,1) : (0,1)),state),"invalid native derived state")
         bits=U._state_to_bool_vector(state,domain);check(join(bits)==String(r.bitstring),"derived stored bitstring mismatch")
@@ -192,6 +194,7 @@ function derived_audit(index,id,p,submissions,model=Q.load_instance(index,id))
             check(positive_id(meta["parent_record"]) && Int(pr.record)<Int(r.record) && !(nullable(pr.submission) in values(submissions)) && !Bool(pr.proven_optimal),"ineligible original repair parent")
             pair=(Int(pr.record),String(mode));check(!(pair in repaired),"duplicate parent/mode repair");push!(repaired,pair)
             check(Int(pr.instance)==id && nullable(pr.solution)==meta["parent_solution"] && nullable(pr.submission)==meta["parent_submission"],"repair parent linkage mismatch")
+            check(pr.bitstring isa AbstractString && length(pr.bitstring)==T.dimension(model) && all(c->c=='0'||c=='1',pr.bitstring),"invalid native parent bitstring")
             parentstate=U._bool_vector_to_domain(Q._bitstring_state(String(pr.bitstring)),domain)
             parentval=Float64(T.value(model,parentstate));check(isapprox(parentval,meta["parent_qubo_value"];atol=1e-8,rtol=1e-8),"parent objective mismatch")
             check(isfinite(parentval) && length(parentstate)==T.dimension(model),"invalid repair parent")
@@ -276,7 +279,9 @@ function audit_records(index, originals, journal, identity, emit; counts=U.COUNT
     end
     all_preprocessing=Set(Int.(rows(index,"SELECT solution FROM Solutions WHERE solver='QUBOPreprocessing.jl';").solution))
     check(solutions==all_preprocessing,"unrecorded or missing preprocessing solutions")
-    for r in eachrow(rows(index,"SELECT submission,metadata FROM SolutionRecords;"))
+    # Iterate the SQL cursor: preparation diagnostics can be large even though
+    # only one original/model's full records are retained in the main audit.
+    for r in Q.DBInterface.execute(Q.database(index),"SELECT submission,metadata FROM SolutionRecords;")
         meta=ismissing(r.metadata) || isempty(String(r.metadata)) ? Dict() : U.JSON.parse(String(r.metadata))
         if meta isa AbstractDict && get(meta,"origin",nothing) in ("certified_exact_reduction","certified_solution_repair")
             check(nullable(r.submission) in values(pair),"derived origin outside the shared pair")
@@ -314,6 +319,51 @@ function verify_artifact(candidate, receipt)
     return Dict("members"=>members,"artifact_tree"=>tree,"archive_sha256"=>U.sha(archive),"archive_bytes"=>filesize(archive))
 end
 
+function canonical_producer(command, candidate, plan_path, memory_mib; heap_size_hint=nothing)
+    check(command isa AbstractVector && all(x->x isa String,command),"producer command must be an argv array")
+    check(positive_id(memory_mib),"invalid producer memory reservation")
+    julia=realpath(joinpath(Sys.BINDIR,Base.julia_exename()))
+    payload=[julia,"--startup-file=no"]
+    if !isnothing(heap_size_hint)
+        check(heap_size_hint isa String && occursin(r"^[1-9][0-9]*[MG]$",heap_size_hint),"invalid frozen GC heap-size hint")
+        hint_mib=parse(BigInt,heap_size_hint[1:end-1])*(endswith(heap_size_hint,"G") ? 1024 : 1)
+        check(0<hint_mib<memory_mib,"GC heap-size hint must be below the memory reservation")
+        push!(payload,"--heap-size-hint="*heap_size_hint)
+    end
+    append!(payload,["--project="*dirname(Base.active_project()),
+        joinpath(U.REPO,"scripts","build","uniform_candidate.jl"),abspath(plan_path),abspath(candidate)])
+    environment=["env","JULIA_PKG_OFFLINE=true","JULIA_DEPOT_PATH="*get(ENV,"JULIA_DEPOT_PATH","")]
+    valid_payload(args)=args==payload || args==vcat(environment,payload)
+    valid_payload(command) && return true
+    check(length(command)>=3 && command[1]=="/usr/bin/python3" &&
+        command[2]==joinpath(U.REPO,"scripts","build","measure_command.py"),"unsupported producer executable/prefix")
+    separator=findfirst(==("--"),command)
+    check(!isnothing(separator) && separator>=9,"invalid measurement wrapper command")
+    flags=command[3:separator-1]
+    check(iseven(length(flags)),"measurement wrapper requires option/value pairs")
+    options=Dict{String,String}();labels=Set{String}()
+    for i in 1:2:length(flags)
+        key,value=flags[i],flags[i+1]
+        check(key in ("--journal","--receipt","--memory-mib","--interval","--stop-grace","--disk-path"),"unknown measurement wrapper option")
+        if key=="--disk-path"
+            parts=split(value,'=';limit=2)
+            check(length(parts)==2 && all(!isempty,parts) && !(parts[1] in labels),"invalid/duplicate measurement disk label")
+            push!(labels,parts[1])
+        else
+            check(!haskey(options,key),"duplicate measurement wrapper option")
+            options[key]=value
+        end
+    end
+    check(all(haskey(options,key) for key in ("--journal","--receipt","--memory-mib")),"incomplete measurement wrapper options")
+    check(isabspath(options["--journal"]) && isabspath(options["--receipt"]) &&
+        normpath(options["--journal"])!=normpath(options["--receipt"]),"invalid measurement output paths")
+    check(positive_id(memory_mib) && parse(Int,options["--memory-mib"])==memory_mib,"measurement limit differs from supervisor reservation")
+    interval=parse(Float64,get(options,"--interval","1"));grace=parse(Float64,get(options,"--stop-grace","1"))
+    check(isfinite(interval) && .05<=interval<=60 && isfinite(grace) && 0<grace<=2,"invalid measurement timing options")
+    check(valid_payload(command[separator+1:end]),"measurement wrapper does not invoke the canonical producer")
+    return true
+end
+
 function producer_terminal(path, candidate, plan_path)
     terminal=U.JSON.parsefile(path)
     check(terminal["state"]=="completed" && terminal["exit_code"]==0 && terminal["primary_exit_code"]==0 && terminal["quiescent"]===true && terminal["allocation_present"]===false,"producer did not complete quiescently")
@@ -321,9 +371,8 @@ function producer_terminal(path, candidate, plan_path)
     for key in ("run_id","nonce","owner","boot_id")
         check(isequal(run[key],terminal[key]),"producer supervisor identity differs")
     end
-    command=run["command"]
-    expected=[joinpath(U.REPO,"scripts","build","uniform_candidate.jl"),abspath(plan_path),abspath(candidate)]
-    check(length(command)>=3 && command[end-2:end]==expected,"supervisor receipt is not bound to this canonical producer command")
+    frozen=U.TOML.parsefile(plan_path)
+    canonical_producer(run["command"],candidate,plan_path,run["memory_mib"];heap_size_hint=get(frozen,"julia_heap_size_hint",nothing))
     return Dict("terminal_sha256"=>U.sha(path),"run_sha256"=>U.sha(run_path),"run_id"=>terminal["run_id"])
 end
 

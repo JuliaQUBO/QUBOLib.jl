@@ -39,6 +39,44 @@ end
     end
 end
 
+@testset "producer receipt binds the complete supported command" begin
+    mktempdir() do directory
+        candidate=joinpath(directory,"candidate");mkdir(candidate)
+        plan_path=joinpath(directory,"plan.toml");write(plan_path,"schema = \"binding-fixture\"\n")
+        run_path=joinpath(directory,"run.json");terminal_path=joinpath(directory,"terminal.json")
+        payload=[realpath(joinpath(Sys.BINDIR,Base.julia_exename())),"--startup-file=no",
+            "--project="*dirname(Base.active_project()),joinpath(U.REPO,"scripts/build/uniform_candidate.jl"),plan_path,candidate]
+        run_record=Dict("run_id"=>"synthetic-binding-fixture","nonce"=>"fixture","owner"=>Dict("pid"=>1),"boot_id"=>"fixture","memory_mib"=>4096,"command"=>payload)
+        terminal=merge(copy(run_record),Dict("state"=>"completed","exit_code"=>0,"primary_exit_code"=>0,"quiescent"=>true,"allocation_present"=>false))
+        save()=(write(run_path,U.JSON.json(run_record));write(terminal_path,U.JSON.json(terminal)))
+        save();@test A.producer_terminal(terminal_path,candidate,plan_path)["run_id"]=="synthetic-binding-fixture"
+        for invalid in (["/bin/true",payload[end-2:end]...],vcat(["/bin/true"],payload),vcat(payload[1:3],["--eval=exit()"],payload[4:end]))
+            run_record["command"]=invalid;save()
+            @test_throws ArgumentError A.producer_terminal(terminal_path,candidate,plan_path)
+        end
+        environment=["env","JULIA_PKG_OFFLINE=true","JULIA_DEPOT_PATH="*get(ENV,"JULIA_DEPOT_PATH","")]
+        wrapper=["/usr/bin/python3",joinpath(U.REPO,"scripts/build/measure_command.py"),
+            "--journal",joinpath(directory,"measurement.jsonl"),"--receipt",joinpath(directory,"measurement.json"),"--memory-mib","4096","--"]
+        run_record["command"]=vcat(wrapper,environment,payload);save()
+        @test A.producer_terminal(terminal_path,candidate,plan_path)["run_id"]=="synthetic-binding-fixture"
+        for invalid in (vcat(["/bin/true"],wrapper[2:end],payload),vcat(wrapper,["/bin/true"],payload[end-2:end]),vcat(wrapper[1:7],["8192","--"],payload))
+            run_record["command"]=invalid;save()
+            @test_throws ArgumentError A.producer_terminal(terminal_path,candidate,plan_path)
+        end
+        run_record["command"]=payload;terminal["nonce"]="different";save()
+        @test_throws ArgumentError A.producer_terminal(terminal_path,candidate,plan_path)
+        terminal["nonce"]="fixture"
+        write(plan_path,"julia_heap_size_hint = \"2G\"\n")
+        run_record["command"]=vcat(payload[1:2],["--heap-size-hint=2G"],payload[3:end]);save()
+        @test A.producer_terminal(terminal_path,candidate,plan_path)["run_id"]=="synthetic-binding-fixture"
+        run_record["command"]=payload;save()
+        @test_throws ArgumentError A.producer_terminal(terminal_path,candidate,plan_path)
+        write(plan_path,"julia_heap_size_hint = \"4G\"\n")
+        run_record["command"]=vcat(payload[1:2],["--heap-size-hint=4G"],payload[3:end]);save()
+        @test_throws ArgumentError A.producer_terminal(terminal_path,candidate,plan_path)
+    end
+end
+
 @testset "native stored outputs and corruption guards" begin
     mktempdir() do directory
         candidate=joinpath(directory,"candidate")
@@ -118,6 +156,30 @@ end
             @test_throws ArgumentError audit()
         end
         solution_metadata!(repair,repair_meta);audit()
+        parent_id=Int(repair_meta["parent_record"])
+        parent_bits=Q.access(index->String(only(eachrow(A.rows(index,"SELECT bitstring FROM SolutionRecords WHERE record=?;",(parent_id,)))).bitstring);path=candidate)
+        @test occursin('0',parent_bits)
+        Q.access(;path=candidate) do index
+            Q.DBInterface.execute(Q.database(index),"UPDATE SolutionRecords SET bitstring=? WHERE record=?;",(replace(parent_bits,"0"=>"x";count=1),parent_id))
+        end
+        @test_throws ArgumentError audit()
+        Q.access(;path=candidate) do index
+            Q.DBInterface.execute(Q.database(index),"UPDATE SolutionRecords SET bitstring=? WHERE record=?;",(parent_bits,parent_id))
+        end
+        original_solution=Q.access(index->Q.load_solution(index,Int(exact.instance),Int(exact.solution));path=candidate)
+        good=first(original_solution);extra_state=copy(T.state(good));extra_state[1]=1-extra_state[1]
+        corrupted=T.SampleSet{Float64,Int}([
+            T.Sample{Float64,Int}(copy(T.state(good)),T.value(good),T.reads(good)),
+            T.Sample{Float64,Int}(extra_state,T.value(good)+1000.0,1)],deepcopy(T.metadata(original_solution));sense=:min,domain=:bool)
+        @test length(corrupted)==2 && T.value(corrupted,1)==T.value(original_solution,1)
+        function store_solution!(sol)
+            Q.access(;path=candidate) do index
+                parent=Q.archive(index)["solutions"];Q.HDF5.delete_object(parent,string(exact.solution))
+                Q._write_solution(Q.HDF5.create_group(parent,string(exact.solution)),sol,Q._qubin_format())
+            end
+        end
+        store_solution!(corrupted);@test_throws ArgumentError audit()
+        store_solution!(original_solution);audit()
         wrong=deepcopy(journal);wrong[Int(id)]["exact_count"]=0
         serial[]+=1
         @test_throws ArgumentError A.with_readonly_index(candidate,joinpath(directory,"wrong-count-$(serial[])")) do index

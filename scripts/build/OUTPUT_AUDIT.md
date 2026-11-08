@@ -3,10 +3,21 @@
 `audit_uniform_candidate.jl` checks the complete output of the canonical
 `uniform_candidate.jl PLAN.toml CANDIDATE` producer. Run it on Dantzig in the same
 clean source and locked environment: Julia 1.10.12, registered QUBOPreprocessing 0.2.1
-and QUBOTools 0.16.4 with the documented trees. Preserve one core/thread, zero swap,
+and QUBOTools 0.16.4 with the documented trees. Use the same recorded GC heap-hint
+policy; its effective byte value is included in each input's provenance. Preserve one core/thread, zero swap,
 the approved memory bound, common admission and a finite deadline. The auditor
 requires the producer's completed, quiescent supervisor receipt and binds that
 receipt to the exact producer command, plan and destination.
+
+Supported invocations use the current Julia executable, `--startup-file=no`, and
+the current explicit `--project=ENV_DIRECTORY`. An optional `env` prefix must use
+`JULIA_PKG_OFFLINE=true` and the current `JULIA_DEPOT_PATH`. The optional monitor
+wrapper uses `/usr/bin/python3`, this checkout's `measure_command.py`, explicit
+journal/receipt/memory options and `--` before that Julia invocation. Unknown
+prefixes, extra Julia options and ambiguous wrapper options are rejected.
+The optional `julia_heap_size_hint` plan field admits only its exact frozen
+`--heap-size-hint=SIZE` argument, expressed in M/G units below the supervisor's
+memory reservation. It is a GC hint, separate from the enforced cgroup cap.
 
 ```sh
 julia --startup-file=no --project=LOCKED_ENV \
