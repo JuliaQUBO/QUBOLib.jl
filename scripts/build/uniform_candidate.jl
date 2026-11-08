@@ -175,7 +175,7 @@ function minlplib_mirror_inventory(root; instances=MINLPLIB_QUBO_INSTANCES)
     declared = sort!(vcat([["$(info.name).$(point).sol" for point in info.points]
         for info in instances]...))
     return Dict("models"=>length(instances), "required_files"=>required,
-        "mirrored_solution_files"=>filter(name->endswith(name,".sol"),required),
+        "mirrored_solution_files"=>filter(name->isfile(joinpath(root,name)),declared),
         "missing_optional_solution_files"=>filter(name->!isfile(joinpath(root,name)),declared),
         "source"=>"checksum-pinned mirror; no live website replacements")
 end

@@ -79,7 +79,9 @@ end
             mv(joinpath(root,"held"),joinpath(root,name))
         end
         write(joinpath(root,"example.p2.sol"),"fixture")
-        @test isempty(U.minlplib_mirror_inventory(root;instances)["missing_optional_solution_files"])
+        full_inventory=U.minlplib_mirror_inventory(root;instances)
+        @test full_inventory["mirrored_solution_files"]==["example.p1.sol","example.p2.sol","example.p3.sol"]
+        @test isempty(full_inventory["missing_optional_solution_files"])
     end
 end
 
