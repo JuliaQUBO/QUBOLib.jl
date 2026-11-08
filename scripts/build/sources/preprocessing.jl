@@ -821,6 +821,8 @@ function _qubopreprocessing_build_provenance(
         "qubopreprocessing_tree_dirty"   => package_git.dirty,
         "julia_version"                 => string(VERSION),
         "julia_threads"                 => Threads.nthreads(),
+        "julia_heap_size_hint_bytes"     => hasproperty(Base.JLOptions(), :heap_size_hint) ?
+                                             Base.JLOptions().heap_size_hint : nothing,
         "project_sha256"                => isnothing(project) ? nothing : _file_sha256(project),
         "manifest_sha256"               => isnothing(manifest) || !isfile(manifest) ? nothing : _file_sha256(manifest),
         "summary_tsv_sha256"             => isnothing(summary_tsv) ? nothing : _file_sha256(summary_tsv),

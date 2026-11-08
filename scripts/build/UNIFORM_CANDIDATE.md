@@ -75,6 +75,12 @@ julia --project=/path/to/locked-build-environment scripts/build/test_uniform_can
 julia --project=/path/to/locked-build-environment --load scripts/build/runtests.jl --eval 'test_main()'
 ```
 
+## Complete-output acceptance
+
+Before accepting a complete real rebuild, run the separate
+[closed-output scientific audit](OUTPUT_AUDIT.md). Its full success receipt is
+distinct from the producer receipt and from resource/quiescence observations.
+
 ## Resource measurement
 
 For bounded Linux runs, the optional [durable command monitor](MEASUREMENT.md)
