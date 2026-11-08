@@ -529,6 +529,42 @@ function _canonical_exact_polynomial(model::QUBOTools.Model)
     return (offset = off, linear = lin, quadratic = quad)
 end
 
+function _exact_polynomials_equal(a::QUBOTools.Model, b::QUBOTools.Model)::Bool
+    # An identity export can be as large as its input. Keep one exact
+    # coefficient map, then subtract the other model term by term rather than
+    # retaining two complete Rational{BigInt} maps during verification.
+    difference = _canonical_exact_polynomial(a)
+    s = _to_exact_rational_qubolib(QUBOTools.scale(b))
+    off = difference.offset - s * _to_exact_rational_qubolib(QUBOTools.offset(b))
+    lin, quad = difference.linear, difference.quadratic
+    for (i, v) in QUBOTools.linear_terms(b)
+        c = s * _to_exact_rational_qubolib(v)
+        iszero(c) && continue
+        idx = Int(i)
+        c_new = get(lin, idx, zero(Rational{BigInt})) - c
+        iszero(c_new) ? delete!(lin, idx) : (lin[idx] = c_new)
+    end
+    is_bool = Symbol(QUBOTools.domain(b)) == :bool
+    for ((i, j), v) in QUBOTools.quadratic_terms(b)
+        c = s * _to_exact_rational_qubolib(v)
+        iszero(c) && continue
+        u, w = min(Int(i), Int(j)), max(Int(i), Int(j))
+        if u == w
+            if is_bool
+                c_new = get(lin, u, zero(Rational{BigInt})) - c
+                iszero(c_new) ? delete!(lin, u) : (lin[u] = c_new)
+            else
+                off -= c
+            end
+        else
+            key = (u, w)
+            c_new = get(quad, key, zero(Rational{BigInt})) - c
+            iszero(c_new) ? delete!(quad, key) : (quad[key] = c_new)
+        end
+    end
+    return iszero(off) && isempty(lin) && isempty(quad)
+end
+
 function _is_identity_reduction(
     preprocess_module::Module,
     model::QUBOTools.Model,
@@ -546,7 +582,7 @@ function _is_identity_reduction(
     end
     Symbol(QUBOTools.sense(red_model)) == Symbol(QUBOTools.sense(model)) || return false
     Symbol(QUBOTools.domain(red_model)) == Symbol(QUBOTools.domain(model)) || return false
-    _canonical_exact_polynomial(red_model) == _canonical_exact_polynomial(model) || return false
+    _exact_polynomials_equal(red_model, model) || return false
     if isdefined(preprocess_module, :reconstruct)
         low_val = Symbol(QUBOTools.domain(model)) == :spin ? -1 : 0
         probes = (

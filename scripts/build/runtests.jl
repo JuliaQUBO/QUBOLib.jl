@@ -1645,6 +1645,41 @@ function test_preprocessing_enrichment()
         model_identity = model_repair  # tiny identity fixture
         @test _run_qubopreprocessing_mode(_MockWorkspaceQUBOPreprocessing, model_identity).certified
 
+        @testset "exact polynomial comparison with one coefficient map" begin
+            for domain in (:bool, :spin), sense in (:min, :max), scale in (-2.0, 0.5, 2.0)
+                linear = Dict(1 => 0.5, 2 => -0.25, 3 => 0.0)
+                quadratic = Dict((1, 1) => 0.25, (1, 2) => -0.5,
+                                 (2, 1) => 0.125, (2, 3) => 0.0)
+                a = QUBOTools.Model(linear, quadratic; scale, offset = 0.125, domain, sense)
+                # Different scaling represents the same exact native polynomial.
+                b = QUBOTools.Model(Dict(i => v / 2 for (i, v) in linear),
+                    Dict(k => v / 2 for (k, v) in quadratic);
+                    scale = scale * 2, offset = 0.0625, domain, sense)
+                rational = QUBOTools.Model(Dict(i => Rational{BigInt}(v) for (i, v) in linear),
+                    Dict(k => Rational{BigInt}(v) for (k, v) in quadratic);
+                    scale = Rational{BigInt}(scale), offset = Rational{BigInt}(0.125), domain, sense)
+                changed = QUBOTools.Model(linear, quadratic; scale,
+                    offset = nextfloat(0.125), domain, sense)
+                changed_linear = QUBOTools.Model(merge(linear, Dict(1 => nextfloat(0.5))),
+                    quadratic; scale, offset = 0.125, domain, sense)
+                changed_quadratic = QUBOTools.Model(linear,
+                    merge(quadratic, Dict((1, 2) => nextfloat(-0.5)));
+                    scale, offset = 0.125, domain, sense)
+                @test _exact_polynomials_equal(a, b)
+                @test _exact_polynomials_equal(b, a)
+                @test _exact_polynomials_equal(a, rational)
+                @test _exact_polynomials_equal(rational, a)
+                for mismatch in (changed, changed_linear, changed_quadratic)
+                    @test !_exact_polynomials_equal(a, mismatch)
+                    @test !_exact_polynomials_equal(mismatch, a)
+                end
+                for candidate in (a, b, rational, changed, changed_linear, changed_quadratic)
+                    @test _exact_polynomials_equal(a, candidate) ==
+                        (_canonical_exact_polynomial(a) == _canonical_exact_polynomial(candidate))
+                end
+            end
+        end
+
         # B2 regression: same-dimension zero-deduction results with missing or empty certificates
         # fail closed if the residual model or mapping differs from the input model.
         _MockWorkspaceQUBOPreprocessing.PERTURB_NOOP_OFFSET[] = -1.0
