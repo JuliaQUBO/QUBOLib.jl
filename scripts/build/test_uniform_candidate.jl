@@ -17,6 +17,49 @@ function runtime_plan()
         "manifest_sha256"=>U.sha(joinpath(dirname(project),"Manifest.toml")))
 end
 
+@testset "uniform CLI dispatches before legacy working-directory build" begin
+    script=joinpath(@__DIR__,"uniform_candidate.jl")
+    project=dirname(Base.active_project())
+    function cli(root,args)
+        output,errors=IOBuffer(),IOBuffer()
+        command=`$(Base.julia_cmd()) --startup-file=no --threads=1 --project=$project $script $args`
+        process=run(pipeline(ignorestatus(Cmd(command;dir=root)),stdout=output,stderr=errors))
+        return success(process),String(take!(output)),String(take!(errors))
+    end
+    mktempdir() do root
+        # Keep this regression safe on the broken revision: its legacy main
+        # sees cached empty collections and returns without fetching inputs.
+        QL.access(;path=root,clear=true) do index
+            for code in keys(U.COUNTS)
+                QL.add_collection!(index,code,Dict{String,Any}("name"=>code,"author"=>String[]))
+            end
+            @test all(QL.has_collection(index,code) for code in keys(U.COUNTS))
+            rows=QL.DBInterface.execute(QL.database(index),"SELECT count(*) AS n FROM Instances;") |> QL.DataFrame
+            @test rows[1,:n]==0
+        end
+        members=Dict(name=>U.sha(joinpath(QL.library_path(root),name)) for name in ("archive.h5","index.db"))
+        succeeded,output,errors=cli(root,String[])
+        @test !succeeded
+        @test occursin("Usage: uniform_candidate.jl",errors)
+        @test !occursin("Building QUBOLib",errors)
+        @test members==Dict(name=>U.sha(joinpath(QL.library_path(root),name)) for name in keys(members))
+        # Do not run the legacy CLI in an empty directory if dispatch regresses.
+        if !succeeded && occursin("Usage: uniform_candidate.jl",errors)
+            mktempdir() do empty_root
+                missing=joinpath(empty_root,"entrypoint-test-missing.toml")
+                destination=joinpath(empty_root,"candidate")
+                succeeded,output,errors=cli(empty_root,[missing,destination])
+                @test !succeeded
+                @test occursin("entrypoint-test-missing.toml",errors)
+                @test !occursin("Building QUBOLib",errors)
+                @test !ispath(destination)
+                @test !ispath(QL.library_path(empty_root))
+                @test isempty(readdir(empty_root))
+            end
+        end
+    end
+end
+
 @testset "locked clean runtime acceptance" begin
     identity=U.runtime_identity(runtime_plan())
     @test identity["builder"]["commit"]==U.git(U.REPO,"rev-parse","HEAD")

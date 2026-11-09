@@ -273,12 +273,12 @@ function build_candidate(plan_path, destination)
     end
 end
 
-function main(args=ARGS)
+function uniform_main(args=ARGS)
     length(args)==2 || error("Usage: uniform_candidate.jl FROZEN_PLAN.toml NEW_DESTINATION")
     build_candidate(args[1],abspath(args[2]))
 end
 end
 
 if abspath(PROGRAM_FILE)==@__FILE__
-    UniformCandidate.main()
+    UniformCandidate.uniform_main()
 end
