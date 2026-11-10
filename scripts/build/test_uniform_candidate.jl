@@ -22,6 +22,7 @@ end
     @test isnothing(U.import_cache_backend(Dict("advise_import_cache"=>false,
         "import_cache_python"=>"missing-optional-python")))
     @test isnothing(U.advise_import_cache!("never-opened",nothing))
+    @test U.cache_advice_destination("relative/",nothing)=="relative/"
     for value in ("true", 1, nothing)
         @test_throws ArgumentError U.import_cache_backend(Dict("advise_import_cache"=>value))
     end
@@ -42,6 +43,22 @@ end
             "import_cache_python"=>"/bin/true"))
         backend=U.import_cache_backend(Dict("advise_import_cache"=>true))
         @test backend["backend"]=="POSIX_FADV_DONTNEED"
+        mktempdir() do root
+            target=joinpath(root,"candidate")
+            @test U.cache_advice_destination(target*"/",backend)==target
+            cd(root) do
+                @test U.cache_advice_destination("candidate/",backend)==target
+            end
+            real=joinpath(root,"real");mkdir(real)
+            alias=joinpath(root,"alias");symlink(real,alias)
+            linked=joinpath(alias,"candidate")
+            @test_throws ArgumentError U.cache_advice_destination(linked,backend)
+            # A bad parent must be rejected before runtime/input validation;
+            # no real mirrors or complete-corpus fixture is needed here.
+            plan=joinpath(root,"enabled.toml");write(plan,"advise_import_cache = true\n")
+            @test_throws ArgumentError U.build_candidate(plan,linked)
+            @test !ispath(linked)
+        end
         function cache_fixture_context(root)
             U.new_json(joinpath(root,"run-plan.json"),Dict("state"=>"prepared",
                 "plan"=>Dict("schema"=>"qubolib-uniform-candidate-v1","advise_import_cache"=>true),
@@ -116,13 +133,24 @@ end
                 @test !ispath(destination)
                 @test !ispath(QL.library_path(empty_root))
                 @test isempty(readdir(empty_root))
-            invalid=joinpath(empty_root,"invalid-option.toml")
-            write(invalid,"advise_import_cache = \"true\"\n")
-            succeeded,output,errors=cli(empty_root,[invalid,destination])
-            @test !succeeded
-            @test occursin("advise_import_cache must be a Boolean",errors)
-            @test !ispath(destination)
-            @test !ispath(QL.library_path(empty_root))
+                invalid=joinpath(empty_root,"invalid-option.toml")
+                write(invalid,"advise_import_cache = \"true\"\n")
+                succeeded,output,errors=cli(empty_root,[invalid,destination])
+                @test !succeeded
+                @test occursin("advise_import_cache must be a Boolean",errors)
+                @test !ispath(destination)
+                @test !ispath(QL.library_path(empty_root))
+                if Sys.islinux()
+                    enabled=joinpath(empty_root,"enabled.toml")
+                    write(enabled,"advise_import_cache = true\n")
+                    real=joinpath(empty_root,"real");mkdir(real)
+                    alias=joinpath(empty_root,"alias");symlink(real,alias)
+                    linked=joinpath(alias,"candidate")
+                    succeeded,output,errors=cli(empty_root,[enabled,linked])
+                    @test !succeeded
+                    @test occursin("symlink-free parent",errors)
+                    @test !ispath(linked)
+                end
             end
         end
     end

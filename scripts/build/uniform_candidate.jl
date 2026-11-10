@@ -44,6 +44,17 @@ function import_cache_backend(plan)
     return info
 end
 
+cache_advice_destination(destination, ::Nothing) = destination
+function cache_advice_destination(destination, backend)
+    # Linux-only backend: normalize the path before claiming/importing, so a
+    # trailing separator or relative caller agrees with Python's Path output.
+    normalized = String(rstrip(abspath(destination),'/'))
+    isempty(normalized) && (normalized="/")
+    parent = dirname(normalized)
+    require(realpath(parent)==parent, "import-cache advice needs a symlink-free parent directory")
+    return normalized
+end
+
 advise_import_cache!(destination, ::Nothing) = nothing
 function advise_import_cache!(destination, backend)
     python = backend["python_executable"]
@@ -267,6 +278,7 @@ function build_candidate(plan_path, destination)
     require(!ispath(destination) && !islink(destination), "candidate destination already exists; resume is unsupported")
     plan = TOML.parsefile(plan_path)
     cache_backend = import_cache_backend(plan)
+    destination = cache_advice_destination(destination,cache_backend)
     identity = runtime_identity(plan)
     archives,qoblib,qoblib_identity = validate_inputs(plan)
     require(!ispath(destination) && !islink(destination), "candidate destination appeared during preflight")

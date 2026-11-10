@@ -76,6 +76,9 @@ Python. When enabled, Python 3 with `os.posix_fadvise` is required; an optional
 `import_cache_python = "/absolute/path/to/python3"` selects its executable.
 The backend is checked before import. A backend or hint error fails the build;
 there is no silent fallback or reuse of a failed destination.
+Enabled builds normalize relative destinations and trailing separators before
+claiming them, and require an existing parent without symlink components. An
+invalid parent is rejected before source validation or import.
 
 After import and the original-model inventory, the builder hashes and checks
 only the fresh destination's `dist/cache` and `sources` files, then requests
