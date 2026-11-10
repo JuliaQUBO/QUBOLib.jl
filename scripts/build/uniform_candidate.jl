@@ -14,6 +14,8 @@ const MIRRORS = merge(copy(HEN_MIRROR_SHA256), Dict(
     "qplib"=>QPLIB_MIRROR_SHA256, "minlplib"=>MINLPLIB_MIRROR_SHA256,
     "mqlib"=>MQLIB_MIRROR_SHA256))
 const JSON = QUBOLib.JSON
+const CACHE_ADVICE_HELPER = joinpath(@__DIR__,"advise_import_cache.py")
+const CACHE_ADVICE_SCHEMA = "qubolib-import-cache-advice-v1"
 
 require(ok, message) = ok || throw(ArgumentError(message))
 sha(path) = open(io->bytes2hex(SHA.sha256(io)), path, "r")
@@ -23,6 +25,43 @@ function new_json(path, value)
     open(path, "w") do io
         println(io, JSON.json(value, 2))
     end
+end
+
+function import_cache_backend(plan)
+    enabled = get(plan,"advise_import_cache",false)
+    require(enabled isa Bool, "advise_import_cache must be a Boolean")
+    enabled || return nothing # no Python/Linux requirement for the default path
+    require(Sys.islinux(), "import-cache advice requires Linux")
+    python = get(plan,"import_cache_python","python3")
+    require(python isa String && !isempty(python), "import_cache_python must name an executable")
+    executable = Sys.which(python)
+    require(!isnothing(executable), "import-cache Python executable is unavailable")
+    executable = realpath(executable)
+    info = JSON.parse(read(`$executable -B $CACHE_ADVICE_HELPER --check`,String))
+    require(info["schema"]==CACHE_ADVICE_SCHEMA && info["backend"]=="POSIX_FADV_DONTNEED" &&
+        info["helper_sha256"]==sha(CACHE_ADVICE_HELPER) && info["python_executable"]==executable,
+        "unexpected import-cache advice backend")
+    return info
+end
+
+advise_import_cache!(destination, ::Nothing) = nothing
+function advise_import_cache!(destination, backend)
+    python = backend["python_executable"]
+    plan_hash = sha(joinpath(destination,"run-plan.json"))
+    originals_hash = sha(joinpath(destination,"original-models.json"))
+    summary = JSON.parse(read(`$python -B $CACHE_ADVICE_HELPER $destination --run-plan-sha256 $plan_hash --original-models-sha256 $originals_hash`,String))
+    path = joinpath(destination,"import-cache-advice.json")
+    require(isfile(path) && !islink(path), "import-cache advice did not write its receipt")
+    require(all(get(summary,key,nothing)==value for (key,value) in backend) &&
+        summary["state"]=="complete" && summary["candidate"]==destination &&
+        summary["roots"]==["dist/cache","sources"] &&
+        summary["advice_is_nonbinding"]===true && isnothing(summary["actual_resident_bytes_released"]) &&
+        summary["run_plan_sha256"]==plan_hash && summary["original_models_sha256"]==originals_hash &&
+        summary["receipt_bytes"]==filesize(path) && summary["receipt_sha256"]==sha(path),
+        "invalid import-cache advice receipt")
+    require(summary["file_count"] isa Integer && summary["file_count"]>0 &&
+        summary["bytes"] isa Integer && summary["bytes"]>=0, "empty import-cache advice")
+    return summary
 end
 
 function clean_source(path, expected)
@@ -227,17 +266,21 @@ end
 function build_candidate(plan_path, destination)
     require(!ispath(destination) && !islink(destination), "candidate destination already exists; resume is unsupported")
     plan = TOML.parsefile(plan_path)
+    cache_backend = import_cache_backend(plan)
     identity = runtime_identity(plan)
     archives,qoblib,qoblib_identity = validate_inputs(plan)
     require(!ispath(destination) && !islink(destination), "candidate destination appeared during preflight")
     mkdir(destination) # atomic claim; never clear/overwrite a prior attempt
     new_json(joinpath(destination,"run-plan.json"),Dict("plan"=>plan,"identity"=>identity,
-        "plan_sha256"=>sha(plan_path),"qoblib"=>qoblib_identity,"state"=>"prepared"))
+        "plan_sha256"=>sha(plan_path),"qoblib"=>qoblib_identity,"state"=>"prepared",
+        "import_cache_backend"=>cache_backend))
     try
+        cache_advice = nothing
         withenv("QUBOLIB_QOBLIB_SOURCE"=>qoblib) do
             import_sources!(destination,archives,qoblib)
             before = QUBOLib.access(index->raw_inventory(index);path=destination)
             new_json(joinpath(destination,"original-models.json"),before)
+            cache_advice = advise_import_cache!(destination,cache_backend)
             open(joinpath(destination,"enrichment.jsonl"),"w") do journal
                 enrich_streaming!(destination;journal)
             end
@@ -260,7 +303,7 @@ function build_candidate(plan_path, destination)
         end
         receipt = Dict("state"=>"complete", "schema"=>"qubolib-uniform-candidate-v1",
             "build_commit"=>identity["builder"]["commit"], "build_commit_status"=>"verified",
-            "identity"=>identity, "counts"=>COUNTS, "artifact_tree"=>tree,
+            "identity"=>identity, "counts"=>COUNTS, "artifact_tree"=>tree, "import_cache_advice"=>cache_advice,
             "archive_sha256"=>sha(archive_path), "archive_bytes"=>filesize(archive_path),
             "members"=>Dict(name=>Dict("sha256"=>sha(joinpath(library,name)),"bytes"=>filesize(joinpath(library,name))) for name in readdir(library)),
             "publication"=>"not_published_requires_human_review")
