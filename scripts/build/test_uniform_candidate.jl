@@ -17,6 +17,84 @@ function runtime_plan()
         "manifest_sha256"=>U.sha(joinpath(dirname(project),"Manifest.toml")))
 end
 
+@testset "import-cache advice is explicit and fails closed" begin
+    @test isnothing(U.import_cache_backend(Dict()))
+    @test isnothing(U.import_cache_backend(Dict("advise_import_cache"=>false,
+        "import_cache_python"=>"missing-optional-python")))
+    @test isnothing(U.advise_import_cache!("never-opened",nothing))
+    @test U.cache_advice_destination("relative/",nothing)=="relative/"
+    for value in ("true", 1, nothing)
+        @test_throws ArgumentError U.import_cache_backend(Dict("advise_import_cache"=>value))
+    end
+    mktempdir() do root
+        # Exercise the actual builder preflight with a malformed option; no
+        # runtime/input validation or import may claim/create the destination.
+        path=joinpath(root,"plan.toml")
+        write(path,"advise_import_cache = \"true\"\n")
+        dest=joinpath(root,"candidate")
+        @test_throws ArgumentError U.build_candidate(path,dest)
+        @test !ispath(dest)
+    end
+    if Sys.islinux()
+        @test_throws ArgumentError U.import_cache_backend(Dict("advise_import_cache"=>true,
+            "import_cache_python"=>"missing-import-cache-python"))
+        # Exit zero without backend JSON is not success.
+        @test_throws Exception U.import_cache_backend(Dict("advise_import_cache"=>true,
+            "import_cache_python"=>"/bin/true"))
+        backend=U.import_cache_backend(Dict("advise_import_cache"=>true))
+        @test backend["backend"]=="POSIX_FADV_DONTNEED"
+        mktempdir() do root
+            target=joinpath(root,"candidate")
+            @test U.cache_advice_destination(target*"/",backend)==target
+            cd(root) do
+                @test U.cache_advice_destination("candidate/",backend)==target
+            end
+            real=joinpath(root,"real");mkdir(real)
+            alias=joinpath(root,"alias");symlink(real,alias)
+            linked=joinpath(alias,"candidate")
+            @test_throws ArgumentError U.cache_advice_destination(linked,backend)
+            # A bad parent must be rejected before runtime/input validation;
+            # no real mirrors or complete-corpus fixture is needed here.
+            plan=joinpath(root,"enabled.toml");write(plan,"advise_import_cache = true\n")
+            @test_throws ArgumentError U.build_candidate(plan,linked)
+            @test !ispath(linked)
+        end
+        function cache_fixture_context(root)
+            U.new_json(joinpath(root,"run-plan.json"),Dict("state"=>"prepared",
+                "plan"=>Dict("schema"=>"qubolib-uniform-candidate-v1","advise_import_cache"=>true),
+                "import_cache_backend"=>backend))
+            U.new_json(joinpath(root,"original-models.json"),[Dict("fixture_only"=>true)])
+        end
+        mktempdir() do root
+            for name in ("dist/cache/mirror.zip","sources/model.txt")
+                path=joinpath(root,name);mkpath(dirname(path));write(path,"private import fixture")
+            end
+            native=joinpath(QL.library_path(root),"archive.h5")
+            mkpath(dirname(native));write(native,"native library fixture")
+            cache_fixture_context(root)
+            before=U.sha(native)
+            fake=copy(backend);fake["python_executable"]="/bin/true"
+            @test_throws Exception U.advise_import_cache!(root,fake)
+            receipt=U.advise_import_cache!(root,backend)
+            @test receipt["file_count"]==2
+            @test isnothing(receipt["actual_resident_bytes_released"])
+            @test receipt["run_plan_sha256"]==U.sha(joinpath(root,"run-plan.json"))
+            @test receipt["original_models_sha256"]==U.sha(joinpath(root,"original-models.json"))
+            @test U.sha(native)==before
+            @test_throws Exception U.advise_import_cache!(root,backend) # retain prior receipt
+        end
+        mktempdir() do root
+            mkpath(joinpath(root,"dist/cache"));mkpath(joinpath(root,"sources"))
+            write(joinpath(root,"dist/cache/mirror.zip"),"private fixture")
+            outside=joinpath(root,"outside.txt");write(outside,"shared source")
+            symlink(outside,joinpath(root,"sources/linked.txt"))
+            cache_fixture_context(root)
+            @test_throws Exception U.advise_import_cache!(root,backend)
+            @test !ispath(joinpath(root,"terminal.json"))
+        end
+    end
+end
+
 @testset "uniform CLI dispatches before legacy working-directory build" begin
     script=joinpath(@__DIR__,"uniform_candidate.jl")
     project=dirname(Base.active_project())
@@ -55,6 +133,24 @@ end
                 @test !ispath(destination)
                 @test !ispath(QL.library_path(empty_root))
                 @test isempty(readdir(empty_root))
+                invalid=joinpath(empty_root,"invalid-option.toml")
+                write(invalid,"advise_import_cache = \"true\"\n")
+                succeeded,output,errors=cli(empty_root,[invalid,destination])
+                @test !succeeded
+                @test occursin("advise_import_cache must be a Boolean",errors)
+                @test !ispath(destination)
+                @test !ispath(QL.library_path(empty_root))
+                if Sys.islinux()
+                    enabled=joinpath(empty_root,"enabled.toml")
+                    write(enabled,"advise_import_cache = true\n")
+                    real=joinpath(empty_root,"real");mkdir(real)
+                    alias=joinpath(empty_root,"alias");symlink(real,alias)
+                    linked=joinpath(alias,"candidate")
+                    succeeded,output,errors=cli(empty_root,[enabled,linked])
+                    @test !succeeded
+                    @test occursin("symlink-free parent",errors)
+                    @test !ispath(linked)
+                end
             end
         end
     end

@@ -68,11 +68,53 @@ member/archive SHA256 hashes and Git artifact tree. The archive contains only
 remain untouched. Human review and the release/rights/publication checks in
 `RELEASE.md` remain separate requirements before publishing the candidate.
 
+## Optional advice for import-copy file cache
+
+On Linux, a frozen plan may explicitly set `advise_import_cache = true` at the
+top level (before `[archives]`). The default is `false` and does not require
+Python. When enabled, Python 3 with `os.posix_fadvise` is required; an optional
+`import_cache_python = "/absolute/path/to/python3"` selects its executable.
+The backend is checked before import. A backend or hint error fails the build;
+there is no silent fallback or reuse of a failed destination.
+Enabled builds normalize relative destinations and trailing separators before
+claiming them, and require an existing parent without symlink components. An
+invalid parent is rejected before source validation or import.
+
+After import and the original-model inventory, the builder hashes and checks
+only the fresh destination's `dist/cache` and `sources` files, then requests
+`POSIX_FADV_DONTNEED` through the same read-only file descriptors. It refuses
+links, shared hard-linked inodes, nonregular files and observed path/content
+races. It does not advise the shared mirrors, QOBLIB checkout or native library.
+`import-cache-advice.json`, outside the packaged library, records file hashes,
+identities, accepted hints and the prepared plan/original-inventory hashes.
+The producer terminal binds its validated scalar summary and receipt digest;
+the per-file array is not loaded into the numerical heap. The helper requires
+that enabled prepared context and refuses an existing enrichment journal,
+terminal or failure before hinting. Advice is nonbinding: dirty pages may remain and
+the receipt does not claim bytes evicted, a peak-memory bound or full-build
+feasibility. GC, preprocessing policies, package pins and scientific audits are
+unchanged.
+
+An independent closed-producer check can compare those copies with the receipt:
+
+```sh
+python3 -B scripts/build/advise_import_cache.py --verify /absolute/new/candidate
+```
+
+Run this only after the producer exits, under the audit's reviewed resource
+controls. Re-reading files can refill cache charges. The builder deliberately
+does not perform that rehash while its enrichment heap is still live. This
+copy check is separate from complete-output scientific acceptance. Its
+`producer_terminal_bound` field must be true to tie the check to a completed
+producer receipt; without a producer terminal it verifies only the current
+copies and their prepared context.
+
 Tiny integration/refusal checks:
 
 ```sh
 julia --project=/path/to/locked-build-environment scripts/build/test_uniform_candidate.jl
 julia --project=/path/to/locked-build-environment --load scripts/build/runtests.jl --eval 'test_main()'
+python3 -B scripts/build/test_advise_import_cache.py
 ```
 
 ## Complete-output acceptance
