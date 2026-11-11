@@ -81,8 +81,8 @@ For general use, cite the
 [QUBO.jl ecosystem article](https://doi.org/10.1080/10556788.2026.2702926)
 and identify the QUBOLib package version. For benchmark data, cite the
 [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) across versions,
-and cite [version DOI 10.5281/zenodo.23972765](https://doi.org/10.5281/zenodo.23972765)
-for the exact `v0.2.6-data+9` files selected by package 0.2.7.
+and cite [version identifier 10.5281/zenodo.24142757](https://doi.org/10.5281/zenodo.24142757)
+for the exact `v0.2.7-data+10` files selected by package 0.2.8.
 Also cite the source collections used. Check `Artifacts.toml` at the package
 version used: older package tags retain their earlier data pins. The
 [dataset provenance inventory](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.md)
@@ -97,13 +97,18 @@ metadata, local import workflow, and packaged artifact workflow.
 
 ## Selected data version
 
-Package 0.2.7 selects the published
-[`v0.2.6-data+9` artifact](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.6-data%2B9).
-It appends capture histories and six separately feasible points to the immutable
-historical parent; it does not restamp flat preprocessing metadata or claim a
-single clean rebuild. See the
+QUBOLib 0.2.8 selects the published
+[`v0.2.7-data+10` uniform artifact](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.7-data%2B10):
+9,294 original QUBOs, 620 exact captures and 62 repair records from the recorded
+QUBOPreprocessing.jl 0.2.1 pipeline. The historical layered
+[data+9 snapshot](https://doi.org/10.5281/zenodo.23972765) retains additional study
+histories, proofs, feasible points and annotations. The uniform snapshot has
+1,277 stored-incumbent instances versus 2,210 historically; the full compatibility
+report qualifies these differences and does not imply an accuracy improvement.
+
+See [Dataset Versions](manual/4-datasets.md) for a verified historical working-copy
+recipe and the
 [dataset inventory](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.md)
-for exact sidecar hashes, scientific scope and per-collection rights. The
-[dataset version DOI](https://doi.org/10.5281/zenodo.23972765) preserves all six
-release files. The older data DOI identifies only `v0.2.4-data+8`, and software
-archive DOIs do not identify data.
+for exact identities, per-collection rights and scientific scope. Existing local
+libraries persist across package updates. Dataset DOI publication/verification
+status is recorded in `DATASET.toml`; software archive DOIs identify source code.

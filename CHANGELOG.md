@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.2.8 - 2026-11-11
+
+- Select the uniform `v0.2.7-data+10` corpus: 9,294 unchanged original QUBOs, 620 exact captures and 62 repairs. Preserve the separate historical data+9 snapshot and document its additional histories, proofs, feasible points and annotations.
+- Bind all nine release files and the exact native archive to the existing dataset concept and version identifier `10.5281/zenodo.24142757`.
+- Provide a verified historical working-copy recipe and complete upstream MQLib license notice. Existing local libraries are preserved on package upgrade.
+
 - Route future preprocessing enrichment through QUBOPreprocessing.jl 0.2.1's
   recorded budgeted schedule with exact integerization and a five-second soft
   preparation target. Retain native Bool/Spin models and append policy settings,
