@@ -1,0 +1,335 @@
+schema_version = 1
+
+[artifact]
+tag = "v0.2.6-data+9"
+release_tag_commit = "3c98d5f15e49e3e4c92b80280abda055d74e88eb"
+release_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.6-data%2B9"
+previous_data_release = "v0.2.4-data+8"
+build_commit = "3c98d5f15e49e3e4c92b80280abda055d74e88eb"
+build_commit_status = "not-reproducible"
+build_commit_note = "This is a layered append to immutable v0.2.4-data+8, not a single clean full rebuild. build_commit records the derived release target, not a uniform corpus producer. The parent mixed-history limitation and original release target are retained in parent_artifact; historical flat preprocessing fields are unchanged. DERIVATION.json separately binds the capture and feasible-point append inputs, executed sources and preservation audits."
+build_julia_version = "1.10.12"
+asset_name = "qubolib.tar.gz"
+asset_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/qubolib.tar.gz"
+asset_size_bytes = 743873521
+sha256 = "5559c7fd070a61e6d17f9ef53393b9694f7c51b353ae0b191c30b78f90dec5bf"
+git_tree_sha1 = "5e791d1cff8d443e0ca8bfc5c7d9cf286e638df1"
+inventory_observed_at = "2026-11-05"
+archive_members = ["archive.h5", "index.db"]
+instances = 9294
+populated_collections = 7
+
+[parent_artifact]
+tag = "v0.2.4-data+8"
+release_tag_commit = "37d1d0a2a524750fadbb5d3de484946a548deda8"
+release_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.4-data%2B8"
+previous_data_release = "v0.2.4-data+7"
+build_commit = "37d1d0a2a524750fadbb5d3de484946a548deda8"
+build_commit_status = "not-reproducible"
+build_commit_note = "No single commit reproduces this artifact; build_commit records the release target. The 3,002 MQLib instances, HDF5 deflate compression, and the QUBOPreprocessing.jl 0.1.5 version string in every index.db preprocessing record first appear in ca5fe70 (committed 2026-10-31T16:41:32Z, after the 15:47:26Z release). But the preprocessing records of instances 6655, 6689, 6798, 6979, 7129, and 7137 contain Max-Cut deductions that ca5fe70's flow-rule gate (m_init > 10_000 && n_init > 500) skips and 37d1d0a's gate (m_init > 30_000) allows. The preprocessing metadata therefore mixes outputs of at least two uncommitted code states."
+build_julia_version = "1.10.11"
+asset_name = "qubolib.tar.gz"
+asset_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.4-data+8/qubolib.tar.gz"
+asset_size_bytes = 729302742
+sha256 = "2470f3b1b8b3ba4f718987883f56f8a47554a54e8735a262b268881dd1904bfc"
+git_tree_sha1 = "db23630c10bf992c60033093eb46067fad78ccaa"
+inventory_observed_at = "2026-10-31"
+archive_members = ["archive.h5", "index.db"]
+instances = 9294
+populated_collections = 7
+
+[preprocessing]
+scope = "Historical parent flat metadata; not the new append layers"
+artifact_tag = "v0.2.4-data+8"
+package = "QUBOPreprocessing.jl"
+version = "0.1.5"
+repository = "https://github.com/JuliaQUBO/QUBOPreprocessing.jl"
+enriched_instances = 9294
+exact_zero_residual_solutions = 343
+repaired_strong_solutions = 9
+repaired_weak_solutions = 42
+total_added_solution_records = 394
+repaired_minlplib_instances = ["sporttournament14.pip", "sporttournament18.pip"]
+repaired_mqlib_instances = ["G70.txt", "g000087.txt", "g000677.txt", "g000921.txt", "g001075.txt", "g002328.txt", "g002877.txt", "g003091.txt", "g003208.txt", "g003234.txt", "imgseg_147062.txt", "imgseg_26031.txt", "imgseg_309004.txt", "imgseg_365073.txt"]
+
+[derivation]
+kind = "layered-append"
+parent_tag = "v0.2.4-data+8"
+release_target_commit = "3c98d5f15e49e3e4c92b80280abda055d74e88eb"
+historical_metadata_preserved = true
+public_download_status = "verified"
+public_download_checked_at = "2026-11-05"
+scientific_scope = "Stored-QUBO capture proofs and separately feasible points; native-source feasibility remains unknown. No uniform historical rebuild, new literature-novelty or integerization-only causal claim."
+new_results_license = "CC-BY-4.0"
+benchmark_software_license = "MPL-2.0"
+upstream_collection_rights = "unchanged"
+
+[[derivation.release_assets]]
+name = "release-manifest.json"
+url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/release-manifest.json"
+bytes = 1214
+sha256 = "253efa569705946784f7b83965b814f2be55c218736d677b1717f11af7b0b6a2"
+
+[[derivation.release_assets]]
+name = "DERIVATION.json"
+url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/DERIVATION.json"
+bytes = 15385
+sha256 = "8abf015e7292949cc21472b75e03b17315baebcbda665700a796168d87a513cc"
+
+[[derivation.release_assets]]
+name = "DERIVED_RESULTS_NOTICE.txt"
+url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/DERIVED_RESULTS_NOTICE.txt"
+bytes = 1414
+sha256 = "ebba16da8f93c26b72ae71c8ff6ddfee511abb2ff0736a5130953ae76e38056b"
+
+[[derivation.release_assets]]
+name = "provenance-assets.tar.gz"
+url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/provenance-assets.tar.gz"
+bytes = 1167958
+sha256 = "0a894f9d96eea607d4185f52891d47d2553e4aa374bb11335d3755e57e6e0f05"
+
+[[derivation.release_assets]]
+name = "publication-inventory-addendum.json"
+url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.6-data+9/publication-inventory-addendum.json"
+bytes = 4867
+sha256 = "0cca13ecb16bff3ce9092cb37e2f8d20966a3ea4748aac2726cd33db0eea078c"
+
+[[derivation.layers]]
+kind = "capture_append"
+importer_commit = "af32a2885e4406bb4869cf1407a7241d933c6cc4"
+package_revision = "29681afd472c5d66860efca1df145d75fb315587"
+package_tree = "5fffe1ae24186b1752fca6a6d875afd398fab822"
+julia_version = "1.10.12"
+bundles = 48
+preprocessing_records = 19052
+proof_records = 1435
+solution_records = 3527
+unique_global_instances = 622
+
+[[derivation.layers]]
+kind = "feasible_points"
+importer_commit = "971d449cb7d09a911d22ef22f1c44dc3e7a13bf4"
+package_revision = "29681afd472c5d66860efca1df145d75fb315587"
+package_tree = "5fffe1ae24186b1752fca6a6d875afd398fab822"
+julia_version = "1.10.12"
+preprocessing_records = 0
+proof_records = 0
+solution_records = 6
+unique_global_instances = 0
+
+[zenodo]
+status = "published"
+concept_doi = "10.5281/zenodo.23027943"
+version_doi = "10.5281/zenodo.23972765"
+record_id = 23972765
+record_url = "https://zenodo.org/records/23972765"
+required_active_managers = 1
+designated_owner = "bernalde"
+manager_policy_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5153545937"
+active_manager_count = 1
+manager_access_status = "verified"
+owner_id = 1784890
+manager_access_evidence = "Authenticated creation, metadata read-back, six-file upload and publication under owner 1784890, matching the unchanged parent record's designated owner."
+byte_identity_status = "verified"
+byte_identity_evidence = "All six authenticated draft downloads and all six anonymous published downloads match the independently verified public GitHub data+9 assets in byte count and SHA-256; the corpus archive additionally has the independently verified Julia artifact tree recorded above."
+verified_at = "2026-11-05"
+related_identifiers_status = "verified"
+related_identifiers_count = 21
+related_identifiers_evidence_url = "https://zenodo.org/api/records/23972765"
+doi_resolution_status = "verified"
+doi_resolution_checked_at = "2026-11-05"
+doi_resolution_note = "Version and concept DOI.org links resolve to record 23972765; both DataCite DOI API records are available."
+publication_date = "2026-11-05"
+asset_url = "https://zenodo.org/records/23972765/files/qubolib.tar.gz"
+license_model = "per-collection"
+blocking_reasons = []
+
+[parent_zenodo]
+status = "published"
+required_active_managers = 1
+designated_owner = "bernalde"
+manager_policy_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5153545937"
+active_manager_count = 1
+manager_access_status = "verified"
+owner_id = 1784890
+manager_access_evidence = "Authenticated creation, metadata read-back, file upload, and publication under owner 1784890, the same owner as the designated owner's existing PseudoBooleanOptimization and ToQUBO deposits; public record metadata confirms this owner."
+record_id = 23839797
+record_url = "https://zenodo.org/records/23839797"
+concept_doi = "10.5281/zenodo.23027943"
+version_doi = "10.5281/zenodo.23839797"
+doi_resolution_status = "verified"
+doi_resolution_checked_at = "2026-10-31T16:10:00Z"
+doi_resolution_note = "Published as the v0.2.4-data+8 dataset version under concept DOI 10.5281/zenodo.23027943 (record 23839797); public record URL and public file download verified byte-for-byte."
+publication_date = "2026-10-31"
+asset_url = "https://zenodo.org/records/23839797/files/qubolib.tar.gz"
+byte_identity_status = "verified"
+byte_identity_evidence = "Both the authenticated draft download and anonymous published download are byte-identical to the independently downloaded GitHub release asset; size, SHA-256, and extracted Julia artifact tree hash all match."
+verified_at = "2026-10-31"
+related_identifiers_status = "verified"
+related_identifiers_count = 19
+related_identifiers_evidence_url = "https://zenodo.org/api/records/23839797"
+license_model = "per-collection"
+blocking_reasons = []
+
+[[collections]]
+id = "arXiv-1903-10928-3r3x"
+instances = 3200
+source_title = "Equation Planting: A Tool for Benchmarking Ising Machines"
+source_url = "https://arxiv.org/abs/1903.10928"
+citation_doi = "10.1103/PhysRevApplied.12.011003"
+source_format = "Qubist text"
+mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/arXiv-1903-10928-3r3x.zip"
+mirror_sha256 = "a1b13f38112276f010e5559868eeeb3816b43b5c6753d1f44d49acb910ad13b0"
+provenance_status = "verified"
+provenance_evidence_status = "verified-public-evidence"
+provenance_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5132166520"
+rights_status = "verified"
+rights_evidence_status = "verified-public-evidence"
+rights_evidence_received_at = "2026-07-30"
+rights_evidence_summary = "Itay Hen confirms that he owns or is authorized by all applicable rights holders to license the named archives under CC BY 4.0 and authorizes QUBOLib hosting, redistribution, conversion, packaging, GitHub Releases, and Zenodo."
+data_license = "CC-BY-4.0"
+license_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5132166520"
+transformation_note = "QUBOLib parses the Qubist source files and stores the converted models in the artifact's HDF5/SQLite representation; source-paper attribution is retained."
+required_action = "Preserve the CC BY 4.0 notice, source-paper attribution, evidence link, and modification statement in the dataset record."
+
+[[collections]]
+id = "arXiv-1903-10928-5r5x"
+instances = 307
+source_title = "Equation Planting: A Tool for Benchmarking Ising Machines"
+source_url = "https://arxiv.org/abs/1903.10928"
+citation_doi = "10.1103/PhysRevApplied.12.011003"
+source_format = "Qubist text"
+mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/arXiv-1903-10928-5r5x.zip"
+mirror_sha256 = "da773fab84c4e6e621efdf090a2fda9fa43420be4c2f2010a6d8fe88b1f34045"
+provenance_status = "verified"
+provenance_evidence_status = "verified-public-evidence"
+provenance_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5132166520"
+rights_status = "verified"
+rights_evidence_status = "verified-public-evidence"
+rights_evidence_received_at = "2026-07-30"
+rights_evidence_summary = "Itay Hen confirms that he owns or is authorized by all applicable rights holders to license the named archives under CC BY 4.0 and authorizes QUBOLib hosting, redistribution, conversion, packaging, GitHub Releases, and Zenodo."
+data_license = "CC-BY-4.0"
+license_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5132166520"
+transformation_note = "QUBOLib parses the Qubist source files and stores the converted models in the artifact's HDF5/SQLite representation; source-paper attribution is retained."
+required_action = "Preserve the CC BY 4.0 notice, source-paper attribution, evidence link, and modification statement in the dataset record."
+
+[[collections]]
+id = "arXiv-2103-08464-3r3x"
+instances = 2300
+source_title = "3-Regular 3-XORSAT Planted Solutions Benchmark of Classical and Quantum Heuristic Optimizers"
+source_url = "https://arxiv.org/abs/2103.08464"
+citation_doi = "10.1088/2058-9565/ac4d1b"
+source_format = "Qubist text"
+mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/arXiv-2103-08464-3r3x.zip"
+mirror_sha256 = "a99b22c02aac03446589b7d366354bc448e6a8bae3e67120ac4bcc821601735b"
+provenance_status = "verified"
+provenance_evidence_status = "verified-public-evidence"
+provenance_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5132166520"
+rights_status = "verified"
+rights_evidence_status = "verified-public-evidence"
+rights_evidence_received_at = "2026-07-30"
+rights_evidence_summary = "Itay Hen confirms that he owns or is authorized by all applicable rights holders to license the named archives under CC BY 4.0 and authorizes QUBOLib hosting, redistribution, conversion, packaging, GitHub Releases, and Zenodo."
+data_license = "CC-BY-4.0"
+license_evidence_url = "https://github.com/JuliaQUBO/QUBOLib.jl/issues/70#issuecomment-5132166520"
+transformation_note = "QUBOLib parses the Qubist source files and stores the converted models in the artifact's HDF5/SQLite representation; source-paper attribution is retained."
+required_action = "Preserve the CC BY 4.0 notice, source-paper attribution, evidence link, and modification statement in the dataset record."
+
+[[collections]]
+id = "qplib"
+instances = 23
+source_title = "QPLIB: a library of quadratic programming instances"
+source_url = "https://qplib.zib.de/"
+source_repository_url = "https://gitlab.com/svigerske/qplib-web"
+source_commit = "4b681a263d9c2cb21e83f08e1b3232361dcedd5a"
+source_commit_url = "https://gitlab.com/svigerske/qplib-web/-/commit/4b681a263d9c2cb21e83f08e1b3232361dcedd5a"
+source_snapshot_status = "reconstructed-and-verified"
+source_snapshot_evidence = "The 46 LP and QPLIB mirror members were generated at 2018-09-23T11:23-11:24Z, after source commit 4b681a2 at 11:12Z and before the next commit at 21:41Z; all 23 mirrored solution objectives match the metadata at 4b681a2."
+citation_doi = "10.1007/s12532-018-0147-4"
+source_format = "QPLIB, LP, and SOL text"
+mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/qplib.zip"
+mirror_sha256 = "896b2e1c5e5e78e7b89674cb6bc84a0f6e05a0e36adddeaaa744472733517672"
+mirror_files = 69
+current_comparison_commit = "f601bec47cbafd7afe03aad30d5135d6676568f1"
+current_comparison_observed_at = "2026-07-29"
+current_comparison_summary = "Against the official files at f601bec: 23/23 LP files are byte-identical; 23/23 QPLIB files differ only on the problem-type line corrected in 2025; 19/23 SOL files are byte-identical."
+updated_solution_files = ["QPLIB_3650.sol", "QPLIB_3693.sol", "QPLIB_3850.sol", "QPLIB_5721.sol"]
+transformation_note = "QUBOLib redistributes a processed subset: it selects the 23 QBB instances, parses each QPLIB model with the specification's 0.5 quadratic objective scaling, uses LP variable names to map SOL entries, cross-references upstream MINLPLib and BiqMac optimality bounds (11 proven optimal, 12 open), and stores the resulting models and solutions in HDF5 and SQLite."
+provenance_status = "verified"
+rights_status = "verified"
+data_license = "CC-BY-4.0"
+license_evidence_url = "https://qplib.zib.de/"
+required_action = "Preserve the source commit, QPLIB article and website attribution, CC BY 4.0 notice, and QUBOLib processing statement."
+
+[[collections]]
+id = "qoblib"
+instances = 433
+source_title = "The Quantum Optimization Benchmarking Library"
+source_url = "https://github.com/ZIB-AOPT/QOBLIB"
+source_commit = "16a166ee67c24c112551c803aab5394743b815b5"
+citation_doi = "10.1038/s43588-026-00991-1"
+source_format = "QS, LP, solution, and submission metadata"
+source_archive_url = "https://github.com/ZIB-AOPT/QOBLIB/archive/16a166ee67c24c112551c803aab5394743b815b5.zip"
+provenance_status = "verified"
+rights_status = "verified"
+data_license = "CC-BY-4.0"
+license_evidence_url = "https://github.com/ZIB-AOPT/QOBLIB/blob/16a166ee67c24c112551c803aab5394743b815b5/LICENSE.data"
+reference_solutions = 392
+missing_references = 41
+validated_solution_records = 2031
+unmapped_solution_records = 113
+unavailable_solution_records = 159
+parallel_ils_solutions = 50
+portfolio_reference_objectives_matched = 128
+transformation_note = "QUBOLib parses authoritative QS/QUBO models and stores models, provenance, and solution records in HDF5/SQLite. Portfolio positions are converted to canonical ordered copy slots and reconstructed capital/budget slack, not original solver bitstrings."
+unmapped_reason = "Canonical portfolio positions have infeasible capital or budget slack; retain source metadata without inventing an assignment."
+required_action = "Preserve the source commit, license, and attribution in the dataset record."
+
+[[collections]]
+id = "minlplib"
+instances = 29
+source_title = "MINLPLib---a collection of test models for mixed-integer nonlinear programming"
+source_url = "https://www.minlplib.org/"
+source_version = "9472b011"
+citation_doi = "10.1287/ijoc.15.1.114.15159"
+source_format = "POLIP (.pip) and SOL (.sol) text"
+mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/minlplib.zip"
+mirror_sha256 = "0154d83f82b2bfb559b8b3542bad2379f5e3b68c4390997085c8f7ce2d3e33c4"
+mirror_files = 71
+qplib_overlap_count = 18
+validated_solution_records = 42
+proven_optimal_instances = 18
+provenance_status = "verified"
+provenance_evidence_status = "verified-public-evidence"
+provenance_evidence_url = "https://www.minlplib.org/"
+rights_status = "verified"
+rights_evidence_status = "verified-public-evidence"
+data_license = "CC-BY-4.0"
+license_evidence_url = "https://www.minlplib.org/"
+transformation_note = "QUBOLib selects the 29 pure binary unconstrained QUBO instances in MINLPLib not already included in QPLIB (2 autocorr_bern, 20 chimera, and 7 sporttournament06..20 instances; sporttournament14 is excluded because 70 of its 91 variables are continuous in MINLPLib), parses POLIP (.pip) models and 42 .p*.sol solution records, factors exact 0.1 scaling where applicable, and stores the resulting models and solutions in HDF5 and SQLite."
+required_action = "Preserve the MINLPLib article and website attribution, CC BY 4.0 notice, and QUBOLib processing statement."
+
+[[collections]]
+id = "mqlib"
+instances = 3002
+source_title = "What Works Best When? A Systematic Evaluation of Heuristics for Max-Cut and QUBO"
+source_url = "https://github.com/MQLib/MQLib"
+source_commit = "585496274af5abb0849d0d47e135496b4688680b"
+citation_doi = "10.1287/ijoc.2017.0798"
+source_format = "MQLib Max-Cut / master-node QUBO edge list (.txt / .zip) and heuristic bitstring (.sol)"
+mirror_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/data-mirror/mqlib.zip"
+mirror_sha256 = "2d4845f55587fb590304df4425f485acfb3fd039b20a53cd399cb29e32ec1bfc"
+mirror_files = 3252
+qplib_overlap_count = 2
+deferred_palubeckis_count = 0
+validated_solution_records = 246
+unavailable_solution_records = 2825
+proven_optimal_instances = 29
+provenance_status = "verified"
+provenance_evidence_status = "verified-public-evidence"
+provenance_evidence_url = "https://github.com/MQLib/MQLib/tree/585496274af5abb0849d0d47e135496b4688680b"
+rights_status = "verified"
+rights_evidence_status = "verified-public-evidence"
+data_license = "MIT"
+license_evidence_url = "https://github.com/MQLib/MQLib/blob/585496274af5abb0849d0d47e135496b4688680b/LICENSE"
+transformation_note = "QUBOLib imports 3,002 MQLib benchmark instances (88.4% of the 3,396-instance MQLib corpus): all 231 classic literature instances from data/standard.csv (71 G-set, 60 Beasley, 45 GKA, 30 Spin-Glass, 21 Palubeckis p3000_1..p7000_3, and 4 DIMACS Torus) plus 2,771 Tier 2 instances from data/instance_header_info.csv and data/results_imgseg.zip (1,376 SteinLib up to n = 38,418, 312 BiqMac, 224 Rudy random graphs up to n = 35,960, 105 OR-Library, 100 Berkeley Image Segmentation up to n = 28,552, 113 Glasgow/Dharwadker, 104 DIMACS/Coloring/Market, 11 TSPLIB95, and 526 Culberson & NetworkX random graphs with m <= 250,000, including all 30 largest-n instances with n >= 15,000), converts Max-Cut and master-node QUBO edge lists to canonical :bool/:max QUBO models with chunked HDF5 deflate compression (level = 3), and attaches 246 heuristic bitstring solutions and 2,825 value-only benchmark records across 38 heuristic solver submissions from MQLib data/results.zip and data/results_imgseg.zip."
+required_action = "Preserve the MQLib article and repository attribution, MIT copyright notice, and QUBOLib processing statement."

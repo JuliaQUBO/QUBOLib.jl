@@ -117,14 +117,17 @@ identify the package version used.
 
 For the benchmark data, cite the
 [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) across versions.
-Package 0.2.7 selects the layered
-[`v0.2.6-data+9` release](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.6-data%2B9);
-cite its [version DOI 10.5281/zenodo.23972765](https://doi.org/10.5281/zenodo.23972765)
-for these exact data and provenance files. The older
-[version DOI 10.5281/zenodo.23839797](https://doi.org/10.5281/zenodo.23839797)
-identifies only the immutable `v0.2.4-data+8` parent. Also cite each source
-collection used. Previously tagged package versions retain their original
-artifact pins; check `Artifacts.toml` at the package version used.
+QUBOLib 0.2.8 selects the uniform
+[`v0.2.7-data+10` release](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.7-data%2B10),
+version identifier [10.5281/zenodo.24142757](https://doi.org/10.5281/zenodo.24142757).
+It contains 9,294 original QUBOs with 620 exact captures and 62 repair records
+from the recorded QUBOPreprocessing.jl 0.2.1 pipeline. The historical layered
+[data+9 version](https://doi.org/10.5281/zenodo.23972765) preserves additional study
+histories, proofs, feasible points and annotations. See [`DATASET.md`](DATASET.md)
+for the measured compatibility differences and
+[Dataset Versions](https://juliaqubo.github.io/QUBOLib.jl/stable/manual/4-datasets/)
+for separate working-copy access. Package upgrades preserve existing local data.
+Also cite each source collection used. Older package tags retain their data pins.
 
 The data artifact combines independently sourced collections; the repository's
 MIT software license is not a blanket dataset license. Before redistributing or
