@@ -12,11 +12,15 @@ GitHub releases at that time. For every listed class, the repository tree scan
 found zero blobs ending in `.qs` or `.qs.xz`. Files named `metrics_qs_files.csv`
 are preserved as metric metadata, not as retrievable QS artifacts.
 
-The selected package artifact, `v0.2.4-data+7`, contains this snapshot along
+The selected package artifact, `v0.2.7-data+10`, contains this snapshot along
 with certified `QUBOPreprocessing.jl` reduction metadata and repaired solutions.
 Its hashes, source pins, and solution inventory are recorded in
 [`DATASET.toml`](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.toml).
 Updating the importer does not change an already published artifact.
+
+Saved QUBOs generated from source LPs use the separate opt-in
+[`qoblib_toqubo` collection](5-qoblib-generated.md). They are not added to this
+canonical collection and do not inherit its source-solution claims.
 
 ## Portfolio solution conversion
 

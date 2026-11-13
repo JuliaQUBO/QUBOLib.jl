@@ -31,6 +31,7 @@ makedocs(;
             "Advanced Usage"  => "manual/2-advanced.md",
             "QOBLIB Provenance" => "manual/3-qoblib.md",
             "Dataset Versions" => "manual/4-datasets.md",
+            "Generated QOBLIB" => "manual/5-qoblib-generated.md",
             "Follow-up Results" => "followup_results.md",
         ],
         # "Booklet"  => [

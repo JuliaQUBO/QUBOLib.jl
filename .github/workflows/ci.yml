@@ -29,6 +29,11 @@ jobs:
           OPENBLAS_NUM_THREADS: '1'
           OMP_NUM_THREADS: '1'
         run: julia --threads=1 --project=scripts/build scripts/build/test_uniform_candidate.jl
+      - name: Test saved generated QOBLIB import and roundtrip
+        env:
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: julia --startup-file=no --threads=1 --project=scripts/build scripts/build/test_qoblib_toqubo.jl
 
   metadata:
     name: Release metadata
@@ -48,6 +53,8 @@ jobs:
         run: python3 -B scripts/test_derived_candidate.py
       - name: Test private import-cache advice
         run: python3 -B scripts/build/test_advise_import_cache.py
+      - name: Test saved QOBLIB export preparation gates
+        run: python3 -B scripts/build/test_prepare_qoblib_toqubo.py
       - name: Validate CITATION.cff
         uses: citation-file-format/cffconvert-github-action@4cf11baa70a673bfdf9dad0acc7ee33b3f4b6084 # 2.0.0
         with:
