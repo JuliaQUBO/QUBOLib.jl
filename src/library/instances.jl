@@ -129,13 +129,39 @@ function add_instance!(
 )::Integer
     @assert isopen(index)
 
-    db = QUBOLib.database(index)
-    h5 = QUBOLib.archive(index)
-
-    # Retrieve coefficients
     L = map(last, QUBOTools.linear_terms(model))
     Q = map(last, QUBOTools.quadratic_terms(model))
+    shape = (n = QUBOTools.dimension(model), sense = QUBOTools.sense(model),
+        domain = QUBOTools.domain(model), density = QUBOTools.density(model),
+        linear_density = QUBOTools.linear_density(model), quadratic_density = QUBOTools.quadratic_density(model))
+    extrema(coefficients) = (min = minimum(coefficients), max = maximum(coefficients),
+        abs_min = minimum(abs, coefficients), abs_max = maximum(abs, coefficients))
+    i = _insert_instance!(index, collection, shape, extrema(L), extrema(Q); name,
+        source_name, problem_class, formulation, source_path, source_commit, original_filename,
+        source_url, metadata)
 
+    h5 = QUBOLib.archive(index)
+    group = HDF5.create_group(h5["instances"], string(i))
+
+    _write_model(group, model, _qubin_format())
+    _write_instance_source!(
+        group;
+        source_format,
+        source_text,
+        source_encoding,
+        source_metadata,
+    )
+
+    return i
+end
+
+# The importer also inserts instances whose coefficient statistics are streamed.
+function _insert_instance!(
+    index::LibraryIndex, collection::AbstractString, shape, linear, quadratic;
+    name, source_name, problem_class, formulation, source_path, source_commit,
+    original_filename, source_url, metadata,
+)::Integer
+    db = QUBOLib.database(index)
     query = DBInterface.execute(
         db,
         """
@@ -172,9 +198,9 @@ function add_instance!(
         (
             String(collection),
             isnothing(name) ? missing : String(name),
-            QUBOTools.dimension(model),
-            String(QUBOTools.sense(model)),
-            String(QUBOTools.domain(model)),
+            shape.n,
+            String(shape.sense),
+            String(shape.domain),
             _instance_sql_value(source_name),
             _instance_sql_value(problem_class),
             _instance_sql_value(formulation),
@@ -183,34 +209,21 @@ function add_instance!(
             _instance_sql_value(original_filename),
             _instance_sql_value(source_url),
             _instance_metadata_value(metadata),
-            min(minimum(L), minimum(Q)),
-            max(maximum(L), maximum(Q)),
-            min(minimum(abs, L), minimum(abs, Q)),
-            max(maximum(abs, L), maximum(abs, Q)),
-            minimum(L),
-            maximum(L),
-            minimum(Q),
-            maximum(Q),
-            QUBOTools.density(model),
-            QUBOTools.linear_density(model),
-            QUBOTools.quadratic_density(model),
+            min(linear.min, quadratic.min),
+            max(linear.max, quadratic.max),
+            min(linear.abs_min, quadratic.abs_min),
+            max(linear.abs_max, quadratic.abs_max),
+            linear.min,
+            linear.max,
+            quadratic.min,
+            quadratic.max,
+            shape.density,
+            shape.linear_density,
+            shape.quadratic_density,
         ),
     )
 
-    i = DBInterface.lastrowid(query)::Integer
-
-    group = HDF5.create_group(h5["instances"], string(i))
-
-    _write_model(group, model, _qubin_format())
-    _write_instance_source!(
-        group;
-        source_format,
-        source_text,
-        source_encoding,
-        source_metadata,
-    )
-
-    return i
+    return DBInterface.lastrowid(query)::Integer
 end
 
 function remove_instance!(index::LibraryIndex, i::Integer)
@@ -231,5 +244,5 @@ function load_instance(index::LibraryIndex, i::Integer)
 
     h5 = QUBOLib.archive(index)
 
-    return QUBOTools.read_model(h5["instances"][string(i)], _qubin_format())
+    return _read_qubin_model(h5["instances"][string(i)])
 end

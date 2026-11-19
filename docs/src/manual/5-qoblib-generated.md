@@ -140,6 +140,16 @@ julia --project=. scripts/build/qoblib_toqubo.jl pack \
   /fresh/pilot-candidate /fresh/pilot-release
 ```
 
+Pass `--stream-terms` after the build destination to prepare large opt-in
+collections. The importer streams sorted quadratic terms into the standard QUBin
+coordinate datasets in blocks of at most 65,536 terms and uses 32-bit
+integer coordinates, dimensions and labels. It records the storage layout
+explicitly and reopens the archive in
+bounded blocks to verify both the represented fingerprint and the canonical
+Original bytes against the pinned study. QUBOLib's ordinary model loader can
+load the resulting archive. Loading a full instance still materializes its
+polynomial in memory.
+
 The destination must not exist. A failed candidate is retained with no accepted
 receipt; SQLite/HDF5 cross-store crash atomicity or resuming failed builds is
 not claimed. Models are processed one at a time. The accepted candidate has
@@ -171,3 +181,97 @@ The optional artifact has `index.db` and `archive.h5` at its root. Extract it
 under a writable `WORK/qubolib/` directory, then use `QUBOLib.access(; path=WORK)`.
 Its manifest/build/acceptance files and redistribution directory travel with
 the artifact. `qoblib_toqubo.jl audit WORK` also recognizes that extracted layout.
+
+## Released 347-case cohort
+
+The version 2 importer takes the final P3 report and source plan. It requires
+an independently reviewed `RELEASED-STUDY-AUTHORITY.json` with schema
+`qubolib-released-study-authority-v1`. Pin the exact authority SHA-256 through
+a separate trusted channel. The document contains:
+
+- `study_report_sha256`, `source_plan_sha256` and `auditor_sha256` from the
+  independently accepted report, source plan and auditor.
+- `release_identity_sha256` from the staged producer identity. Use the
+  report summary's `release_identity.staged_identity_sha256`.
+- `julia_version`, `project_sha256` and `manifest_sha256` from the clean,
+  registered-package environment.
+- `packages` with exactly `ToQUBO`, `QUBOPreprocessing` and
+  `PseudoBooleanOptimization`. Each object contains its exact `version`,
+  `commit` and `source_tree` (the report's `git_tree`). Use ToQUBO 0.8.2 and
+  QUBOPreprocessing 0.2.2.
+- `large_case_ids` with the independently reviewed large-model selection.
+
+An eligible cohort has 347 accepted Original endpoints, each joined to a
+complete metadata document and the registered producing stack. Audited partial
+outcomes can contribute their Original while retaining their original status.
+Generated metadata records the staged private exporter identity and the raw
+metadata descriptor. The full metadata payload is held in the producing run.
+
+Select `--variant integer-domain` for the 325 integer-domain inputs or
+`--variant continuous-to-integer` for the 22 domain-restricted input variants.
+The second group uses the explicit integerization policy and carries
+`not_established_domain_restriction` as its source equivalence status. Both
+variants retain unknown source feasibility and optimality. Also select
+`--size-class regular` or `--size-class large`. The following asset names
+identify the four possible nonempty partitions.
+
+| Source-domain variant | Regular asset | Large asset |
+| --- | --- | --- |
+| `integer-domain` | `qoblib_toqubo` | `qoblib_toqubo_large` |
+| `continuous-to-integer` | `qoblib_toqubo_domain_restricted` | `qoblib_toqubo_domain_restricted_large` |
+
+Each full partition contains all matching cases and carries the complete outcome
+ledger. A pilot selects explicit case IDs inside one partition. Choose the
+large membership in the authority before preparing any of the assets. All
+bindings are opt-in. The default artifact continues to use `qoblib`.
+
+Add `--released-authority PATH --released-authority-sha256 "$AUTHORITY_SHA256"`
+and the variant and size class options to the Python prepare invocation above.
+Map each logical producing run with `--phase-root RUN_ID=PATH`. Its selected
+attempt contains `cases/CASE/a-ATTEMPT/work/audit.json`,
+`work/input/{case.json,source.lp}` and `work/results/`. Keep this input tree
+private.
+
+```sh
+julia --project=. scripts/build/qoblib_toqubo.jl build \
+  /fresh/released-inputs/manifest.json /fresh/released-candidate \
+  --stream-terms --released-authority-sha256 "$AUTHORITY_SHA256"
+julia --project=. scripts/build/qoblib_toqubo.jl audit /fresh/released-candidate \
+  --released-authority-sha256 "$AUTHORITY_SHA256" \
+  --public-provenance-sha256 "$PUBLIC_PROVENANCE_SHA256"
+julia --project=. scripts/build/qoblib_toqubo.jl pack \
+  /fresh/released-candidate /fresh/released-package \
+  --released-authority-sha256 "$AUTHORITY_SHA256" \
+  --public-provenance-sha256 "$PUBLIC_PROVENANCE_SHA256"
+```
+
+Large partitions require `--stream-terms`. Review the generated
+`PUBLIC-PROVENANCE.json` from the private-input build and pin its SHA-256
+outside the candidate before independent audit and packing. The file contains
+an allowlisted projection of each Original audit and producing environment
+plus the exact raw hashes. The build derives it after checking the raw
+archives. Public audit checks the pinned projection, retained sidecars and
+stored polynomial again. Complete the final content inspection on the actual
+packed tree and independently audit the extracted archive with both pins
+before publishing or adding its artifact binding.
+
+## Export an audited Original as QOBLIB QS
+
+Use the saved polynomial, independent audit receipt, and producing environment
+selected from the accepted study report. The destination directory must be new.
+
+```sh
+julia --project=. scripts/build/export_qoblib_qs.jl \
+  /inputs/original-polynomial.jsonl /inputs/audit.json \
+  /inputs/environment.json /fresh/contribution
+```
+
+The directory contains the case's `.qs` file and `provenance.json`, with the
+input and output hashes, source LP identity, generator package versions, audited
+counts, and signed scale transformation. The converter folds the saved scale
+into every coefficient and the objective offset, negates maximization
+objectives for QS minimization, and writes one upper-triangle entry at half
+weight per cross term for the symmetric matrix convention. The saved variable
+order and isolated variables are preserved. Each emitted decimal and each
+coefficient reconstructed by the QS reader must represent the exact converted
+value. An unrepresentable value leaves the destination absent.

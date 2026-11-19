@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.2.9 (draft)
+
+- Import independently audited QOBLIB / ToQUBO Original QUBOs with exact
+  polynomial and source provenance. Give generated continuous-to-integer
+  variants distinct opt-in collection identities.
+- Stream large Original QUBOs into compact 32-bit coordinate storage and
+  verify their canonical polynomial fingerprints on reopening the archive.
+- Export audited Originals in QOBLIB QS format and retain the signed objective
+  transformation and source provenance.
+
 ## v0.2.8 - 2026-11-11
 
 - Select the uniform `v0.2.7-data+10` corpus: 9,294 unchanged original QUBOs, 620 exact captures and 62 repairs. Preserve the separate historical data+9 snapshot and document its additional histories, proofs, feasible points and annotations.

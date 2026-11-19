@@ -2,6 +2,8 @@ const _HDF5_MIN_COMPRESS_LENGTH = 16
 const _HDF5_DEFAULT_DEFLATE     = 3
 const _HDF5_VECTOR_CHUNK_LENGTH = 65_536
 const _HDF5_MATRIX_CHUNK_ROWS   = 64
+const _COMPACT_QUBIN_ATTRIBUTE = "coordinate_storage"
+const _COMPACT_QUBIN_STORAGE = "sorted-int32-qubin-v1"
 
 function _qubin_format()
     if isdefined(QUBOTools, :Format)
@@ -143,6 +145,97 @@ function _write_model(
     _write_qubin_solution(fp, QUBOTools.solution(model))
 
     return nothing
+end
+
+# QUBOTools' sparse forms use native Int indices. Fill them directly from the
+# compact on-disk coordinates without holding all three coordinate vectors.
+function _read_compact_quadratic(group, n::Int)
+    i, j, v = group["i"], group["j"], group["v"]
+    count = length(v)
+    0 < count <= min(60_000_000, Int64(n) * (n - 1) ÷ 2) &&
+        size(i) == size(j) == size(v) == (count,) &&
+        eltype(i) === eltype(j) === Int32 && eltype(v) === Float64 ||
+        throw(ArgumentError("invalid compact quadratic dataset layout"))
+    blocksize = _HDF5_VECTOR_CHUNK_LENGTH
+    counts = zeros(Int, n)
+    for first in 1:blocksize:count
+        block = first:min(first + blocksize - 1, count)
+        for column in j[block]
+            1 <= column <= n || throw(ArgumentError("invalid compact quadratic column"))
+            counts[column] += 1
+        end
+    end
+    colptr = vcat(1, cumsum(counts) .+ 1)
+    next_index = copy(colptr[1:n])
+    rowval = Vector{Int}(undef, count)
+    nzval = Vector{Float64}(undef, count)
+    for first in 1:blocksize:count
+        block = first:min(first + blocksize - 1, count)
+        rows, columns, values = i[block], j[block], v[block]
+        for k in eachindex(values)
+            row, column, value = Int(rows[k]), Int(columns[k]), values[k]
+            1 <= row < column <= n && isfinite(value) && !iszero(value) ||
+                throw(ArgumentError("invalid compact quadratic coefficient"))
+            slot = next_index[column]
+            slot < colptr[column + 1] && (slot == colptr[column] || rowval[slot - 1] < row) ||
+                throw(ArgumentError("duplicate or unsorted compact quadratic coordinate"))
+            rowval[slot] = row
+            nzval[slot] = value
+            next_index[column] += 1
+        end
+    end
+    next_index == colptr[2:end] || throw(ArgumentError("incomplete compact quadratic columns"))
+    return QUBOTools.SparseArrays.SparseMatrixCSC(n, n, colptr, rowval, nzval)
+end
+
+function _check_compact_solution(solution)
+    data = solution["data"]
+    state, value, reads = data["state"], data["value"], data["reads"]
+    JSON.parse(read(solution["metadata"])) == Dict() &&
+        read(solution["sense"]) == "min" && read(solution["domain"]) == "bool" &&
+        eltype(state) === Int32 && size(state) == (0, 0) &&
+        eltype(value) === Float64 && size(value) == (0,) &&
+        eltype(reads) === Int32 && size(reads) == (0,) ||
+        throw(ArgumentError("invalid compact empty solution layout"))
+    return nothing
+end
+
+function _read_qubin_model(group)
+    model = group["model"]
+    form = model["form"]
+    attributes = HDF5.attrs(form)
+    if !haskey(attributes, _COMPACT_QUBIN_ATTRIBUTE)
+        return QUBOTools.read_model(group, _qubin_format())
+    end
+    attributes[_COMPACT_QUBIN_ATTRIBUTE] == _COMPACT_QUBIN_STORAGE ||
+        throw(ArgumentError("unsupported compact QUBin coordinate layout"))
+    dimension = read(form["dimension"])
+    stored_labels = model["variables"]
+    dimension isa Int32 && 0 < dimension <= 200_000 &&
+        eltype(stored_labels) === Int32 && size(stored_labels) == (dimension,) &&
+        read(stored_labels) == collect(Int32(1):dimension) || throw(ArgumentError("invalid compact variable labels"))
+    n = Int(dimension)
+    linear = form["linear"]
+    indices, values = linear["i"], linear["v"]
+    eltype(indices) === Int32 && eltype(values) === Float64 &&
+        size(indices) == size(values) == (length(values),) && 0 < length(values) <= n ||
+        throw(ArgumentError("invalid compact linear dataset layout"))
+    linear_indices, linear_values = read(indices), read(values)
+    all(i -> 1 <= i <= n, linear_indices) && allunique(linear_indices) && issorted(linear_indices) &&
+        all(value -> isfinite(value) && !iszero(value), linear_values) ||
+        throw(ArgumentError("invalid compact linear coefficients"))
+    L = QUBOTools.SparseLinearForm(QUBOTools.SparseArrays.sparsevec(Int.(linear_indices), linear_values, n))
+    Q = QUBOTools.SparseQuadraticForm(_read_compact_quadratic(form["quadratic"], n))
+    scale = read(form["scale"])
+    offset = read(form["offset"])
+    sense = QUBOTools.sense(read(form["sense"]))
+    domain = QUBOTools.domain(read(form["domain"]))
+    stored_form = QUBOTools.Form{Float64}(n, L, Q, scale, offset; sense, domain)
+    variables = QUBOTools.VariableMap{Int}(collect(1:n))
+    metadata = Dict{String,Any}(JSON.parse(read(model["metadata"])))
+    _check_compact_solution(group["solution"])
+    solution = QUBOTools.SampleSet{Float64,Int}()
+    return QUBOTools.Model{Int,Float64,Int}(variables, stored_form; metadata, solution)
 end
 
 function _copy_hdf5_object_compressed!(
