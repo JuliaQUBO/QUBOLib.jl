@@ -245,7 +245,9 @@ julia --project=. scripts/build/qoblib_toqubo.jl pack \
   --public-provenance-sha256 "$PUBLIC_PROVENANCE_SHA256"
 ```
 
-Large partitions require `--stream-terms`. Review the generated
+Build all released partitions with `--stream-terms`. Compact records support up to 250,000
+variables and 60 million quadratic interactions, including the audited
+220,388-variable `steiner-1459` Original. Review the generated
 `PUBLIC-PROVENANCE.json` from the private-input build and pin its SHA-256
 outside the candidate before independent audit and packing. The file contains
 an allowlisted projection of each Original audit and producing environment

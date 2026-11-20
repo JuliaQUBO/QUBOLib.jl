@@ -4,6 +4,7 @@ const _HDF5_VECTOR_CHUNK_LENGTH = 65_536
 const _HDF5_MATRIX_CHUNK_ROWS   = 64
 const _COMPACT_QUBIN_ATTRIBUTE = "coordinate_storage"
 const _COMPACT_QUBIN_STORAGE = "sorted-int32-qubin-v1"
+const _COMPACT_QUBIN_MAX_VARIABLES = 250_000
 
 function _qubin_format()
     if isdefined(QUBOTools, :Format)
@@ -211,7 +212,7 @@ function _read_qubin_model(group)
         throw(ArgumentError("unsupported compact QUBin coordinate layout"))
     dimension = read(form["dimension"])
     stored_labels = model["variables"]
-    dimension isa Int32 && 0 < dimension <= 200_000 &&
+    dimension isa Int32 && 0 < dimension <= _COMPACT_QUBIN_MAX_VARIABLES &&
         eltype(stored_labels) === Int32 && size(stored_labels) == (dimension,) &&
         read(stored_labels) == collect(Int32(1):dimension) || throw(ArgumentError("invalid compact variable labels"))
     n = Int(dimension)

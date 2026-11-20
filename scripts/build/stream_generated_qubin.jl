@@ -51,7 +51,8 @@ end
 function stream_qubin!(group, path, expected; block = TERM_CHUNK_LENGTH)
     n, l, m = (expected[k] for k in ("n", "l", "m"))
     require(all(x -> x isa Int && !(x isa Bool), (n, l, m)) &&
-        2 <= n <= 200_000 && 0 < l <= n && 0 < m <= min(60_000_000, Int64(n) * (n - 1) ÷ 2),
+        2 <= n <= QUBOLib._COMPACT_QUBIN_MAX_VARIABLES &&
+        0 < l <= n && 0 < m <= min(60_000_000, Int64(n) * (n - 1) ÷ 2),
         "invalid independent audit model counts")
     require(block isa Int && 0 < block <= TERM_CHUNK_LENGTH, "invalid coordinate block size")
     model = HDF5.create_group(group, "model")
@@ -68,7 +69,7 @@ function stream_qubin!(group, path, expected; block = TERM_CHUNK_LENGTH)
     sizehint!(li, l)
     sizehint!(lv, l)
     p = try
-        p = scan_polynomial(path) do i, j, value
+        p = scan_polynomial(path; max_variables = n) do i, j, value
             if j == 0
                 require(length(li) < l, "linear count exceeds independent audit")
                 push!(li, i)
@@ -150,7 +151,8 @@ function verify_streamed_model(entry, group)
     sense, domain = read(form["sense"]), read(form["domain"])
     dimension = read(form["dimension"])
     require(HDF5.attrs(form)[QUBOLib._COMPACT_QUBIN_ATTRIBUTE] == STREAMED_STORAGE &&
-        dimension isa Int32 && n == dimension && domain == "bool" && sense in ("min", "max") &&
+        dimension isa Int32 && 0 < dimension <= QUBOLib._COMPACT_QUBIN_MAX_VARIABLES && n == dimension &&
+        domain == "bool" && sense in ("min", "max") &&
         scale isa Float64 && isfinite(scale) && !iszero(scale) && offset isa Float64 && isfinite(offset),
         "invalid streamed QUBin header")
     labels = model["variables"]

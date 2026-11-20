@@ -5,7 +5,7 @@ const G = QOBLIBToQUBO
 const QT = G.QT
 const QL = G.QUBOLib
 
-function fixture(root; body = nothing, moi_variables = 11:13)
+function fixture(root; body = nothing, moi_variables = 11:13, dimension = 3)
     id = "birkhoff-0001"
     inputs = mkpath(joinpath(root, "inputs"))
     function file(name, value; text = false)
@@ -13,20 +13,20 @@ function fixture(root; body = nothing, moi_variables = 11:13)
         write(path, text ? value : G.JSON.json(value))
         return Dict("path" => "inputs/$name", "sha256" => G.sha(path), "bytes" => filesize(path))
     end
-    h = Dict("kind" => "header", "schema" => G.POLYNOMIAL_SCHEMA, "n" => 3,
+    h = Dict("kind" => "header", "schema" => G.POLYNOMIAL_SCHEMA, "n" => dimension,
         "domain" => "bool", "sense" => "max", "scale_exact" => "2//1",
         "offset_exact" => "-1//4", "variable_order" => "one_based_internal")
     rows = [h,
         Dict("kind" => "linear", "i" => 1, "coefficient_exact" => "1//2"),
-        Dict("kind" => "linear", "i" => 3, "coefficient_exact" => "-2//1"),
-        Dict("kind" => "quadratic", "i" => 1, "j" => 3, "coefficient_exact" => "5//4")]
+        Dict("kind" => "linear", "i" => dimension, "coefficient_exact" => "-2//1"),
+        Dict("kind" => "quadratic", "i" => 1, "j" => dimension, "coefficient_exact" => "5//4")]
     # Literal bytes follow the independently pinned Study.persist_polynomial
     # writer, not the importer serializer being checked.
     polynomial = isnothing(body) ?
-        "{\"kind\":\"header\",\"schema\":\"qoblib-generated-exact-polynomial-v1\",\"n\":3,\"domain\":\"bool\",\"sense\":\"max\",\"scale_exact\":\"2//1\",\"offset_exact\":\"-1//4\",\"variable_order\":\"one_based_internal\"}\n" *
+        "{\"kind\":\"header\",\"schema\":\"qoblib-generated-exact-polynomial-v1\",\"n\":$dimension,\"domain\":\"bool\",\"sense\":\"max\",\"scale_exact\":\"2//1\",\"offset_exact\":\"-1//4\",\"variable_order\":\"one_based_internal\"}\n" *
         "{\"kind\":\"linear\",\"i\":1,\"coefficient_exact\":\"1//2\"}\n" *
-        "{\"kind\":\"linear\",\"i\":3,\"coefficient_exact\":\"-2//1\"}\n" *
-        "{\"kind\":\"quadratic\",\"i\":1,\"j\":3,\"coefficient_exact\":\"5//4\"}\n" : body
+        "{\"kind\":\"linear\",\"i\":$dimension,\"coefficient_exact\":\"-2//1\"}\n" *
+        "{\"kind\":\"quadratic\",\"i\":1,\"j\":$dimension,\"coefficient_exact\":\"5//4\"}\n" : body
     artifacts = Dict{String,Any}(
         "polynomial" => file("original.jsonl", polynomial; text = true),
         "variable_order" => file("order.json", Dict("order" => [
@@ -54,7 +54,7 @@ function fixture(root; body = nothing, moi_variables = 11:13)
     raw_metadata_descriptor = Dict("path" => "$id/reformulation-metadata.json",
         "sha256" => raw_metadata["sha256"], "bytes" => raw_metadata["bytes"])
     push!(inventory, raw_metadata_descriptor)
-    metrics = Dict("n" => 3, "l" => 2, "m" => 1)
+    metrics = Dict("n" => dimension, "l" => 2, "m" => 1)
     audit = Dict("schema" => "qoblib-missing-case-audit-v1", "passed" => true, "accepted" => true,
         "original_validated" => true, "case_id" => id, "auxiliary_row" => 1, "family" => "birkhoff",
         "auditor_sha256" => G.AUDITOR_SHA, "case_manifest_sha256" => artifacts["case_manifest"]["sha256"],
@@ -530,6 +530,29 @@ announce("unsupported empty coefficient groups")
 end
 
 announce("bounded sorted HDF5 storage")
+@testset "Compact Steiner-width Original roundtrip" begin
+    mktempdir() do root
+        dimension = 220_388
+        inputs = mkpath(joinpath(root, "wide-inputs"))
+        f = fixture(inputs; dimension, moi_variables = 1:dimension)
+        entry = only(f.manifest["models"])
+        descriptor = entry["artifacts"]["polynomial"]
+        polynomial = joinpath(inputs, descriptor["path"])
+        @test_throws ArgumentError G.read_polynomial(polynomial)
+        candidate = G.build(f.path, joinpath(root, "wide-candidate"); authority = f.authority, stream_terms = true)
+        @test G.audit(candidate; authority = f.authority)["passed"]
+        QL.access(; path = candidate) do index
+            model = QL.load_instance(index, 1)
+            @test QT.dimension(model) == dimension
+            @test G.saved_polynomial_identity(model) == Dict(k => descriptor[k] for k in ("sha256", "bytes"))
+        end
+        QL.HDF5.h5open(joinpath(root, "oversized.qubin"), "w") do archive
+            counts = merge(entry["metrics"], Dict("n" => QL._COMPACT_QUBIN_MAX_VARIABLES + 1))
+            @test_throws ArgumentError G.stream_qubin!(archive, polynomial, counts)
+        end
+    end
+end
+
 @testset "Bounded sorted HDF5 storage" begin
     mktempdir() do root
         inputs = mkpath(joinpath(root, "inputs-root"))
