@@ -306,15 +306,17 @@ function validate_manifest(path; authority = STUDY_AUTHORITY, released_authority
         m["source_plan"]["sha256"] == authority.source_plan_sha256, "pinned source plan required")
     source_plan_document = JSON.parsefile(descriptor_path(dirname(abspath(path)), m["source_plan"]))
     source_plan = source_plan_document["models"]
+    redistribution = m["redistribution"]
     if cfg !== nothing
-        foreach(require_public_metadata, (m, report, source_plan_document))
+        checked = Dict(k => v for (k, v) in m if k != "redistribution")
+        checked["redistribution"] = Dict(k => v for (k, v) in redistribution if k != "attributions")
+        foreach(require_public_metadata, (checked, report, source_plan_document))
     end
     require(length(source_plan) == authority.cohort_count &&
         length(Set((p["family"], p["auxiliary_row"]) for p in source_plan)) == authority.cohort_count,
         "invalid pinned source-plan identity cohort")
     require(m["data_license"] == "CC-BY-4.0" && !isempty(m["attribution"]) &&
         !isempty(m["changes"]), "license, attribution and generated changes are required")
-    redistribution = m["redistribution"]
     for key in ("license", "upstream_readme", "attribution_inventory")
         require(redistribution[key]["sha256"] == getproperty(authority, Symbol(key * "_sha256")),
             "upstream redistribution evidence differs: $key")
@@ -332,6 +334,7 @@ function validate_manifest(path; authority = STUDY_AUTHORITY, released_authority
             item["artifact"]["sha256"] == original["sha256"] && item["artifact"]["bytes"] == original["bytes"],
             "upstream attribution bytes differ")
         descriptor_path(dirname(abspath(path)), item["artifact"])
+        cfg === nothing || require_public_attribution(item, original)
     end
     require(occursin(r"\A[A-Za-z0-9][A-Za-z0-9._+-]*\z", m["collection_version"]), "invalid collection version")
     cohort = m["cohort"]

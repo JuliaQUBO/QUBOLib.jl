@@ -99,11 +99,12 @@ function fixture(root; body = nothing, moi_variables = 11:13, dimension = 3)
     license = public_file("LICENSE.data", "CC-BY-4.0 fixture license text")
     upstream_readme = public_file("README.upstream.md", "Fixture upstream contributors")
     attribution = public_file("upstream/03-birkhoff/README.md", "Fixture provider and reference")
+    lines = ["Fixture provider and reference"]
     inventory = public_file("inventory.json", G.JSON.json([Dict("path" => "03-birkhoff/README.md",
-        "sha256" => attribution["sha256"], "bytes" => attribution["bytes"])]))
+        "sha256" => attribution["sha256"], "bytes" => attribution["bytes"], "attribution_lines" => lines)]))
     redistribution = Dict("license" => license, "upstream_readme" => upstream_readme,
         "attribution_inventory" => inventory, "attributions" => [Dict(
-            "upstream_path" => "03-birkhoff/README.md", "artifact" => attribution)])
+            "upstream_path" => "03-birkhoff/README.md", "artifact" => attribution, "attribution_lines" => lines)])
     entry["source"]["attribution_paths"] = ["03-birkhoff/README.md"]
     authority = (report_sha256 = G.sha(report_path), cohort_count = 1, original_count = 1,
         source_plan_sha256 = G.sha(source_plan_path),
@@ -930,5 +931,50 @@ end
         @test all(item["path"] != "environment.json" for item in projection["audit"]["inventory"])
         entry["audit_inventory_paths"]["extra"] = "environment.json"
         @test_throws ArgumentError G.released_public_projection(entry, f.audit, f.environment)
+    end
+end
+
+@testset "Pinned Sports attribution link and public path checks" begin
+    mktempdir() do root
+        f = released_fixture(root; restricted = false, large = true, native_status = "ok")
+        redistribution = f.manifest["redistribution"]
+        upstream_path = "05-sports/README.md"
+        text = "See the [manual](/05-sports/info/OrganizationITC2021_V7.pdf)."
+        relative = "redistribution/upstream/$upstream_path"
+        readme = joinpath(root, relative)
+        mkpath(dirname(readme))
+        write(readme, text)
+        item = Dict{String,Any}("upstream_path" => upstream_path, "attribution_lines" => [text],
+            "artifact" => Dict("path" => relative, "sha256" => G.sha(readme), "bytes" => filesize(readme)))
+        push!(redistribution["attributions"], item)
+        inventory_path = joinpath(root, redistribution["attribution_inventory"]["path"])
+        inventory = G.JSON.parsefile(inventory_path)
+        original = Dict{String,Any}("path" => upstream_path, "attribution_lines" => [text],
+            "sha256" => G.sha(readme), "bytes" => filesize(readme))
+        push!(inventory, original)
+        function refresh_attribution()
+            write(inventory_path, G.JSON.json(inventory))
+            inventory_sha = G.sha(inventory_path)
+            redistribution["attribution_inventory"]["sha256"] = inventory_sha
+            redistribution["attribution_inventory"]["bytes"] = filesize(inventory_path)
+            write(f.path, G.JSON.json(f.manifest))
+            return (authority = merge(f.authority, (attribution_inventory_sha256 = inventory_sha,)),
+                released_authority_sha256 = f.config_sha)
+        end
+        args = refresh_attribution()
+        @test G.validate_manifest(f.path; args...)["redistribution"]["attributions"][end]["attribution_lines"] == [text]
+        item["attribution_lines"] = [text * " Changed."]
+        write(f.path, G.JSON.json(f.manifest))
+        @test_throws ArgumentError G.validate_manifest(f.path; args...)
+
+        item["attribution_lines"] = [text * " See [local](/private/output)."]
+        original["attribution_lines"] = copy(item["attribution_lines"])
+        args = refresh_attribution()
+        @test_throws ArgumentError G.validate_manifest(f.path; args...)
+
+        item["attribution_lines"] = original["attribution_lines"] = [text]
+        item["source_url"] = "/private/output"
+        args = refresh_attribution()
+        @test_throws ArgumentError G.validate_manifest(f.path; args...)
     end
 end

@@ -21,6 +21,22 @@ function require_public_metadata(value)
     return nothing
 end
 
+function require_public_attribution(item, original)
+    lines = item["attribution_lines"]
+    require(lines isa AbstractVector && all(line -> line isa AbstractString, lines) &&
+        lines == original["attribution_lines"], "attribution text differs from the pinned inventory")
+    checked = item
+    if original["path"] == "05-sports/README.md"
+        manual = "/05-sports/info/OrganizationITC2021_V7.pdf"
+        url = "https://github.com/ZIB-AOPT/QOBLIB/blob/" * QOBLIB_COMMIT * manual
+        checked = Dict{String,Any}(item)
+        # The upstream Markdown link starts at the repository root.
+        # Resolve just this pinned link for the scan and retain the original text.
+        checked["attribution_lines"] = [replace(line, "($manual)" => "($url)") for line in lines]
+    end
+    return require_public_metadata(checked)
+end
+
 function released_public_projection(entry, audit, environment)
     audit_fields = ("schema", "auditor_sha256", "accepted", "passed", "original_validated",
         "full_metadata_validated", "case_id", "family", "auxiliary_row", "native_status",
