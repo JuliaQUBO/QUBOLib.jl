@@ -117,7 +117,7 @@ identify the package version used.
 
 For the benchmark data, cite the
 [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) across versions.
-QUBOLib 0.2.8 selects the uniform
+QUBOLib 0.2.8 and 0.2.9 select the uniform
 [`v0.2.7-data+10` release](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.7-data%2B10),
 version identifier [10.5281/zenodo.24142757](https://doi.org/10.5281/zenodo.24142757).
 It contains 9,294 original QUBOs with 620 exact captures and 62 repair records
@@ -128,6 +128,11 @@ for the measured compatibility differences and
 [Dataset Versions](https://juliaqubo.github.io/QUBOLib.jl/stable/manual/4-datasets/)
 for separate working-copy access. Package upgrades preserve existing local data.
 Also cite each source collection used. Older package tags retain their data pins.
+
+QUBOLib 0.2.9 also provides 347 audited generated QOBLIB Original objectives
+through three optional artifacts.
+[Installation and provenance](https://juliaqubo.github.io/QUBOLib.jl/stable/manual/5-qoblib-generated/) ·
+[Generated dataset DOI](https://doi.org/10.5281/zenodo.24417375)
 
 The data artifact combines independently sourced collections; the repository's
 MIT software license is not a blanket dataset license. Before redistributing or

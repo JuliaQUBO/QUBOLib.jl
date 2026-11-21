@@ -302,3 +302,102 @@ data_license = "MIT"
 license_evidence_url = "https://github.com/MQLib/MQLib/blob/585496274af5abb0849d0d47e135496b4688680b/LICENSE"
 transformation_note = "QUBOLib imports 3,002 MQLib benchmark instances (88.4% of the 3,396-instance MQLib corpus): all 231 classic literature instances from data/standard.csv (71 G-set, 60 Beasley, 45 GKA, 30 Spin-Glass, 21 Palubeckis p3000_1..p7000_3, and 4 DIMACS Torus) plus 2,771 Tier 2 instances from data/instance_header_info.csv and data/results_imgseg.zip (1,376 SteinLib up to n = 38,418, 312 BiqMac, 224 Rudy random graphs up to n = 35,960, 105 OR-Library, 100 Berkeley Image Segmentation up to n = 28,552, 113 Glasgow/Dharwadker, 104 DIMACS/Coloring/Market, 11 TSPLIB95, and 526 Culberson & NetworkX random graphs with m <= 250,000, including all 30 largest-n instances with n >= 15,000), converts Max-Cut and master-node QUBO edge lists to canonical :bool/:max QUBO models with chunked HDF5 deflate compression (level = 3), and attaches 246 heuristic bitstring solutions and 2,825 value-only benchmark records across 38 heuristic solver submissions from MQLib data/results.zip and data/results_imgseg.zip."
 required_action = "Preserve the MQLib article and repository attribution, MIT copyright notice, and QUBOLib processing statement."
+
+[generated_release]
+tag = "v0.2.9-data+12-qoblib-toqubo"
+release_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.9-data%2B12-qoblib-toqubo"
+zenodo_record_url = "https://zenodo.org/records/24417375"
+zenodo_version_doi = "10.5281/zenodo.24417375"
+zenodo_concept_doi = "10.5281/zenodo.24417374"
+manifest_asset = "QOBLIB-RELEASE-MANIFEST.json"
+manifest_github_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.9-data%2B12-qoblib-toqubo/QOBLIB-RELEASE-MANIFEST.json"
+manifest_zenodo_url = "https://zenodo.org/records/24417375/files/QOBLIB-RELEASE-MANIFEST.json"
+manifest_sha256 = "0b583868b5c495c6ce0649d9f6110e5ac5e4a40e56dabbb6f0853c58bcdb4725"
+data_license = "CC-BY-4.0"
+default_artifact_changed = false
+instances = 347
+integer_domain_instances = 325
+continuous_to_integer_instances = 22
+study_report_sha256 = "e67eb02a064057b8e95468f7609030534f6f4f3507d726786cab4977f862bd51"
+source_plan_sha256 = "a8acdd4db972f27d3b48cccf0fa729c496e43bac3d39adceff218f4f5be54113"
+release_authority_sha256 = "c36b04621ffd0720e95c62d76544f0f0e55c7df11f6f03e1102c21766a05fb00"
+scope = "Audited saved Original binary objectives. Source feasibility and optimality remain unknown."
+public_mirrors_verified_at = "2026-11-21"
+
+[generated_release.builder]
+commit = "71dc9932e762ce606883914ef6c9619e61e31f9a"
+julia_version = "1.13.4"
+manifest_sha256 = "663ca0ad5d575bc264cdef3bd1e2a0196dc1e42516e5480b2bcaa181a1383811"
+project_sha256 = "76250ef0c55f7158b429b500a139d25bcf74bf65e3cf63549662e913aed69bad"
+repository = "https://github.com/JuliaQUBO/QUBOLib.jl"
+tree_sha1 = "f785e882df180e93d1ea720e14a60adf75901791"
+
+[generated_release.producer]
+auditor_sha256 = "699b744aa2f3c8204cc6c20d1c1fc268c0ca1c420e97f60dede429eedfdb8f58"
+julia_version = "1.13.4"
+manifest_sha256 = "a042e5f4d72f9aace7cd1e84a184e7b09d998a253a77697d4376616801f84ac1"
+project_sha256 = "59b64cc0af0c18e3769039036e39d59dab7ebf3360cd23d1aaa7cb154a6c3df9"
+release_identity_sha256 = "296965c58888ca1c535719fce85da40b9a4ffbf7d44f98c2a388356e955c7baa"
+
+[generated_release.producer.packages.PseudoBooleanOptimization]
+commit = "889172e5cf0c0eb6b5ef731c538d6a35e0ba8821"
+source_tree = "c36f50314b53132bc611b002574e32d07be155b1"
+version = "0.3.2"
+
+[generated_release.producer.packages.QUBOPreprocessing]
+commit = "71d2f0bb734def6764a87cdcf65cf51fe8ac34a0"
+source_tree = "c2b4b4dc8de60a96382dd7532ca2c10b73785cbd"
+version = "0.2.2"
+
+[generated_release.producer.packages.ToQUBO]
+commit = "86b4e4cc49a979e1658f512c481bb6d394aed365"
+source_tree = "e5e1b6bd168dd891a35fbbd188405c26a045afb0"
+version = "0.8.2"
+
+[[generated_release.assets]]
+binding = "qoblib_toqubo"
+collection = "qoblib_toqubo"
+asset_name = "qoblib_toqubo.tar.gz"
+variant = "integer-domain"
+size_class = "regular"
+instance_count = 305
+bytes = 259179941
+archive_sha256 = "2c4b06a71f420028f375ed9f86b1165caf93d3739111e9560b57c32bd0a3a119"
+git_tree_sha1 = "ebd23750edc7395871d7df967915a90b8a3ec586"
+import_manifest_sha256 = "b9455594b6f4461379712fc1d03971d292ee7f75c474212521f972df7b8ce910"
+public_provenance_sha256 = "26d461c92ceb7761f8c8ea19132cea502b4b20168d6ad36a65e4b21403ed33ba"
+independent_extract_sha256 = "c6ce08f9ac036287955f6da75093025db40bd753c50de767661cd9b8c708b0b0"
+github_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.9-data%2B12-qoblib-toqubo/qoblib_toqubo.tar.gz"
+zenodo_url = "https://zenodo.org/records/24417375/files/qoblib_toqubo.tar.gz"
+
+[[generated_release.assets]]
+binding = "qoblib_toqubo_large"
+collection = "qoblib_toqubo_large"
+asset_name = "qoblib_toqubo_large.tar.gz"
+variant = "integer-domain"
+size_class = "large"
+instance_count = 20
+bytes = 167422620
+archive_sha256 = "314c455cd5efc11dfccd877489bbe0c5bdaae028156680a00727c295e76d0f26"
+git_tree_sha1 = "ef799f89d9b59ceddf5785312262e6889e0916b2"
+import_manifest_sha256 = "03beb689f2c262a9d3acfa5d0baffa6a57ef757c4e1c89cf03f152185003991e"
+public_provenance_sha256 = "365c9ebaa6d9f7bcac9c97083c755e642513b79a34935b7cc88028fd794ed1b5"
+independent_extract_sha256 = "f934b44879f8a80d6732843882a876f3156345654883c4e31a978d515334b793"
+github_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.9-data%2B12-qoblib-toqubo/qoblib_toqubo_large.tar.gz"
+zenodo_url = "https://zenodo.org/records/24417375/files/qoblib_toqubo_large.tar.gz"
+
+[[generated_release.assets]]
+binding = "qoblib_toqubo_domain_restricted"
+collection = "qoblib_toqubo_domain_restricted"
+asset_name = "qoblib_toqubo_domain_restricted.tar.gz"
+variant = "continuous-to-integer"
+size_class = "regular"
+instance_count = 22
+bytes = 53510920
+archive_sha256 = "251afd251a972fbf7bc42dc408db0639c1684946730f8563c3340d215420c120"
+git_tree_sha1 = "4f2e722e85c84ce556e69448e142b7b4403855ca"
+import_manifest_sha256 = "69f3d05c97c9f53ee2f65d5d67bf51d17676ddad963869c13c9a53083f32893c"
+public_provenance_sha256 = "8147463977c8b5f71b22480f25dd151d9cbc6ad4f3806697b8627f857511a88c"
+independent_extract_sha256 = "79ac6670d12845c8a7aa90f68e0eb20cd01754112f95e6d1af5da522a1f0ffce"
+github_url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.9-data%2B12-qoblib-toqubo/qoblib_toqubo_domain_restricted.tar.gz"
+zenodo_url = "https://zenodo.org/records/24417375/files/qoblib_toqubo_domain_restricted.tar.gz"

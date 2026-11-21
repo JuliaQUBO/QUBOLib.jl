@@ -1,23 +1,59 @@
 # Generated QOBLIB / ToQUBO collection
 
-`qoblib_toqubo` is a separate, opt-in generated collection. Its first version
-imports **saved Original QUBOs**, without loading ToQUBO, compiling an LP, running
-preprocessing, or solving a model. The canonical `qoblib` collection and selected
-`v0.2.7-data+10` default artifact remain unchanged.
+QUBOLib 0.2.9 offers 347 audited saved Original QUBOs in three opt-in artifacts.
+You can load these binary objectives directly from their SQLite and HDF5 stores.
+Fresh default installations select the canonical `v0.2.7-data+10` artifact.
 
 This follows the separation described in [QUBOLib issue #47](https://github.com/JuliaQUBO/QUBOLib.jl/issues/47)
 and [ToQUBO issue #145](https://github.com/JuliaQUBO/ToQUBO.jl/issues/145).
-The frozen manuscript study records all 347 source outcomes, including 243
-independently audited Original polynomials. Those 243 are **import candidates**;
-a release must additionally pass the import and HDF5 roundtrip gates below.
-An audited Original can be included when its Strong/Weak runs failed. Residuals
-are outside this first release and would require separate parent/policy/trace
-lineage; they are not additional source problems.
+The earlier frozen manuscript study identified 243 import candidates. The
+released-package study supplied 347 independently audited Originals, all of
+which passed the import and HDF5 roundtrip audits for this release. The study
+also audited both residual modes for all 347 cases. The archives contain the
+Original objectives.
 
 The normal QUBOLib density columns retain QUBOTools definitions: overall
 `(2m+l)/n²`, linear `l/n`, and quadratic graph density `2m/[n(n-1)]` where
 defined. They are distinct from the manuscript's QS upper-triangle density
 `2(m+l)/[n(n+1)]`. The import does not overwrite these definitions.
+
+## Install and open a generated artifact
+
+| Artifact binding | Models | Source-domain variant |
+| --- | ---: | --- |
+| `qoblib_toqubo` | 305 | Integer-domain |
+| `qoblib_toqubo_large` | 20 | Integer-domain, large Birkhoff models |
+| `qoblib_toqubo_domain_restricted` | 22 | Explicit continuous-to-integer restriction |
+
+```julia
+using Pkg.Artifacts
+using QUBOLib
+
+binding = "qoblib_toqubo"
+artifacts = joinpath(pkgdir(QUBOLib), "Artifacts.toml")
+package_id = Base.PkgId(QUBOLib).uuid
+ensure_artifact_installed(binding, artifacts; pkg_uuid = package_id)
+tree = artifact_hash(binding, artifacts; pkg_uuid = package_id)
+@assert verify_artifact(tree)
+
+work = mktempdir()
+library = joinpath(work, "qubolib")
+cp(artifact_path(tree), library)
+for store in ("index.db", "archive.h5")
+    chmod(joinpath(library, store), 0o644)
+end
+model = QUBOLib.access(; path = work) do index
+    QUBOLib.load_instance(index, 1)
+end
+```
+
+Use a fresh work directory for each artifact. QUBOLib can write to both stores
+in the working copy. Loading a large model materializes its polynomial in memory.
+Both hosts provide the same archives and release manifest. Each archive
+contains the upstream CC BY 4.0 data license and attribution, including
+attribution for individual models.
+[GitHub data release](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.9-data%2B12-qoblib-toqubo) ·
+[Zenodo dataset DOI](https://doi.org/10.5281/zenodo.24417375)
 
 ## Scientific and numeric scope
 
@@ -35,8 +71,8 @@ diagonal folding and every coefficient, scale or offset that Float64 cannot
 represent **exactly**, including `1//3` and `9007199254740993//1`. There is no
 rounding fallback. Isolated variables are preserved. The current statistics
 schema requires both a nonempty linear group and a nonempty quadratic group;
-this importer explicitly rejects empty groups before storage. All 243 current
-audited Original candidates have both groups. Nullable statistics for linear-only,
+this importer explicitly rejects empty groups before storage. All 347 released
+Originals have both groups. Nullable statistics for linear-only,
 quadratic-only or constant models need a separate schema/migration change and
 are outside this collection release.
 
@@ -54,11 +90,10 @@ Thus coordinated edits to HDF5, SQL metadata and `BUILD.json` cannot redefine
 the accepted model, even if the local acceptance receipt is removed. This check
 does not retain a second copy of the Original JSONL in the release.
 
-The domain gate requires zero recorded continuous-to-integer changes. All 243
-current candidates pass that gate; none of the 22 continuous-source Sports
-models has an accepted Original. Preserving an integer domain is only one
-necessary condition. **LP-to-QUBO/source-problem equivalence is not established**
-by this import, and source feasibility/optimality remain unknown.
+The integer-domain variants require zero recorded continuous-to-integer
+changes. The separate 22-model collection applies an explicit integer
+restriction. Source-problem equivalence, feasibility and optimality remain
+unverified for all three artifacts.
 
 Raw ToQUBO reformulation metadata is retained as a provenance descriptor, not
 passed as `source_encoding`. QUBOLib's current affine decoding schema differs.
@@ -72,7 +107,7 @@ reconstruction probes and preprocessing certificates are not inherited as
 generated-model optima, incumbents or source witnesses. This release path adds
 no `SolutionRecords`.
 
-## Prepare saved inputs
+## Prepare saved inputs from the historical study
 
 Use a resource-bounded execution environment for actual saved-model import.
 The Python preparation helper only checks metadata and copies/hashes existing
@@ -126,7 +161,7 @@ the modification notice, and the source/compiler snapshots. Private operational
 paths from the raw case manifest are replaced by a public source-identity
 projection, with the raw-case SHA256 retained.
 
-## Import, audit and build an opt-in release candidate
+## Import, audit and pack a historical candidate
 
 The importer uses the existing QUBOLib environment plus SHA/Tar standard
 libraries. It has no ToQUBO or QUBOPreprocessing dependency.
@@ -212,13 +247,8 @@ Select `--variant integer-domain` for the 325 integer-domain inputs or
 The second group uses the explicit integerization policy and carries
 `not_established_domain_restriction` as its source equivalence status. Both
 variants retain unknown source feasibility and optimality. Also select
-`--size-class regular` or `--size-class large`. The following asset names
-identify the four possible nonempty partitions.
-
-| Source-domain variant | Regular asset | Large asset |
-| --- | --- | --- |
-| `integer-domain` | `qoblib_toqubo` | `qoblib_toqubo_large` |
-| `continuous-to-integer` | `qoblib_toqubo_domain_restricted` | `qoblib_toqubo_domain_restricted_large` |
+`--size-class regular` or `--size-class large`. The released restricted variant
+has only a regular partition.
 
 Each full partition contains all matching cases and carries the complete outcome
 ledger. A pilot selects explicit case IDs inside one partition. Choose the

@@ -5,3 +5,39 @@ lazy = true
     [[qubolib.download]]
     url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.7-data+10/qubolib.tar.gz"
     sha256 = "5b1e38ffb2616fc141fd988ed831edd6e219a5f1c2f62a9853d8ddee251e5032"
+
+[qoblib_toqubo]
+git-tree-sha1 = "ebd23750edc7395871d7df967915a90b8a3ec586"
+lazy = true
+
+    [[qoblib_toqubo.download]]
+    url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.9-data%2B12-qoblib-toqubo/qoblib_toqubo.tar.gz"
+    sha256 = "2c4b06a71f420028f375ed9f86b1165caf93d3739111e9560b57c32bd0a3a119"
+
+    [[qoblib_toqubo.download]]
+    url = "https://zenodo.org/records/24417375/files/qoblib_toqubo.tar.gz"
+    sha256 = "2c4b06a71f420028f375ed9f86b1165caf93d3739111e9560b57c32bd0a3a119"
+
+[qoblib_toqubo_large]
+git-tree-sha1 = "ef799f89d9b59ceddf5785312262e6889e0916b2"
+lazy = true
+
+    [[qoblib_toqubo_large.download]]
+    url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.9-data%2B12-qoblib-toqubo/qoblib_toqubo_large.tar.gz"
+    sha256 = "314c455cd5efc11dfccd877489bbe0c5bdaae028156680a00727c295e76d0f26"
+
+    [[qoblib_toqubo_large.download]]
+    url = "https://zenodo.org/records/24417375/files/qoblib_toqubo_large.tar.gz"
+    sha256 = "314c455cd5efc11dfccd877489bbe0c5bdaae028156680a00727c295e76d0f26"
+
+[qoblib_toqubo_domain_restricted]
+git-tree-sha1 = "4f2e722e85c84ce556e69448e142b7b4403855ca"
+lazy = true
+
+    [[qoblib_toqubo_domain_restricted.download]]
+    url = "https://github.com/JuliaQUBO/QUBOLib.jl/releases/download/v0.2.9-data%2B12-qoblib-toqubo/qoblib_toqubo_domain_restricted.tar.gz"
+    sha256 = "251afd251a972fbf7bc42dc408db0639c1684946730f8563c3340d215420c120"
+
+    [[qoblib_toqubo_domain_restricted.download]]
+    url = "https://zenodo.org/records/24417375/files/qoblib_toqubo_domain_restricted.tar.gz"
+    sha256 = "251afd251a972fbf7bc42dc408db0639c1684946730f8563c3340d215420c120"
