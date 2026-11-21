@@ -5,7 +5,7 @@ machine-readable inventory is [`DATASET.toml`](DATASET.toml).
 
 ## Selected uniform artifact
 
-QUBOLib 0.2.8 selects
+QUBOLib 0.2.8 and 0.2.9 select
 [`v0.2.7-data+10`](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.7-data%2B10).
 The archive contains `archive.h5` and `index.db`: 9,294 original stored QUBOs
 across seven populated collections, enriched uniformly using registered
@@ -48,6 +48,32 @@ record/objective consistency and stored diagnostics do not constitute an
 independent algebraic certificate-witness replay or an exhaustive census of
 unsuccessful repairs. This release makes no literature-novelty, controlled timing,
 causal integerization/cache or minimum-memory claim.
+
+## Generated QOBLIB Original QUBOs
+
+QUBOLib 0.2.9 offers three optional archives containing 347 independently
+audited saved Original binary objectives.
+[GitHub data release](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.9-data%2B12-qoblib-toqubo) ·
+[Zenodo version DOI](https://doi.org/10.5281/zenodo.24417375) ·
+[Zenodo concept DOI](https://doi.org/10.5281/zenodo.24417374)
+
+| Artifact binding | Models | Source domain |
+| --- | ---: | --- |
+| `qoblib_toqubo` | 305 | Integer-domain |
+| `qoblib_toqubo_large` | 20 | Integer-domain, large Birkhoff models |
+| `qoblib_toqubo_domain_restricted` | 22 | Explicit continuous-to-integer restriction |
+
+The models were generated with ToQUBO 0.8.2, QUBOPreprocessing 0.2.2 and
+PseudoBooleanOptimization 0.3.2 on Julia 1.13.4. The released hashes bind each
+stored polynomial to its independently audited Original. Source-problem
+equivalence, feasibility and optimality remain unverified. These archives
+include the upstream CC BY 4.0 data license and per-model attribution.
+
+The release manifest records archive checksums, Julia artifact trees, the
+exact builder and producer, and all model fingerprints. Its SHA-256 is
+`0b583868b5c495c6ce0649d9f6110e5ac5e4a40e56dabbb6f0853c58bcdb4725`.
+[Release manifest](https://zenodo.org/records/24417375/files/QOBLIB-RELEASE-MANIFEST.json) ·
+[Installation and provenance](docs/src/manual/5-qoblib-generated.md)
 
 ## Historical layered data and compatibility
 

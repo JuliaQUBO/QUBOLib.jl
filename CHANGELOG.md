@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## v0.2.9 - 2026-11-21
+
+- Import independently audited QOBLIB / ToQUBO Original QUBOs with exact
+  polynomial and source provenance. Give generated continuous-to-integer
+  variants distinct opt-in collection identities.
+- Stream large Original QUBOs into compact 32-bit coordinate storage and
+  verify their canonical polynomial fingerprints on reopening the archive.
+- Export audited Originals in QOBLIB QS format and retain the signed objective
+  transformation and source provenance.
+- Publish 347 audited Original objectives in three lazy, opt-in artifacts.
+  The release contains 305 regular integer-domain models, 20 large
+  integer-domain models and 22 explicit continuous-to-integer variants.
+  [Generated dataset DOI](https://doi.org/10.5281/zenodo.24417375)
+
 ## v0.2.8 - 2026-11-11
 
 - Select the uniform `v0.2.7-data+10` corpus: 9,294 unchanged original QUBOs, 620 exact captures and 62 repairs. Preserve the separate historical data+9 snapshot and document its additional histories, proofs, feasible points and annotations.

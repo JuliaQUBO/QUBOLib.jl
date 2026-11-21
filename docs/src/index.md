@@ -82,7 +82,7 @@ For general use, cite the
 and identify the QUBOLib package version. For benchmark data, cite the
 [dataset concept DOI](https://doi.org/10.5281/zenodo.23027943) across versions,
 and cite [version identifier 10.5281/zenodo.24142757](https://doi.org/10.5281/zenodo.24142757)
-for the exact `v0.2.7-data+10` files selected by package 0.2.8.
+for the exact `v0.2.7-data+10` files selected by package 0.2.8 and 0.2.9.
 Also cite the source collections used. Check `Artifacts.toml` at the package
 version used: older package tags retain their earlier data pins. The
 [dataset provenance inventory](https://github.com/JuliaQUBO/QUBOLib.jl/blob/main/DATASET.md)
@@ -97,7 +97,7 @@ metadata, local import workflow, and packaged artifact workflow.
 
 ## Selected data version
 
-QUBOLib 0.2.8 selects the published
+QUBOLib 0.2.8 and 0.2.9 select the published
 [`v0.2.7-data+10` uniform artifact](https://github.com/JuliaQUBO/QUBOLib.jl/releases/tag/v0.2.7-data%2B10):
 9,294 original QUBOs, 620 exact captures and 62 repair records from the recorded
 QUBOPreprocessing.jl 0.2.1 pipeline. The historical layered
@@ -112,3 +112,8 @@ recipe and the
 for exact identities, per-collection rights and scientific scope. Existing local
 libraries persist across package updates. Dataset DOI publication/verification
 status is recorded in `DATASET.toml`; software archive DOIs identify source code.
+
+QUBOLib 0.2.9 also provides 347 audited generated QOBLIB Original objectives
+through three optional artifacts.
+[Install a generated artifact](manual/5-qoblib-generated.md) ·
+[Generated dataset DOI](https://doi.org/10.5281/zenodo.24417375)

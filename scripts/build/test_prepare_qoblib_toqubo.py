@@ -1,4 +1,5 @@
 from contextlib import ExitStack
+import copy
 import hashlib
 import importlib.util
 import json
@@ -327,6 +328,174 @@ class EndToEndPreparationTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 self.fixture.prepare(out)
         self.assertEqual((out / "FETCH-PRIVATE.json").read_bytes(), b"preexisting private marker")
+
+
+class ReleasedPreparationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="qoblib-released-")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.f = SavedByteFixture(self.root)
+        self.f.rows = self.f.rows[:4]
+        self.f.plan_rows = self.f.plan_rows[:4]
+        for i in (3, 4):
+            self.f.add_saved_case(i)
+        self.packages = {name: {"version": version, "source_tree": letter * 40, "commit": commit * 40}
+            for name, version, letter, commit in (
+                ("ToQUBO", "0.8.2", "d", "e"), ("QUBOPreprocessing", "0.2.2", "f", "a"),
+                ("PseudoBooleanOptimization", "0.3.2", "b", "c"))}
+        self.proof = "c" * 64
+        self.authority = self.root / "authority.json"
+        self.works = {}
+        for i, row in enumerate(self.f.rows, 1):
+            old = self.f.case_dir(i)
+            work = old / "a-p3-test" / "work"
+            work.mkdir(parents=True)
+            for name in ("input", "results"):
+                shutil.move(old / name, work / name)
+            self.works[i] = work
+            case = self.f.cases[i]
+            case["source_continuous_to_integer_required"] = i >= 3
+            self.f.plan_rows[i - 1]["source_continuous_to_integer_required"] = i >= 3
+            environment = {"toqubo_commit": self.packages["ToQUBO"]["commit"], "julia_version": "1.13.4",
+                "release_identity_sha256": self.proof, "project_sha256": "8" * 64, "manifest_sha256": "9" * 64,
+                "registered_stack_verified": True, "package_source_is_official_release": True,
+                "candidate_scope": "private_metadata_exporter", "candidate_released": False,
+                "packages": copy.deepcopy(self.packages)}
+            self.f.envs[i] = environment
+            changes = [] if i == 1 else [
+                {"moi_variable_index": 3, "old_domain": "binary", "new_domain": "fixed_integer"}]
+            if i >= 3:
+                changes.append({"moi_variable_index": 4, "old_domain": "continuous", "new_domain": "integer"})
+            status = "not_established_domain_restriction" if i >= 3 else "integer_domain_preserved"
+            policy = "reject" if i == 2 else "integerize"
+            transform = {"policy": policy, "changed_variable_count": len(changes), "changed_variables": changes,
+                "source_problem_equivalence": status, "bounded_continuous_approximation_used": False}
+            path = work / "results" / row["case_id"] / "domain-transformations.json"
+            write_json(path, transform)
+            descriptor = M.descriptor(path)
+            row["domain_transformations"] = {"changed_variable_count": len(changes),
+                "continuous_to_integer_count": int(i >= 3), "source_problem_equivalence": status,
+                "policy": policy, "sha256": descriptor["sha256"]}
+            row["p3_controller_status"] = "audited_partial" if i == 4 else "audited_ok"
+            row["controller_status"] = "audited_failure" if i == 4 else "audited_ok"
+            row["attempt_history"] = [{"audited": True, "source_run_id": "run-a", "attempt_tag": "p3-test",
+                "status": row["p3_controller_status"]}]
+            audit = self.f.audits[i]
+            inventory = audit["inventory"]
+            target = next(record for record in inventory if record["path"].endswith("/domain-transformations.json"))
+            target.update(descriptor)
+            metadata_path = path.with_name("reformulation-metadata.json")
+            write_json(metadata_path, {"target": {"num_variables": 3}})
+            metadata = {"path": row["case_id"] + "/reformulation-metadata.json", **M.descriptor(metadata_path)}
+            inventory.append(metadata)
+            row["reporting_gate"].update(full_metadata_validated=True, measurement_join_sha256="7" * 64,
+                metadata_sha256=metadata["sha256"], metadata_bytes=metadata["bytes"])
+            audit.update(schema="qoblib-missing-case-audit-v2", full_metadata_validated=True,
+                native_status="partial_failure" if i == 4 else "ok",
+                metadata_document_audit={"full_EOF_parsed": True, "target_dimension_matches": True,
+                    "bytes_parsed": metadata["bytes"]}, original=row["original"])
+        self.flush()
+
+    def flush(self):
+        for i, case in self.f.cases.items():
+            work = self.works[i]
+            audit = self.f.audits[i]
+            write_json(work / "input/case.json", case)
+            write_json(work / "results/environment.json", self.f.envs[i])
+            audit["case_manifest_sha256"] = M.sha(work / "input/case.json")
+            audit["environment_sha256"] = M.sha(work / "results/environment.json")
+            write_json(work / "audit.json", audit)
+            self.f.rows[i - 1]["reporting_gate"].update(audit_sha256=M.sha(work / "audit.json"),
+                case_manifest_sha256=audit["case_manifest_sha256"], environment_sha256=audit["environment_sha256"],
+                result_sha256=audit["result_sha256"])
+        self.f.report.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in self.f.rows))
+        write_json(self.f.plan, {"models": self.f.plan_rows})
+        write_json(self.authority, {"schema": M.released.AUTHORITY_SCHEMA,
+            "study_report_sha256": M.sha(self.f.report), "source_plan_sha256": M.sha(self.f.plan),
+            "auditor_sha256": M.AUDITOR_SHA, "release_identity_sha256": self.proof,
+            "project_sha256": "8" * 64, "manifest_sha256": "9" * 64,
+            "julia_version": "1.13.4", "packages": self.packages, "large_case_ids": ["case-0002", "case-0004"]})
+
+    def prepare(self, name, variant, size_class, **kwargs):
+        options = dict(case_ids=[], materialize=True, authority_path=self.authority,
+                       authority_sha256=M.sha(self.authority), variant=variant, size_class=size_class)
+        options.update(kwargs)
+        with mock.patch.multiple(M.released, COHORT_COUNT=4, RESTRICTED_COUNT=2):
+            return self.f.prepare(self.root / name, **options)
+
+    def test_partitions_derive_from_pinned_domain_and_reviewed_size(self):
+        expected = (("integer-domain", "regular", "qoblib_toqubo"),
+                    ("integer-domain", "large", "qoblib_toqubo_large"),
+                    ("continuous-to-integer", "regular", "qoblib_toqubo_domain_restricted"),
+                    ("continuous-to-integer", "large", "qoblib_toqubo_domain_restricted_large"))
+        selected = []
+        for i, (variant, size, name) in enumerate(expected, 1):
+            manifest = self.prepare(name, variant, size)
+            self.assertEqual((manifest["collection"], manifest["selection_scope"]), (name, "released_partition"))
+            self.assertEqual((len(manifest["cohort"]), manifest["study_audited_original_count"]), (4, 4))
+            self.assertEqual(M.sha(self.root / name / M.released.AUTHORITY_NAME), M.sha(self.authority))
+            entry, = manifest["models"]
+            selected.append(entry["case_id"])
+            domain = entry["source_domain_transformation"]
+            self.assertEqual(domain["policy"], "reject" if i == 2 else "integerize")
+            self.assertEqual(domain["changed_variable_count"], 0 if i == 1 else 1 + int(i >= 3))
+            self.assertEqual(domain["continuous_to_integer_count"], int(i >= 3))
+            self.assertEqual(entry["generation"]["packages"], self.packages)
+            self.assertIn("reformulation-metadata.json", entry["raw_reformulation_metadata"]["path"])
+            self.assertEqual(entry["generation"]["source_attempt_tag"], "p3-test")
+            self.assertEqual(entry["generation"]["measurement_join_sha256"], "7" * 64)
+            self.assertEqual(manifest["cohort"][-1]["final_outcome"], "audited_partial")
+            self.assertNotIn(str(self.root), json.dumps(manifest))
+        self.assertEqual(selected, ["case-0001", "case-0002", "case-0003", "case-0004"])
+
+    def test_released_variant_requires_observed_conversion_and_compatible_policy(self):
+        transform = M.read_json(self.works[3] / "results" / "case-0003" / "domain-transformations.json")
+        wrong_pairs = (
+            (dict(transform, policy="reject"), "continuous-to-integer"),
+            (dict(transform, changed_variable_count=0, changed_variables=[]), "continuous-to-integer"),
+            (dict(transform, source_problem_equivalence="integer_domain_preserved"), "integer-domain"),
+        )
+        for domain, variant in wrong_pairs:
+            with self.subTest(variant=variant, policy=domain["policy"], count=domain["changed_variable_count"]):
+                with self.assertRaisesRegex(ValueError, "does not match the pinned variant"):
+                    M.released.domain_projection(domain, variant)
+        with self.assertRaisesRegex(ValueError, "unsupported released source-domain variant"):
+            M.released.domain_projection(transform, "unknown")
+
+    def test_unpinned_changes_or_cross_partition_pilot_fail(self):
+        with self.assertRaisesRegex(ValueError, "authority SHA-256"):
+            self.prepare("wrong-authority", "integer-domain", "regular", authority_sha256="0" * 64)
+        with self.assertRaisesRegex(ValueError, "unknown/unavailable"):
+            self.prepare("wrong-selection", "integer-domain", "regular", case_ids=["case-0003"])
+        self.f.envs[3]["packages"]["QUBOPreprocessing"]["commit"] = "0" * 40
+        self.flush()
+        with self.assertRaisesRegex(ValueError, "case package differs"):
+            self.prepare("wrong-package", "continuous-to-integer", "regular")
+
+    def test_all_p3_audited_partial_native_endpoints_can_supply_original(self):
+        for native_status in ("ok", "partial_failure", "failed"):
+            with self.subTest(native_status=native_status):
+                self.f.audits[4]["native_status"] = native_status
+                self.flush()
+                manifest = self.prepare("partial-" + native_status, "continuous-to-integer", "large")
+                self.assertEqual(manifest["models"][0]["case_id"], "case-0004")
+                self.assertEqual(manifest["cohort"][-1]["final_outcome"], "audited_partial")
+        self.f.audits[1]["native_status"] = "failed"
+        self.flush()
+        with self.assertRaisesRegex(ValueError, "audit bindings differ"):
+            self.prepare("complete-native-failed", "integer-domain", "regular")
+
+    def test_complete_metadata_and_domain_receipts_are_independent_gates(self):
+        self.f.audits[3]["metadata_document_audit"]["full_EOF_parsed"] = False
+        self.flush()
+        with self.assertRaisesRegex(ValueError, "full metadata inventory"):
+            self.prepare("partial-metadata", "continuous-to-integer", "regular")
+        self.f.audits[3]["metadata_document_audit"]["full_EOF_parsed"] = True
+        self.f.rows[2]["domain_transformations"]["continuous_to_integer_count"] = 0
+        self.flush()
+        with self.assertRaisesRegex(ValueError, "study domain classification"):
+            self.prepare("domain-laundered", "continuous-to-integer", "regular")
 
 
 if __name__ == "__main__":

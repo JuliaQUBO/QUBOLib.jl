@@ -5,7 +5,7 @@ const G = QOBLIBToQUBO
 const QT = G.QT
 const QL = G.QUBOLib
 
-function fixture(root; body = nothing)
+function fixture(root; body = nothing, moi_variables = 11:13, dimension = 3)
     id = "birkhoff-0001"
     inputs = mkpath(joinpath(root, "inputs"))
     function file(name, value; text = false)
@@ -13,24 +13,24 @@ function fixture(root; body = nothing)
         write(path, text ? value : G.JSON.json(value))
         return Dict("path" => "inputs/$name", "sha256" => G.sha(path), "bytes" => filesize(path))
     end
-    h = Dict("kind" => "header", "schema" => G.POLYNOMIAL_SCHEMA, "n" => 3,
+    h = Dict("kind" => "header", "schema" => G.POLYNOMIAL_SCHEMA, "n" => dimension,
         "domain" => "bool", "sense" => "max", "scale_exact" => "2//1",
         "offset_exact" => "-1//4", "variable_order" => "one_based_internal")
     rows = [h,
         Dict("kind" => "linear", "i" => 1, "coefficient_exact" => "1//2"),
-        Dict("kind" => "linear", "i" => 3, "coefficient_exact" => "-2//1"),
-        Dict("kind" => "quadratic", "i" => 1, "j" => 3, "coefficient_exact" => "5//4")]
+        Dict("kind" => "linear", "i" => dimension, "coefficient_exact" => "-2//1"),
+        Dict("kind" => "quadratic", "i" => 1, "j" => dimension, "coefficient_exact" => "5//4")]
     # Literal bytes follow the independently pinned Study.persist_polynomial
     # writer, not the importer serializer being checked.
     polynomial = isnothing(body) ?
-        "{\"kind\":\"header\",\"schema\":\"qoblib-generated-exact-polynomial-v1\",\"n\":3,\"domain\":\"bool\",\"sense\":\"max\",\"scale_exact\":\"2//1\",\"offset_exact\":\"-1//4\",\"variable_order\":\"one_based_internal\"}\n" *
+        "{\"kind\":\"header\",\"schema\":\"qoblib-generated-exact-polynomial-v1\",\"n\":$dimension,\"domain\":\"bool\",\"sense\":\"max\",\"scale_exact\":\"2//1\",\"offset_exact\":\"-1//4\",\"variable_order\":\"one_based_internal\"}\n" *
         "{\"kind\":\"linear\",\"i\":1,\"coefficient_exact\":\"1//2\"}\n" *
-        "{\"kind\":\"linear\",\"i\":3,\"coefficient_exact\":\"-2//1\"}\n" *
-        "{\"kind\":\"quadratic\",\"i\":1,\"j\":3,\"coefficient_exact\":\"5//4\"}\n" : body
+        "{\"kind\":\"linear\",\"i\":$dimension,\"coefficient_exact\":\"-2//1\"}\n" *
+        "{\"kind\":\"quadratic\",\"i\":1,\"j\":$dimension,\"coefficient_exact\":\"5//4\"}\n" : body
     artifacts = Dict{String,Any}(
         "polynomial" => file("original.jsonl", polynomial; text = true),
         "variable_order" => file("order.json", Dict("order" => [
-            Dict("internal_index" => i, "moi_variable_index" => 10 + i) for i in 1:3])),
+            Dict("internal_index" => i, "moi_variable_index" => label) for (i, label) in enumerate(moi_variables)])),
         "domain_transformations" => file("domains.json", Dict("changed_variable_count" => 0,
             "changed_variables" => [], "source_problem_equivalence" => "integer_domain_preserved")),
         "source_order" => file("source-order.json", Dict("source_order" => ["x", "y"])),
@@ -54,7 +54,7 @@ function fixture(root; body = nothing)
     raw_metadata_descriptor = Dict("path" => "$id/reformulation-metadata.json",
         "sha256" => raw_metadata["sha256"], "bytes" => raw_metadata["bytes"])
     push!(inventory, raw_metadata_descriptor)
-    metrics = Dict("n" => 3, "l" => 2, "m" => 1)
+    metrics = Dict("n" => dimension, "l" => 2, "m" => 1)
     audit = Dict("schema" => "qoblib-missing-case-audit-v1", "passed" => true, "accepted" => true,
         "original_validated" => true, "case_id" => id, "auxiliary_row" => 1, "family" => "birkhoff",
         "auditor_sha256" => G.AUDITOR_SHA, "case_manifest_sha256" => artifacts["case_manifest"]["sha256"],
@@ -99,11 +99,12 @@ function fixture(root; body = nothing)
     license = public_file("LICENSE.data", "CC-BY-4.0 fixture license text")
     upstream_readme = public_file("README.upstream.md", "Fixture upstream contributors")
     attribution = public_file("upstream/03-birkhoff/README.md", "Fixture provider and reference")
+    lines = ["Fixture provider and reference"]
     inventory = public_file("inventory.json", G.JSON.json([Dict("path" => "03-birkhoff/README.md",
-        "sha256" => attribution["sha256"], "bytes" => attribution["bytes"])]))
+        "sha256" => attribution["sha256"], "bytes" => attribution["bytes"], "attribution_lines" => lines)]))
     redistribution = Dict("license" => license, "upstream_readme" => upstream_readme,
         "attribution_inventory" => inventory, "attributions" => [Dict(
-            "upstream_path" => "03-birkhoff/README.md", "artifact" => attribution)])
+            "upstream_path" => "03-birkhoff/README.md", "artifact" => attribution, "attribution_lines" => lines)])
     entry["source"]["attribution_paths"] = ["03-birkhoff/README.md"]
     authority = (report_sha256 = G.sha(report_path), cohort_count = 1, original_count = 1,
         source_plan_sha256 = G.sha(source_plan_path),
@@ -526,5 +527,454 @@ announce("unsupported empty coefficient groups")
             @test error isa ArgumentError
             @test occursin("nonempty linear and quadratic", sprint(showerror, error))
         end
+    end
+end
+
+announce("bounded sorted HDF5 storage")
+@testset "Compact Steiner-width Original roundtrip" begin
+    mktempdir() do root
+        dimension = 220_388
+        inputs = mkpath(joinpath(root, "wide-inputs"))
+        f = fixture(inputs; dimension, moi_variables = 1:dimension)
+        entry = only(f.manifest["models"])
+        descriptor = entry["artifacts"]["polynomial"]
+        polynomial = joinpath(inputs, descriptor["path"])
+        @test_throws ArgumentError G.read_polynomial(polynomial)
+        candidate = G.build(f.path, joinpath(root, "wide-candidate"); authority = f.authority, stream_terms = true)
+        @test G.audit(candidate; authority = f.authority)["passed"]
+        QL.access(; path = candidate) do index
+            model = QL.load_instance(index, 1)
+            @test QT.dimension(model) == dimension
+            @test G.saved_polynomial_identity(model) == Dict(k => descriptor[k] for k in ("sha256", "bytes"))
+        end
+        QL.HDF5.h5open(joinpath(root, "oversized.qubin"), "w") do archive
+            counts = merge(entry["metrics"], Dict("n" => QL._COMPACT_QUBIN_MAX_VARIABLES + 1))
+            @test_throws ArgumentError G.stream_qubin!(archive, polynomial, counts)
+        end
+    end
+end
+
+@testset "Bounded sorted HDF5 storage" begin
+    mktempdir() do root
+        inputs = mkpath(joinpath(root, "inputs-root"))
+        f = fixture(inputs)
+        baseline = G.build(f.path, joinpath(root, "baseline"); authority = f.authority)
+        candidate = G.build(f.path, joinpath(root, "candidate"); authority = f.authority, stream_terms = true)
+        build_record = G.JSON.parsefile(joinpath(candidate, "BUILD.json"))
+        @test build_record["polynomial_storage"] == G.STREAMED_STORAGE
+        @test build_record["streamed_importer_sha256"] == G.sha(joinpath(@__DIR__, "stream_generated_qubin.jl"))
+        @test build_record["records"] == G.JSON.parsefile(joinpath(baseline, "BUILD.json"))["records"]
+        stored_sql(path) = QL.access(; path) do index
+            QL.DBInterface.execute(QL.database(index), "SELECT * FROM Instances") |> QL.DataFrame
+        end
+        @test isequal(stored_sql(candidate), stored_sql(baseline))
+        QL.access(; path = candidate) do index
+            loaded = QL.load_instance(index, 1)
+            entry = only(f.manifest["models"])
+            @test G.saved_polynomial_identity(loaded) == Dict(
+                k => entry["artifacts"]["polynomial"][k] for k in ("sha256", "bytes"))
+            group = QL.archive(index)["instances"]["1"]
+            @test QL.HDF5.attrs(group["model"]["form"])[QL._COMPACT_QUBIN_ATTRIBUTE] == G.STREAMED_STORAGE
+            @test read(group["model"]["form"]["dimension"]) === Int32(3)
+            @test eltype(group["model"]["variables"]) == Int32
+            @test eltype(group["solution"]["data"]["state"]) == Int32
+            @test eltype(group["solution"]["data"]["reads"]) == Int32
+            archive = group["model"]["form"]
+            @test eltype(archive["linear"]["i"]) == Int32
+            @test eltype(archive["quadratic"]["i"]) == Int32
+            @test eltype(archive["quadratic"]["j"]) == Int32
+            @test read(archive["sense"]) == "max"
+            @test read(group["solution"]["sense"]) == "min"
+        end
+        QL.access(; path = baseline) do index
+            group = QL.archive(index)["instances"]["1"]
+            @test read(group["model"]["form"]["sense"]) == "max"
+            @test read(group["solution"]["sense"]) == "min"
+        end
+        @test G.audit(candidate; authority = f.authority)["passed"]
+        release = joinpath(root, "packed")
+        archive = G.pack(candidate, release; authority = f.authority)
+        receipt = G.JSON.parsefile(joinpath(release, "RELEASE-CANDIDATE.json"))
+        @test G.sha(archive) == receipt["archive_sha256"]
+        extracted = mkpath(joinpath(root, "downloaded/qubolib"))
+        G.Tar.extract(`gzip -dc $archive`, extracted)
+        @test bytes2hex(G.Pkg.GitTools.tree_hash(extracted)) == receipt["git_tree_sha1"]
+        @test G.audit(dirname(extracted); authority = f.authority)["passed"]
+        QL.access(; path = dirname(extracted)) do index
+            @test G.model_identity(QL.load_instance(index, 1)) == only(build_record["records"])["identity"]
+        end
+
+        entry = only(f.manifest["models"])
+        input(key) = G.JSON.parsefile(joinpath(inputs, entry["artifacts"][key]["path"]))
+        restricted = Dict("changed_variable_count" => 1, "changed_variables" => [1],
+            "source_problem_equivalence" => "not_established_domain_restriction")
+        validated = G.validate_manifest(f.path; authority = f.authority)
+        @test_throws ArgumentError G.validate_provenance(validated, entry,
+            input("audit"), input("case_manifest"), input("environment"), restricted)
+
+        bad_inputs = mkpath(joinpath(root, "signed-bad-input"))
+        bad = fixture(bad_inputs; moi_variables = (11, 11, 13))
+        # All provenance descriptors include the malformed order's bytes.
+        # Both importer paths must still reject its repeated MOI label.
+        for stream_terms in (false, true)
+            @test_throws ArgumentError G.build(bad.path, joinpath(root, "bad-order-$stream_terms");
+                authority = bad.authority, stream_terms)
+        end
+        expect_rejected(candidate, joinpath(root, "missing-storage-tag"), f.authority) do damaged
+            path = joinpath(damaged, "BUILD.json")
+            record = G.JSON.parsefile(path)
+            delete!(record, "polynomial_storage")
+            write(path, G.JSON.json(record))
+        end
+        expect_rejected(candidate, joinpath(root, "missing-importer-sha"), f.authority) do damaged
+            path = joinpath(damaged, "BUILD.json")
+            record = G.JSON.parsefile(path)
+            delete!(record, "streamed_importer_sha256")
+            write(path, G.JSON.json(record))
+        end
+        expect_rejected(candidate, joinpath(root, "changed-coordinate"), f.authority) do damaged
+            QL.access(; path = damaged) do index
+                form = QL.archive(index)["instances"]["1"]["model"]["form"]
+                form["quadratic"]["j"][1] = Int32(2)
+            end
+        end
+        expect_rejected(candidate, joinpath(root, "array-shaped-value"), f.authority) do damaged
+            QL.access(; path = damaged) do index
+                data = QL.archive(index)["instances"]["1"]["solution"]["data"]
+                QL.HDF5.delete_object(data, "value")
+                data["value"] = zeros(Float64, 0, 0)
+            end
+        end
+        expect_rejected(candidate, joinpath(root, "float-dimension"), f.authority) do damaged
+            QL.access(; path = damaged) do index
+                form = QL.archive(index)["instances"]["1"]["model"]["form"]
+                QL.HDF5.delete_object(form, "dimension")
+                form["dimension"] = 3.0
+            end
+            cp(joinpath(candidate, "ACCEPTED.json"), joinpath(damaged, "ACCEPTED.json"))
+            output = joinpath(root, "malformed-pack")
+            @test_throws ArgumentError G.pack(damaged, output; authority = f.authority)
+            @test !ispath(output)
+            rm(joinpath(damaged, "ACCEPTED.json"))
+        end
+        expect_rejected(candidate, joinpath(root, "changed-coefficient"), f.authority) do damaged
+            QL.access(; path = damaged) do index
+                form = QL.archive(index)["instances"]["1"]["model"]["form"]
+                form["quadratic"]["v"][1] = 2.0
+            end
+        end
+    end
+    mktempdir() do root
+        f = fixture(root)
+        poly = joinpath(root, only(f.manifest["models"])["artifacts"]["polynomial"]["path"])
+        # Two complete chunks and a tail, with canonical row order differing
+        # from the sparse column order used by the standard QUBin reader.
+        source = replace(read(poly, String), "\"n\":3" => "\"n\":4") *
+            "{\"kind\":\"quadratic\",\"i\":1,\"j\":4,\"coefficient_exact\":\"2//1\"}\n" *
+            "{\"kind\":\"quadratic\",\"i\":2,\"j\":3,\"coefficient_exact\":\"3//1\"}\n" *
+            "{\"kind\":\"quadratic\",\"i\":2,\"j\":4,\"coefficient_exact\":\"-4//1\"}\n" *
+            "{\"kind\":\"quadratic\",\"i\":3,\"j\":4,\"coefficient_exact\":\"1//64\"}\n"
+        write(poly, source)
+        counts = Dict("n" => 4, "l" => 2, "m" => 5)
+        qubin = joinpath(root, "chunked.qubin")
+        written = QL.HDF5.h5open(qubin, "w") do archive
+            G.stream_qubin!(archive, poly, counts; block = 2)
+        end
+        ordinary = QL.HDF5.h5open(qubin, "r") do archive
+            QL._read_qubin_model(archive)
+        end
+        @test G.saved_polynomial_identity(ordinary) == Dict("sha256" => G.sha(poly), "bytes" => filesize(poly))
+        @test G.model_identity(ordinary) == written.identity
+        @test written.quadratic_extrema == (min = -4.0, max = 3.0, abs_min = 1/64, abs_max = 4.0)
+        for m in (4, 6)
+            QL.HDF5.h5open(joinpath(root, "bad-$m.qubin"), "w") do archive
+                @test_throws ArgumentError G.stream_qubin!(archive, poly, merge(counts, Dict("m" => m)); block = 2)
+            end
+        end
+    end
+    mktempdir() do root
+        n = 365
+        m = QL._HDF5_VECTOR_CHUNK_LENGTH + 5
+        polynomial = joinpath(root, "multi-block.jsonl")
+        open(polynomial, "w") do io
+            println(io, "{\"kind\":\"header\",\"schema\":\"qoblib-generated-exact-polynomial-v1\",\"n\":$n," *
+                "\"domain\":\"bool\",\"sense\":\"min\",\"scale_exact\":\"1//1\",\"offset_exact\":\"-1//4\"," *
+                "\"variable_order\":\"one_based_internal\"}")
+            println(io, "{\"kind\":\"linear\",\"i\":1,\"coefficient_exact\":\"1//2\"}")
+            count = 0
+            for i in 1:n-1, j in i+1:n
+                println(io, "{\"kind\":\"quadratic\",\"i\":$i,\"j\":$j,\"coefficient_exact\":\"3//2\"}")
+                count += 1
+                count == m && break
+            end
+        end
+        counts = Dict("n" => n, "l" => 1, "m" => m)
+        descriptor = Dict("sha256" => G.sha(polynomial), "bytes" => filesize(polynomial))
+        entry = Dict("metrics" => counts, "artifacts" => Dict("polynomial" => descriptor))
+        path = joinpath(root, "multi-block.qubin")
+        written = QL.HDF5.h5open(path, "w") do archive
+            G.stream_qubin!(archive, polynomial, counts)
+        end
+        QL.HDF5.h5open(path, "r") do archive
+            @test G.verify_streamed_model(entry, archive) == written.identity
+            @test G.model_identity(QL._read_qubin_model(archive)) == written.identity
+        end
+    end
+end
+
+function released_fixture(root; restricted, large, native_status)
+    f = fixture(root)
+    m = f.manifest
+    entry = only(m["models"])
+    id = entry["case_id"]
+    variant = restricted ? "continuous-to-integer" : "integer-domain"
+    size_class = large ? "large" : "regular"
+    status = restricted ? "not_established_domain_restriction" : "integer_domain_preserved"
+    packages = Dict(name => Dict("version" => version, "source_tree" => repeat(tree, 40),
+        "commit" => repeat(commit, 40)) for (name, version, tree, commit) in (
+        ("ToQUBO", "0.8.2", "d", "e"), ("QUBOPreprocessing", "0.2.2", "f", "a"),
+        ("PseudoBooleanOptimization", "0.3.2", "b", "c")))
+    release_digest = repeat("c", 64)
+    function artifact(key, value)
+        path = joinpath(root, entry["artifacts"][key]["path"])
+        write(path, G.JSON.json(value))
+        entry["artifacts"][key]["sha256"] = G.sha(path)
+        entry["artifacts"][key]["bytes"] = filesize(path)
+        return entry["artifacts"][key]
+    end
+    load(key) = G.JSON.parsefile(joinpath(root, entry["artifacts"][key]["path"]))
+    case = load("case_manifest")
+    case["source_continuous_to_integer_required"] = restricted
+    case_desc = artifact("case_manifest", case)
+    project_sha, manifest_sha, join_sha = repeat("8", 64), repeat("9", 64), repeat("7", 64)
+    environment = Dict("julia_version" => "1.13.4", "toqubo_commit" => packages["ToQUBO"]["commit"],
+        "release_identity_sha256" => release_digest, "project_sha256" => project_sha, "manifest_sha256" => manifest_sha,
+        "registered_stack_verified" => true, "package_source_is_official_release" => true,
+        "candidate_scope" => "private_metadata_exporter", "candidate_released" => false,
+        "worker_realpath" => "/private/worker.jl", "packages" => deepcopy(packages))
+    environment["packages"]["ToQUBO"]["module_path"] = "/private/depot/ToQUBO/src/ToQUBO.jl"
+    env_desc = artifact("environment", environment)
+    changes = Dict{String,Any}[]
+    if restricted
+        push!(changes, Dict("moi_variable_index" => 6, "old_domain" => "binary", "new_domain" => "fixed_integer"))
+        push!(changes, Dict("moi_variable_index" => 7, "old_domain" => "continuous", "new_domain" => "integer"))
+    end
+    policy = "integerize"
+    domain = Dict("policy" => policy, "changed_variable_count" => length(changes),
+        "changed_variables" => changes, "source_problem_equivalence" => status,
+        "bounded_continuous_approximation_used" => false)
+    domain_desc = artifact("domain_transformations", domain)
+    entry["source_domain_transformation"] = G.released_domain_projection(domain, variant)
+    entry["source_problem_equivalence"] = G.source_equivalence(variant)
+    entry["generation"] = merge(Dict{String, Any}(entry["generation"]), Dict("toqubo_commit" => packages["ToQUBO"]["commit"],
+        "toqubo_source_tree" => packages["ToQUBO"]["source_tree"], "julia_version" => "1.13.4",
+        "packages" => packages, "release_identity_sha256" => release_digest,
+        "measurement_join_sha256" => join_sha, "source_attempt_tag" => "p3-test"))
+    audit = load("audit")
+    merge!(audit, Dict("schema" => "qoblib-missing-case-audit-v2", "full_metadata_validated" => true,
+        "native_status" => native_status,
+        "case_manifest_sha256" => case_desc["sha256"], "environment_sha256" => env_desc["sha256"],
+        "metadata_document_audit" => Dict("full_EOF_parsed" => true, "target_dimension_matches" => true,
+            "bytes_parsed" => entry["raw_reformulation_metadata"]["bytes"],
+            "parser" => Dict("module_path" => "/private/parser.py"))))
+    row = only(x for x in audit["inventory"] if x["path"] == entry["audit_inventory_paths"]["domain_transformations"])
+    merge!(row, Dict(k => domain_desc[k] for k in ("sha256", "bytes")))
+    audit_desc = artifact("audit", audit)
+    report_path = joinpath(root, "STUDY-REPORT.jsonl")
+    report = G.JSON.parse(read(report_path, String))
+    merge!(report["reporting_gate"], Dict("audit_sha256" => audit_desc["sha256"],
+        "case_manifest_sha256" => case_desc["sha256"], "result_sha256" => audit["result_sha256"],
+        "environment_sha256" => env_desc["sha256"], "full_metadata_validated" => true,
+        "measurement_join_sha256" => join_sha, "metadata_sha256" => entry["raw_reformulation_metadata"]["sha256"],
+        "metadata_bytes" => entry["raw_reformulation_metadata"]["bytes"]))
+    p3_status = restricted ? "audited_partial" : "audited_ok"
+    report["p3_controller_status"] = p3_status
+    report["controller_status"] = restricted ? "audited_failure" : "audited_ok"
+    only(m["cohort"])["final_outcome"] = p3_status
+    report["attempt_history"] = [Dict("audited" => true, "status" => p3_status, "attempt_tag" => "p3-test",
+        "source_run_id" => only(report["attempt_history"])["source_run_id"])]
+    report["domain_transformations"] = Dict("policy" => policy, "changed_variable_count" => length(changes),
+        "continuous_to_integer_count" => Int(restricted), "source_problem_equivalence" => status,
+        "sha256" => domain_desc["sha256"])
+    write(report_path, G.JSON.json(report) * "\n")
+    plan_path = joinpath(root, "SOURCE-PLAN.json")
+    plan = G.JSON.parsefile(plan_path)
+    only(plan["models"])["source_continuous_to_integer_required"] = restricted
+    write(plan_path, G.JSON.json(plan))
+    for (key, path) in (("study_report", report_path), ("source_plan", plan_path))
+        merge!(m[key], Dict("sha256" => G.sha(path), "bytes" => filesize(path)))
+    end
+    config = joinpath(root, G.RELEASED_AUTHORITY_NAME)
+    G.new_json(config, Dict("schema" => G.RELEASED_AUTHORITY_SCHEMA, "packages" => packages,
+        "julia_version" => "1.13.4", "source_plan_sha256" => G.sha(plan_path),
+        "study_report_sha256" => G.sha(report_path), "auditor_sha256" => G.AUDITOR_SHA,
+        "release_identity_sha256" => release_digest, "project_sha256" => project_sha,
+        "manifest_sha256" => manifest_sha, "large_case_ids" => large ? [id] : []))
+    config_sha = G.sha(config)
+    merge!(m, Dict("schema" => G.RELEASED_IMPORT_SCHEMA, "variant" => variant, "size_class" => size_class,
+        "selection_scope" => "released_partition", "collection" => G.released_collection(variant, size_class),
+        "toqubo_commit" => packages["ToQUBO"]["commit"], "toqubo_source_tree" => packages["ToQUBO"]["source_tree"],
+        "source_problem_equivalence" => G.source_equivalence(variant), "study_report_sha256" => G.sha(report_path),
+        "release_authority" => Dict("path" => G.RELEASED_AUTHORITY_NAME, "sha256" => config_sha,
+            "bytes" => filesize(config))))
+    write(f.path, G.JSON.json(m))
+    return (; f.path, manifest = m, authority = merge(f.authority, (restricted_count = Int(restricted),)),
+        config_sha, environment, audit, case, domain)
+end
+
+announce("released cohort variants and opt-in assets")
+@testset "Released cohort variants and opt-in assets" begin
+    for (restricted, large, status) in
+            ((false, false, "ok"), (true, true, "partial_failure"), (true, true, "ok"), (true, true, "failed"))
+        mktempdir() do root
+            f = released_fixture(mkpath(joinpath(root, "input")); restricted, large, native_status = status)
+            cfg_sha = f.config_sha
+            args = (authority = f.authority, released_authority_sha256 = cfg_sha)
+            @test_throws ArgumentError G.validate_manifest(f.path; authority = f.authority)
+            @test_throws ArgumentError G.validate_manifest(f.path;
+                authority = f.authority, released_authority_sha256 = repeat("0", 64))
+            m = G.validate_manifest(f.path; args...)
+            entry = only(m["models"])
+            domain = entry["source_domain_transformation"]
+            @test domain["policy"] == "integerize"
+            @test domain["changed_variable_count"] == (restricted ? 2 : 0)
+            @test domain["continuous_to_integer_count"] == Int(restricted)
+            if restricted
+                @test_throws ArgumentError G.released_domain_projection(
+                    merge(f.domain, Dict("policy" => "reject")), m["variant"])
+                @test_throws ArgumentError G.released_domain_projection(
+                    merge(f.domain, Dict("changed_variable_count" => 0, "changed_variables" => [])), m["variant"])
+                @test_throws ArgumentError G.released_domain_projection(
+                    merge(f.domain, Dict("source_problem_equivalence" => "integer_domain_preserved")), "integer-domain")
+            else
+                legacy = merge(f.domain, Dict("policy" => "reject"))
+                @test G.released_domain_projection(legacy, m["variant"])["policy"] == "reject"
+                @test_throws ArgumentError G.released_domain_projection(f.domain, "unknown")
+            end
+            drift = deepcopy(f.environment)
+            drift["packages"]["QUBOPreprocessing"]["commit"] = repeat("0", 40)
+            @test_throws ArgumentError G.validate_provenance(m, entry, f.audit, f.case, drift, f.domain)
+            incomplete_audit = deepcopy(f.audit)
+            incomplete_audit["metadata_document_audit"]["full_EOF_parsed"] = false
+            @test_throws ArgumentError G.validate_provenance(m, entry, incomplete_audit, f.case, f.environment, f.domain)
+            invalid = deepcopy(f.domain)
+            invalid["bounded_continuous_approximation_used"] = true
+            @test_throws ArgumentError G.validate_provenance(m, entry, f.audit, f.case, f.environment, invalid)
+            if large
+                no_stream = joinpath(root, "no-stream")
+                @test_throws ArgumentError G.build(f.path, no_stream; args...)
+                @test !ispath(no_stream)
+            end
+            candidate = G.build(f.path, joinpath(root, "candidate"); args..., stream_terms = large)
+            evidence_path = joinpath(candidate, G.RELEASED_PUBLIC_EVIDENCE)
+            evidence_sha = G.sha(evidence_path)
+            verify_args = merge(args, (released_public_evidence_sha256 = evidence_sha,))
+            @test G.audit(candidate; verify_args...)["release_authority_sha256"] == cfg_sha
+            @test_throws ArgumentError G.audit(candidate; args...)
+            @test_throws ArgumentError G.audit(candidate; authority = f.authority)
+            projected = G.JSON.parsefile(evidence_path)["models"][entry["case_id"]]
+            @test !occursin("/private/", read(evidence_path, String))
+            @test projected["raw_sha256"] == Dict(k => entry["artifacts"][k]["sha256"] for k in ("audit", "environment"))
+            @test projected["audit"]["metadata_document_audit"]["full_EOF_parsed"] === true
+            @test projected["audit"]["native_status"] == status
+            provenance_dir = joinpath(candidate, "qubolib", "generated-provenance", entry["case_id"])
+            @test !isfile(joinpath(provenance_dir, "audit.json"))
+            @test !isfile(joinpath(provenance_dir, "environment.json"))
+            output = joinpath(root, "pack")
+            @test_throws ArgumentError G.pack(candidate, output; args...)
+            archive = G.pack(candidate, output; verify_args...)
+            name = m["collection"]
+            @test basename(archive) == name * ".tar.gz"
+            @test occursin("[" * name * ".download]", read(joinpath(output, "Artifacts.toml.example"), String))
+            extracted = mkpath(joinpath(root, "check/qubolib"))
+            G.Tar.extract(`gzip -dc $archive`, extracted)
+            @test G.sha(joinpath(extracted, G.RELEASED_AUTHORITY_NAME)) == cfg_sha
+            accepted = G.audit(dirname(extracted); verify_args...)
+            @test accepted["public_provenance_sha256"] == evidence_sha
+            for diagnostic in ("aborted at /private/operator/path", "aborted:/private/operator/path",
+                    "aborted at `/private/operator/path`", "path=file:///private/operator/path",
+                    "ok,/private/operator/path", raw"rel;C:\Users\operator", "path=///private/operator/path")
+                @test_throws ArgumentError G.require_public_metadata(Dict("result" => [Dict("failure" => diagnostic)]))
+            end
+            @test G.require_public_metadata("https://github.com/org/repository") === nothing
+            leaked = joinpath(extracted, "generated-provenance", entry["case_id"], "audit.json")
+            write(leaked, "{}")
+            @test_throws ArgumentError G.audit(dirname(extracted); verify_args...)
+            rm(leaked)
+            write(joinpath(extracted, G.RELEASED_PUBLIC_EVIDENCE), read(evidence_path, String) * " ")
+            @test_throws ArgumentError G.audit(dirname(extracted); verify_args...)
+            @test accepted["collection"] == name
+            @test accepted["variant"] == m["variant"]
+            QL.access(; path = dirname(extracted)) do index
+                loaded = QL.load_instance(index, 1)
+                @test G.saved_polynomial_identity(loaded)["sha256"] == entry["artifacts"]["polynomial"]["sha256"]
+                @test isempty(QT.solution(loaded))
+                rows = QL.DBInterface.execute(QL.database(index), "SELECT metadata FROM Instances") |> QL.DataFrame
+                meta = G.JSON.parse(only(rows.metadata))
+                @test meta["source_problem_equivalence"] == m["source_problem_equivalence"]
+                @test meta["source_feasibility_status"] == "unknown"
+                @test meta["generated_import"]["generation"]["packages"] == entry["generation"]["packages"]
+            end
+        end
+    end
+end
+
+@testset "Public audit inventory cannot expose extra raw entries" begin
+    mktempdir() do root
+        f = released_fixture(root; restricted = false, large = false, native_status = "ok")
+        entry = only(f.manifest["models"])
+        push!(f.audit["inventory"], Dict("path" => "environment.json",
+            "sha256" => entry["artifacts"]["environment"]["sha256"],
+            "bytes" => entry["artifacts"]["environment"]["bytes"]))
+        projection = G.released_public_projection(entry, f.audit, f.environment)
+        @test length(projection["audit"]["inventory"]) == 5
+        @test all(item["path"] != "environment.json" for item in projection["audit"]["inventory"])
+        entry["audit_inventory_paths"]["extra"] = "environment.json"
+        @test_throws ArgumentError G.released_public_projection(entry, f.audit, f.environment)
+    end
+end
+
+@testset "Pinned Sports attribution link and public path checks" begin
+    mktempdir() do root
+        f = released_fixture(root; restricted = false, large = true, native_status = "ok")
+        redistribution = f.manifest["redistribution"]
+        upstream_path = "05-sports/README.md"
+        text = "See the [manual](/05-sports/info/OrganizationITC2021_V7.pdf)."
+        relative = "redistribution/upstream/$upstream_path"
+        readme = joinpath(root, relative)
+        mkpath(dirname(readme))
+        write(readme, text)
+        item = Dict{String,Any}("upstream_path" => upstream_path, "attribution_lines" => [text],
+            "artifact" => Dict("path" => relative, "sha256" => G.sha(readme), "bytes" => filesize(readme)))
+        push!(redistribution["attributions"], item)
+        inventory_path = joinpath(root, redistribution["attribution_inventory"]["path"])
+        inventory = G.JSON.parsefile(inventory_path)
+        original = Dict{String,Any}("path" => upstream_path, "attribution_lines" => [text],
+            "sha256" => G.sha(readme), "bytes" => filesize(readme))
+        push!(inventory, original)
+        function refresh_attribution()
+            write(inventory_path, G.JSON.json(inventory))
+            inventory_sha = G.sha(inventory_path)
+            redistribution["attribution_inventory"]["sha256"] = inventory_sha
+            redistribution["attribution_inventory"]["bytes"] = filesize(inventory_path)
+            write(f.path, G.JSON.json(f.manifest))
+            return (authority = merge(f.authority, (attribution_inventory_sha256 = inventory_sha,)),
+                released_authority_sha256 = f.config_sha)
+        end
+        args = refresh_attribution()
+        @test G.validate_manifest(f.path; args...)["redistribution"]["attributions"][end]["attribution_lines"] == [text]
+        item["attribution_lines"] = [text * " Changed."]
+        write(f.path, G.JSON.json(f.manifest))
+        @test_throws ArgumentError G.validate_manifest(f.path; args...)
+
+        item["attribution_lines"] = [text * " See [local](/private/output)."]
+        original["attribution_lines"] = copy(item["attribution_lines"])
+        args = refresh_attribution()
+        @test_throws ArgumentError G.validate_manifest(f.path; args...)
+
+        item["attribution_lines"] = original["attribution_lines"] = [text]
+        item["source_url"] = "/private/output"
+        args = refresh_attribution()
+        @test_throws ArgumentError G.validate_manifest(f.path; args...)
     end
 end
